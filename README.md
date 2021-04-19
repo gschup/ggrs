@@ -1,2 +1,2 @@
 # ggpo-rs
-an implementation of the [GGPO network SDK](https://www.ggpo.net/) in [Rust](https://www.rust-lang.org/), WIP 🦀
+A reimagination of the [GGPO network SDK](https://www.ggpo.net/) in [Rust](https://www.rust-lang.org/), WIP 🦀
