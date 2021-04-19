@@ -22,13 +22,7 @@ pub struct Player {
 }
 
 impl Player {
-    /// Returns a person with the player number and player type given
-    ///
-    /// ## Arguments
-    ///
-    /// * `player_type` - The player type of that player
-    /// * `player_handle` - The player handle of that player, should be between 0 and the number of players in the game -1.
-    ///
+    /// Returns a person with the player handle and player type given. The player handle should be between 0 and the number of players in the game - 1.
     /// ## Examples
     ///
     /// ```

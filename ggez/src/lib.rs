@@ -7,7 +7,11 @@ pub const MAX_PREDICTION_FRAMES: u32 = 8;
 
 pub mod network_stats;
 pub mod player;
-
+pub mod sessions {
+    pub mod p2p;
+    pub mod spectator;
+    pub mod sync_test;
+}
 /// This enum contains all error messages this library can return. Most functions will generally return a Result<T,GGEZError>.
 #[derive(Error, Debug)]
 pub enum GGEZError {
@@ -52,23 +56,23 @@ pub enum GGEZError {
 /// The Event enumeration describes what type of event just happened.
 #[derive(Debug)]
 pub enum GGEZEvent {
-    /// ConnectedToPeer - Handshake with the game running on the other side of the network has been completed.
-    ConnectedToPeer(ConnectedToPeer),
-    /// SynchronizingWithPeer - Beginning the synchronization process with the client on the other end of the networking.
-    /// The count and total fields in the SynchronizingWithPeer struct of the Event object indicate progress.
-    SynchronizingWithPeer(SynchronizingWithPeer),
-    /// SynchronizedWithPeer - The synchronziation with this peer has finished.
-    SynchronizedWithPeer(SynchronizedWithPeer),
     /// All the clients have synchronized. You may begin sending inputs with synchronize_inputs.
     Running,
-    /// DisconnectedFromPeer - The network connection on the other end of the network has closed.
+    /// Handshake with the game running on the other side of the network has been completed.
+    ConnectedToPeer(ConnectedToPeer),
+    /// Beginning the synchronization process with the client on the other end of the networking.
+    /// The count and total fields in the SynchronizingWithPeer struct of the Event object indicate progress.
+    SynchronizingWithPeer(SynchronizingWithPeer),
+    /// The synchronziation with this peer has finished.
+    SynchronizedWithPeer(SynchronizedWithPeer),
+    /// The network connection on the other end of the network has closed.
     DisconnectedFromPeer(DisconnectedFromPeer),
-    /// TimeSync - The time synchronziation code has determined that this client is too far ahead of the other one and should slow
+    /// The time synchronziation code has determined that this client is too far ahead of the other one and should slow
     /// down to ensure fairness. The TimeSyncEvent.frames_ahead parameter indicates how many frames the client is ahead.
     TimeSync(TimeSyncEvent),
-    /// ConnectionInterrupted - The network connection on the other end of the network has been interrupted.
+    /// The network connection on the other end of the network has been interrupted.
     ConnectionInterrupted(ConnectionInterrupted),
-    /// ConnectionResumed - The network connection on the other end of the network has been resumed.
+    /// The network connection on the other end of the network has been resumed.
     ConnectionResumed(ConnectionResumed),
 }
 
@@ -160,7 +164,7 @@ pub trait GGEZSession: Sized {
     fn log(&self, file: &str) -> Result<(), GGEZError>;
 
     /// Used to fetch some statistics about the quality of the network connection.
-    fn ggpo_get_network_stats(
+    fn get_network_stats(
         &self,
         player_handle: u32,
     ) -> Result<network_stats::NetworkStats, GGEZError>;
