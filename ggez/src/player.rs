@@ -42,15 +42,3 @@ impl Player {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn new_player() {
-        let player = Player::new(PlayerType::Local, 0);
-        assert_eq!(player.player_handle, 0);
-        assert!(matches!(player.player_type, PlayerType::Local));
-    }
-}
