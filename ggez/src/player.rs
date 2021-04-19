@@ -18,7 +18,7 @@ pub struct Player {
     pub player_type: PlayerType,
     /// The player number. Should be between 1 and the number of players
     /// in the game (e.g. in a 2 player game, either 1 or 2).
-    pub player_num: u32,
+    pub player_handle: u32,
 }
 
 impl Player {
@@ -27,17 +27,17 @@ impl Player {
     /// ## Arguments
     ///
     /// * `player_type` - The player type of that player
-    /// * `player_num` - The player number of that player, should be between 1 and the number of players in the game.
+    /// * `player_handle` - The player handle of that player, should be between 0 and the number of players in the game -1.
     ///
     /// ## Examples
     ///
     /// ```
     /// use ggpo::player::{Player, PlayerType};
-    /// let player = Player::new(PlayerType::Local, 1);
+    /// let player = Player::new(PlayerType::Local, 0);
     /// ```
-    pub fn new(player_type: PlayerType, player_num: u32) -> Player {
+    pub fn new(player_type: PlayerType, player_handle: u32) -> Player {
         Player {
-            player_num,
+            player_handle,
             player_type,
         }
     }
@@ -49,8 +49,8 @@ mod tests {
 
     #[test]
     fn new_player() {
-        let player = Player::new(PlayerType::Local, 1);
-        assert_eq!(player.player_num, 1);
+        let player = Player::new(PlayerType::Local, 0);
+        assert_eq!(player.player_handle, 0);
         assert!(matches!(player.player_type, PlayerType::Local));
     }
 }

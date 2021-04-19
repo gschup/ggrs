@@ -1,25 +1,18 @@
 #![forbid(unsafe_code)] // let us try
+use thiserror::Error;
 
 pub const MAX_PLAYERS: u32 = 4;
 pub const MAX_SPECTATORS: u32 = 32;
 pub const MAX_PREDICTION_FRAMES: u32 = 8;
 
 pub mod player;
+pub mod network_stats;
 
-use bytes::Bytes;
-use thiserror::Error;
-
-/// This enum contains all status messages this library can return. Most functions will generally return a GGEZStatus.
+/// This enum contains all error messages this library can return. Most functions will generally return a Result<T,GGEZError>.
 #[derive(Error, Debug)]
-pub enum GGEZStatus {
-    /// GGEZ ok
-    #[error("GGEZ OK.")]
-    Ok,
-    /// GGEZ success
-    #[error("GGEZ Success.")]
-    Success,
-    /// GGEZ general Failure
-    #[error("GGEZ general Failure.")]
+pub enum GGEZError {
+    /// GGEZ general failure
+    #[error("GGEZ general failure.")]
     GeneralFailure,
     /// GGEZ invalid session
     #[error("GGEZ invalid session.")]
@@ -57,6 +50,7 @@ pub enum GGEZStatus {
 }
 
 /// The Event enumeration describes what type of event just happened.
+#[derive(Debug)]
 pub enum GGEZEvent {
     /// ConnectedToPeer - Handshake with the game running on the other side of the network has been completed.
     ConnectedToPeer(ConnectedToPeer),
@@ -78,110 +72,91 @@ pub enum GGEZEvent {
     ConnectionResumed(ConnectionResumed),
 }
 
+#[derive(Debug)]
 pub struct ConnectedToPeer {
     pub player_handle: u32,
 }
 
+#[derive(Debug)]
 pub struct SynchronizingWithPeer {
     pub count: u32,
     pub total: u32,
     pub player_handle: u32,
 }
 
+#[derive(Debug)]
 pub struct SynchronizedWithPeer {
     pub player_handle: u32,
 }
 
+#[derive(Debug)]
 pub struct DisconnectedFromPeer {
     pub player_handle: u32,
 }
 
+#[derive(Debug)]
 pub struct TimeSyncEvent {
     pub frames_ahead: u32,
 }
 
+#[derive(Debug)]
 pub struct ConnectionInterrupted {
     pub player_handle: u32,
     pub disconnect_timeout: u32,
 }
 
+#[derive(Debug)]
 pub struct ConnectionResumed {
     pub player_handle: u32,
 }
 
-/// The GGEZSessionCallbacks trait contains the callback functions that your application must implement.
-/// GGEZ will periodically call these functions during the game.  All callback functions must be implemented.
-pub trait GGEZCallbacks {
-    /// The client should copy the entire contents of the current game state into the buffer provided.
-    /// Optionally, the client can compute a checksum of the data and store it in the checksum argument.
-    ///
-    /// ## Arguments
-    /// `buffer` - A reference to the buffer object used to store the gamestate
-    ///
-    /// `frame` - The current frame number of the game state
-    ///
-    /// `checksum` - The optional checksum
-    ///
-    /// ## Returns
-    /// `true` if the operation succeeded, `false` otherwise.
-    fn save_game_state(&mut self, buffer: &mut Bytes, frame: u32, checksum: Option<u32>) -> bool;
+/// The GGEZInterface trait describes the functions that your application must provide. GGEZ will call these functions during TODO. All functions must be implemented.
+pub trait GGEZInterface {
+    /// The client should serialize the entire contents of the current game state and return it. Optionally, the client can compute a checksum of the data and store it
+    /// in the checksum argument.
+    fn save_game_state(&self, buffer: &mut Vec<u8>, checksum: &mut Option<u32>);
 
-    /// GGEZ will call this function at the beginning of a rollback. The buffer and len parameters contain a previously
+    /// GGEZ will call this function at the beginning of a rollback. The buffer contains a previously
     /// saved state returned from the save_game_state function. The client should make the current game state match the
     /// state contained in the buffer.
-    ///
-    /// ## Arguments
-    /// `buffer` - A reference to the buffer object used to load the gamestate
-    ///
-    /// ## Returns
-    /// `true` if the operation succeeded, `false` otherwise.
-    fn load_game_state(&mut self, buffer: &Bytes) -> bool;
+    fn load_game_state(&mut self, buffer: &[u8]);
 
-    /// Used in diagnostic testing.  The client should use the ggpo_log function to write the contents of the specified save
-    /// state in a human readible form.
-    ///
-    /// ## Arguments
-    /// `buffer` - A reference to the buffer object used to spcifiy the gamestate to log
-    ///
-    /// `filename` - The filename of the log file
-    ///
-    /// ## Returns
-    /// `true` if the operation succeeded, `false` otherwise.
-    fn log_game_state(&mut self, filename: String, buffer: &Bytes) -> bool;
-
-    /// Frees a game state allocated in save_game_state. You should deallocate the memory contained in the buffer.
-    fn free_buffer(&mut self, buffer: &Bytes); //TODO: check if this is actually rust-like
-
-    /// Called during a rollback.  You should advance your game state by exactly one frame. Before each frame,
+    /// Called during a rollback. You should advance your game state by exactly one frame. Before each frame,
     /// call synchronize_input to retrieve the inputs you should use for that frame. After each frame,
     /// you should call ggpo_advance_frame to notify GGPO that you're finished.
-    ///
-    /// ## Returns
-    /// `true` if the operation succeeded, `false` otherwise.
-    fn advance_frame(&mut self) -> bool;
+    fn advance_frame(&mut self);
 
     /// Notification that something has happened. See the [GGPOEvent] enum for more information.
     fn on_event(&mut self, info: &GGEZEvent);
 }
 
-/// TODO
-pub trait GGEZSession {
-    
-}
+/// All GGEZSession backends implement this trait.
+pub trait GGEZSession: Sized {
+    /// Used to create a new GGEZ session. The ggpo object returned by ggez_start_session uniquely identifies the state
+    /// for this session and should be passed to all other functions.
+    fn start_session(
+        num_players: u32,
+        input_size: usize,
+        local_port: u32,
+    ) -> Result<Self, GGEZError>;
 
-/// Used to create a new GGEZ session. The ggpo object returned by ggez_start_session uniquely identifies the state 
-/// for this session and should be passed to all other functions.
-/// 
-/// ## Arguments
-/// 
-/// ## Returns
-fn ggez_start_session<'a>(
-    session: &mut impl GGEZSession,
-    callbacks: impl GGEZCallbacks + 'a,
-    game_name: &str,
-    num_players: u32,
-    input_size: usize,
-    local_port: u32,
-) -> GGEZStatus {
-    GGEZStatus::Ok
+    fn add_player(&self, player: player::Player, player_handle: u32) -> Result<(), GGEZError>;
+
+    fn disconnect_player(&self, player_handle: u32) -> Result<(), GGEZError>;
+
+    fn add_local_input(&self, player_handle: u32, input: Vec<u8>) -> Result<(), GGEZError>;
+
+    fn synchronize_input(&self) -> Vec<u8>;
+
+    fn advance_frame(&self);
+
+    fn log(&self, file: &str) -> Result<(), GGEZError>;
+
+    fn ggpo_get_network_stats(&self, player_handle: u32) -> Result<network_stats::NetworkStats, GGEZError>;
+
+    fn set_frame_delay(&self, frame_delay: u32, player_handle: u32) -> Result<(), GGEZError>;
+
+    fn set_disconnect_timeout(&self, timeout: u32) -> Result<(), GGEZError>;
+
+    fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGEZError>;
 }
