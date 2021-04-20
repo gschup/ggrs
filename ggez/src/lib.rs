@@ -3,15 +3,17 @@ use thiserror::Error;
 
 use crate::sessions::sync_test::SyncTestSession;
 
+/// The maximum number of players allowed. If your player number is higher than this, chances are that rollback netcode is not the right solution for your approach.
 pub const MAX_PLAYERS: u32 = 4;
+/// The maximum number of spectators allowed.
 pub const MAX_SPECTATORS: u32 = 32;
+/// The maximum number of frames GGEZ will roll back. Every gamestate older than this is guaranteed to be correct if the players did not disconnect.
 pub const MAX_PREDICTION_FRAMES: u32 = 8;
 
 pub mod network_stats;
 pub mod player;
+pub mod frame_info;
 pub mod sessions {
-    pub mod p2p;
-    pub mod p2p_spectator;
     pub mod sync_test;
 }
 /// This enum contains all error messages this library can return. Most functions will generally return a Result<T,GGEZError>.
@@ -144,8 +146,8 @@ pub trait GGEZSession: Sized {
     /// Disconnects a remote player from a game.  Will return [GGEZError::PlayerDisconnected] if you try to disconnect a player who has already been disconnected.
     fn disconnect_player(&self, player_handle: u32) -> Result<(), GGEZError>;
 
-    /// Used to notify GGEZ of inputs that should be trasmitted to remote players. add_local_input must be called once every frame for all player of type [player::PlayerType::Local].
-    fn add_local_input(&self, player_handle: u32, input: Vec<u8>) -> Result<(), GGEZError>;
+    /// Used to notify GGEZ of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all player of type [player::PlayerType::Local].
+    fn add_local_input(&mut self, player_handle: u32, input: &[u8]) -> Result<(), GGEZError>;
 
     /// You should call ggpo_synchronize_input before every frame of execution, including those frames which happen during rollback.
     fn synchronize_input(&self, disconnect_flags: u32) -> Vec<u8>;
@@ -178,7 +180,15 @@ pub trait GGEZSession: Sized {
 }
 
 /// Used to create a new GGEZ sync test session. During a sync test, every frame of execution is run twice: once in prediction mode and once again to
-/// verify the result of the prediction. If the checksums of your save states do not match, the test is aborted.
-pub fn start_synctest_session(frames: u32, num_players: u32) -> SyncTestSession {
-    SyncTestSession::new(frames, num_players)
+/// verify the result of the prediction. If the checksums of your save states do not match, the test is aborted. The recommended value for resimulation frames is 1.
+/// ## Examples
+///
+/// ```
+/// let check_distance : u32 = 1;
+/// let num_players : u32 = 2;
+/// let input_size : usize = std::mem::size_of::<u32>();
+/// let sess = ggez::start_synctest_session(check_distance, num_players, input_size);
+/// ```
+pub fn start_synctest_session(frames: u32, num_players: u32, input_size: usize) -> SyncTestSession {
+    SyncTestSession::new(frames, num_players, input_size)
 }

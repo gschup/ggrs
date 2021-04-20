@@ -16,14 +16,14 @@ pub enum PlayerType {
 pub struct Player {
     /// The type of the player.
     pub player_type: PlayerType,
-    /// The player number. The player handle should be between 0 and the number of players in the game - 1 
-    /// (e.g. in a 2 player game, either 1 or 2).
+    /// The player number. The player handle should be between 0 and the number of players in the game - 1
+    /// (e.g. in a 2 player game, either 0 or 1).
     pub player_handle: u32,
 }
 
 impl Player {
     /// Returns a person with the player handle and player type given. The player handle should be between 0 and the number of players in the game - 1.
-    /// ## Examples
+    /// # Examples
     ///
     /// ```
     /// use ggez::player::{Player, PlayerType};
