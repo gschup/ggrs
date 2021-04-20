@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)] // let us try
 use thiserror::Error;
 
+use crate::sessions::sync_test::SyncTestSession;
+
 pub const MAX_PLAYERS: u32 = 4;
 pub const MAX_SPECTATORS: u32 = 32;
 pub const MAX_PREDICTION_FRAMES: u32 = 8;
@@ -131,21 +133,13 @@ pub trait GGEZInterface {
     fn advance_frame(&mut self);
 
     /// Notification that something has happened. See the [GGPOEvent] enum for more information.
-    fn on_event(&mut self, info: &GGEZEvent);
+    fn on_event(&mut self, info: GGEZEvent);
 }
 
 /// All GGEZSession backends implement this trait.
 pub trait GGEZSession: Sized {
-    /// Used to create a new GGEZ session. The ggpo object returned by start_session uniquely identifies the state
-    /// for this session and should be passed to all other functions.
-    fn start_session(
-        num_players: u32,
-        input_size: usize,
-        local_port: u32,
-    ) -> Result<Self, GGEZError>;
-
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
-    fn add_player(&self, player: player::Player, player_handle: u32) -> Result<(), GGEZError>;
+    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
+    fn add_player(&self, player: &player::Player) -> Result<u32, GGEZError>;
 
     /// Disconnects a remote player from a game.  Will return [GGEZError::PlayerDisconnected] if you try to disconnect a player who has already been disconnected.
     fn disconnect_player(&self, player_handle: u32) -> Result<(), GGEZError>;
@@ -154,7 +148,7 @@ pub trait GGEZSession: Sized {
     fn add_local_input(&self, player_handle: u32, input: Vec<u8>) -> Result<(), GGEZError>;
 
     /// You should call ggpo_synchronize_input before every frame of execution, including those frames which happen during rollback.
-    fn synchronize_input(&self) -> Vec<u8>;
+    fn synchronize_input(&self, disconnect_flags: u32) -> Vec<u8>;
 
     /// You should call ggpo_advance_frame to notify GGEZ that you have advanced your gamestate by a single frame. You should call this everytime
     /// you advance the gamestate by a frame, even during rollbacks. GGEZ may call your save_state callback before this function returns.
@@ -180,5 +174,11 @@ pub trait GGEZSession: Sized {
     fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGEZError>;
 
     /// Should be called periodically by your application to give GGEZ a chance to do work. Packet transmissions and rollbacks occur here.
-    fn idle(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError>;
+    fn synchronize(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError>;
+}
+
+/// Used to create a new GGEZ sync test session. During a sync test, every frame of execution is run twice: once in prediction mode and once again to
+/// verify the result of the prediction. If the checksums of your save states do not match, the test is aborted.
+pub fn start_synctest_session(frames: u32, num_players: u32) -> SyncTestSession {
+    SyncTestSession::new(frames, num_players)
 }

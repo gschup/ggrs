@@ -1,7 +1,6 @@
 use adler::Adler32;
 use bincode;
-use ggez::sessions::sync_test::SyncTestSession;
-use ggez::{GGEZEvent, GGEZInterface, GGEZSession};
+use ggez::{GGEZEvent, GGEZInterface};
 use std::hash::Hash;
 
 #[derive(Hash)]
@@ -24,7 +23,7 @@ impl GGEZInterface for Stub {
 
     fn advance_frame(&mut self) {}
 
-    fn on_event(&mut self, info: &GGEZEvent) {
+    fn on_event(&mut self, info: GGEZEvent) {
         println!("{:?}", info);
     }
 }
@@ -32,5 +31,5 @@ impl GGEZInterface for Stub {
 #[test]
 fn test_start_synctest_session() {
     let _stub = Stub { state: 5 };
-    let _ggez_session = SyncTestSession::start_session(2, std::mem::size_of::<u32>(), 7000);
+    let _ggez_session = ggez::start_synctest_session(1, 2);
 }

@@ -1,16 +1,24 @@
-use crate::{GGEZSession, GGEZError, GGEZInterface};
-use crate::player::Player;
 use crate::network_stats::NetworkStats;
+use crate::player::Player;
+use crate::{GGEZError, GGEZInterface, GGEZSession};
 
-pub struct Peer2PeerSession { }
+pub struct Peer2PeerSession {}
 
-impl GGEZSession for Peer2PeerSession {
-    fn start_session(num_players: u32, input_size: usize, local_port: u32) -> Result<Self, GGEZError> {
-        let session = Peer2PeerSession { };
+impl Peer2PeerSession {
+    /// Used to create a new p2p session. The object returned by start_p2p_session uniquely identifies the state
+    /// for this session and should be passed to all other functions.
+    pub fn start_p2p_session(
+        num_players: u32,
+        input_size: usize,
+        local_port: u32,
+    ) -> Result<Self, GGEZError> {
+        let session = Peer2PeerSession {};
         Ok(session)
     }
+}
 
-    fn add_player(&self, player: Player, player_handle: u32) -> Result<(), GGEZError> {
+impl GGEZSession for Peer2PeerSession {
+    fn add_player(&self, player: &Player) -> Result<u32, GGEZError> {
         todo!()
     }
 
@@ -22,7 +30,7 @@ impl GGEZSession for Peer2PeerSession {
         todo!()
     }
 
-    fn synchronize_input(&self) -> Vec<u8> {
+    fn synchronize_input(&self, disconnect_flags: u32) -> Vec<u8> {
         todo!()
     }
 
@@ -50,7 +58,7 @@ impl GGEZSession for Peer2PeerSession {
         todo!()
     }
 
-    fn idle(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
+    fn synchronize(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
         todo!()
-    }   
+    }
 }

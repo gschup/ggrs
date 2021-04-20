@@ -1,16 +1,22 @@
-use crate::{GGEZSession, GGEZError, GGEZInterface};
-use crate::player::Player;
 use crate::network_stats::NetworkStats;
+use crate::player::Player;
+use crate::{GGEZError, GGEZInterface, GGEZSession};
 
-pub struct Peer2PeerSpectatorSession { }
+pub struct Peer2PeerSpectatorSession {}
 
-impl GGEZSession for Peer2PeerSpectatorSession {
-    fn start_session(num_players: u32, input_size: usize, local_port: u32) -> Result<Self, GGEZError> {
-        let session = Peer2PeerSpectatorSession { };
+impl Peer2PeerSpectatorSession {
+    pub fn start_p2p_spectator_session(
+        num_players: u32,
+        input_size: usize,
+        local_port: u32,
+    ) -> Result<Self, GGEZError> {
+        let session = Peer2PeerSpectatorSession {};
         Ok(session)
     }
+}
 
-    fn add_player(&self, player: Player, player_handle: u32) -> Result<(), GGEZError> {
+impl GGEZSession for Peer2PeerSpectatorSession {
+    fn add_player(&self, player: &Player) -> Result<u32, GGEZError> {
         todo!()
     }
 
@@ -22,7 +28,7 @@ impl GGEZSession for Peer2PeerSpectatorSession {
         todo!()
     }
 
-    fn synchronize_input(&self) -> Vec<u8> {
+    fn synchronize_input(&self, disconnect_flags: u32) -> Vec<u8> {
         todo!()
     }
 
@@ -50,7 +56,7 @@ impl GGEZSession for Peer2PeerSpectatorSession {
         todo!()
     }
 
-    fn idle(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
+    fn synchronize(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
         todo!()
-    }   
+    }
 }

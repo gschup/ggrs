@@ -16,8 +16,8 @@ pub enum PlayerType {
 pub struct Player {
     /// The type of the player.
     pub player_type: PlayerType,
-    /// The player number. Should be between 1 and the number of players
-    /// in the game (e.g. in a 2 player game, either 1 or 2).
+    /// The player number. The player handle should be between 0 and the number of players in the game - 1 
+    /// (e.g. in a 2 player game, either 1 or 2).
     pub player_handle: u32,
 }
 

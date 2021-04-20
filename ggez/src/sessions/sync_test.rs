@@ -1,28 +1,57 @@
-use crate::{GGEZSession, GGEZError, GGEZInterface};
-use crate::player::Player;
 use crate::network_stats::NetworkStats;
+use crate::player::Player;
+use crate::{GGEZError, GGEZEvent, GGEZInterface, GGEZSession};
 
-pub struct SyncTestSession { }
+pub struct SyncTestSession {
+    num_players: u32,
+    last_verified: u32,
+    check_distance: u32,
+    rolling_back: bool,
+    running: bool,
+}
+
+impl SyncTestSession {
+    pub fn new(frames: u32, num_players: u32) -> SyncTestSession {
+        SyncTestSession {
+            check_distance: frames,
+            num_players,
+            last_verified: 0,
+            rolling_back: false,
+            running: false,
+        }
+    }
+
+    /// In a sync test, we do not need to query packages from remote players, so we simply start the system and notify the user
+    fn do_poll(&mut self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
+        if !self.running {
+            interface.on_event(GGEZEvent::Running);
+            self.running = true;
+        }
+        Ok(())
+    }
+}
 
 impl GGEZSession for SyncTestSession {
-    fn start_session(num_players: u32, input_size: usize, local_port: u32) -> Result<Self, GGEZError> {
-        let session = SyncTestSession { };
-        Ok(session)
+    fn add_player(&self, player: &Player) -> Result<u32, GGEZError> {
+        if player.player_handle > self.num_players {
+            return Err(GGEZError::PlayerOutOfRange);
+        }
+        Ok(player.player_handle)
     }
 
-    fn add_player(&self, player: Player, player_handle: u32) -> Result<(), GGEZError> {
-        todo!()
-    }
-
-    fn disconnect_player(&self, player_handle: u32) -> Result<(), GGEZError> {
-        todo!()
+    fn disconnect_player(&self, _player_handle: u32) -> Result<(), GGEZError> {
+        Err(GGEZError::Unsupported)
     }
 
     fn add_local_input(&self, player_handle: u32, input: Vec<u8>) -> Result<(), GGEZError> {
-        todo!()
+        if !self.running {
+            return Err(GGEZError::NotSynchronized);
+        }
+        // TODO: add the inputs
+        Ok(())
     }
 
-    fn synchronize_input(&self) -> Vec<u8> {
+    fn synchronize_input(&self, disconnect_flags: u32) -> Vec<u8> {
         todo!()
     }
 
@@ -50,7 +79,7 @@ impl GGEZSession for SyncTestSession {
         todo!()
     }
 
-    fn idle(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
+    fn synchronize(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
         todo!()
-    }   
+    }
 }
