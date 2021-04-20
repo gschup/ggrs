@@ -9,7 +9,7 @@ pub mod network_stats;
 pub mod player;
 pub mod sessions {
     pub mod p2p;
-    pub mod spectator;
+    pub mod p2p_spectator;
     pub mod sync_test;
 }
 /// This enum contains all error messages this library can return. Most functions will generally return a Result<T,GGEZError>.

@@ -2,11 +2,11 @@ use crate::{GGEZSession, GGEZError, GGEZInterface};
 use crate::player::Player;
 use crate::network_stats::NetworkStats;
 
-pub struct SpectatorSession { }
+pub struct Peer2PeerSpectatorSession { }
 
-impl GGEZSession for SpectatorSession {
+impl GGEZSession for Peer2PeerSpectatorSession {
     fn start_session(num_players: u32, input_size: usize, local_port: u32) -> Result<Self, GGEZError> {
-        let session = SpectatorSession { };
+        let session = Peer2PeerSpectatorSession { };
         Ok(session)
     }
 
