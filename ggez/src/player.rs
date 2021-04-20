@@ -26,7 +26,7 @@ impl Player {
     /// ## Examples
     ///
     /// ```
-    /// use ggpo::player::{Player, PlayerType};
+    /// use ggez::player::{Player, PlayerType};
     /// let player = Player::new(PlayerType::Local, 0);
     /// ```
     pub fn new(player_type: PlayerType, player_handle: u32) -> Player {
