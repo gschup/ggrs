@@ -1,16 +1,24 @@
 /// All information for a single frame of the gamestate
+#[derive(Debug, Default)]
 pub struct FrameInfo {
-    /// The frame this information belongs to.
-    pub frame: u32,
-    /// The checksum of the gamestate.
-    pub checksum: u32,
-    /// The serialized gamestate in bytes.
-    pub buffer: Vec<u8>,
+    /// The saved game state
+    pub state: GameState,
     /// The input data of all players for this frame.
     pub input: GameInput,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct GameState {
+    /// The frame this state belongs to.
+    pub frame: u32,
+    /// The serialized gamestate in bytes.
+    pub buffer: Vec<u8>,
+    /// The checksum of the gamestate.
+    pub checksum: Option<u32>,
+}
+
 /// All input data for all players for a single frame is saved in this struct.
+#[derive(Debug, Default, Clone)]
 pub struct GameInput {
     /// Frame to which this input belongs to.
     pub frame: i32,

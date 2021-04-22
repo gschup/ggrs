@@ -2,6 +2,7 @@
 use thiserror::Error;
 
 use crate::sessions::sync_test::SyncTestSession;
+use crate::frame_info::{GameState, GameInput};
 
 /// The maximum number of players allowed. If your player number is higher than this, chances are that rollback netcode is not the right solution for your approach.
 pub const MAX_PLAYERS: u32 = 4;
@@ -13,10 +14,12 @@ pub const MAX_PREDICTION_FRAMES: u32 = 8;
 pub mod network_stats;
 pub mod player;
 pub mod frame_info;
+pub mod sync_layer;
+pub mod circular_buffer;
 pub mod sessions {
     pub mod sync_test;
 }
-/// This enum contains all error messages this library can return. Most functions will generally return a Result<T,GGEZError>.
+/// This enum contains all error messages this library can return. Most API functions will generally return a Result<T,GGEZError>.
 #[derive(Error, Debug)]
 pub enum GGEZError {
     /// GGEZ general failure
@@ -25,12 +28,9 @@ pub enum GGEZError {
     /// GGEZ invalid session
     #[error("GGEZ invalid session.")]
     InvalidSession,
-    /// GGEZ invalid player handle
+    /// When this gets returned, the given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
     #[error("GGEZ invalid player handle.")]
     InvalidPlayerHandle,
-    /// GGEZ player out of range
-    #[error("GGEZ player out of range.")]
-    PlayerOutOfRange,
     /// GGEZ prediction threshold
     #[error("GGEZ prediction threshold.")]
     PredictionThreshold,
@@ -57,7 +57,7 @@ pub enum GGEZError {
     InvalidRequest,
 }
 
-/// The Event enumeration describes what type of event just happened.
+/// The Event enumeration describes some type of event that just happened.
 #[derive(Debug)]
 pub enum GGEZEvent {
     /// All the clients have synchronized. You may begin sending inputs with synchronize_inputs.
@@ -118,46 +118,39 @@ pub struct ConnectionResumed {
     pub player_handle: u32,
 }
 
-/// The GGEZInterface trait describes the functions that your application must provide. GGEZ will call these functions during TODO. All functions must be implemented.
+/// The GGEZInterface trait describes the functions that your application must provide. GGEZ will call these functions after you called [GGEZSession::advance_frame()] or 
+/// [GGEZSession::idle()]. All functions must be implemented.
 pub trait GGEZInterface {
-    /// The client should serialize the entire contents of the current game state and return it. Optionally, the client can compute a checksum of the data and store it
-    /// in the checksum argument.
-    fn save_game_state(&self, buffer: &mut Vec<u8>, checksum: &mut Option<u32>);
+    /// The client should serialize the entire contents of the current game state, wrap it into a [GameState] instance and return it. 
+    /// Optionally, the client can compute a checksum of the data and store it in the checksum field. The checksum will help detecting desyncs.
+    fn save_game_state(&self) -> GameState;
 
-    /// GGEZ will call this function at the beginning of a rollback. The buffer contains a previously
-    /// saved state returned from the save_game_state function. The client should make the current game state match the
-    /// state contained in the buffer.
-    fn load_game_state(&mut self, buffer: &[u8]);
+    /// GGEZ will call this function at the beginning of a rollback. The buffer contains a previously saved state returned from the save_game_state function. 
+    /// The client should deserializing the contents and make the current game state match the state.
+    fn load_game_state(&mut self, state: &GameState);
 
-    /// Called during a rollback. You should advance your game state by exactly one frame. Before each frame,
-    /// call synchronize_input to retrieve the inputs you should use for that frame. After each frame,
-    /// you should call ggpo_advance_frame to notify GGPO that you're finished.
-    fn advance_frame(&mut self);
+    /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
+    /// GGEZ will call it at least once after each [GGEZSession::advance_frame()] call, but possible multiple times during rollbacks. Do not call this function yourself.
+    fn advance_frame(&mut self, inputs: &GameInput, disconnect_flags: u32);
 
-    /// Notification that something has happened. See the [GGPOEvent] enum for more information.
+    /// GGEZ will call this function to notify you that something has happened. See the [GGPOEvent] enum for more information.
     fn on_event(&mut self, info: GGEZEvent);
 }
 
 /// All GGEZSession backends implement this trait.
 pub trait GGEZSession: Sized {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
-    fn add_player(&self, player: &player::Player) -> Result<u32, GGEZError>;
+    fn add_player(&mut self, player: &player::Player) -> Result<u32, GGEZError>;
 
     /// Disconnects a remote player from a game.  Will return [GGEZError::PlayerDisconnected] if you try to disconnect a player who has already been disconnected.
-    fn disconnect_player(&self, player_handle: u32) -> Result<(), GGEZError>;
+    fn disconnect_player(&mut self, player_handle: u32) -> Result<(), GGEZError>;
 
-    /// Used to notify GGEZ of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all player of type [player::PlayerType::Local].
-    fn add_local_input(&mut self, player_handle: u32, input: &[u8]) -> Result<(), GGEZError>;
+    /// Used to notify GGEZ of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all player of type [player::PlayerType::Local]
+    /// before calling [GGEZSession::advance_frame()].
+    fn add_local_input(&mut self, player_handle: u32, frame_number: u32, input: &[u8]) -> Result<(), GGEZError>;
 
-    /// You should call ggpo_synchronize_input before every frame of execution, including those frames which happen during rollback.
-    fn synchronize_input(&self, disconnect_flags: u32) -> Vec<u8>;
-
-    /// You should call ggpo_advance_frame to notify GGEZ that you have advanced your gamestate by a single frame. You should call this everytime
-    /// you advance the gamestate by a frame, even during rollbacks. GGEZ may call your save_state callback before this function returns.
-    fn advance_frame(&self);
-
-    /// Used to write to the GGEZ log.
-    fn log(&self, file: &str) -> Result<(), GGEZError>;
+    /// You should call this to notify GGEZ that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
+    fn advance_frame(&mut self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError>;
 
     /// Used to fetch some statistics about the quality of the network connection.
     fn get_network_stats(
@@ -165,18 +158,18 @@ pub trait GGEZSession: Sized {
         player_handle: u32,
     ) -> Result<network_stats::NetworkStats, GGEZError>;
 
-    /// Change the amount of frames ggpo will delay local input.  Must be called before the first call to ggpo_synchronize_input.
+    /// Change the amount of frames GGEZ will delay your local inputs.  Must be called before the first call to [GGEZSession::advance_frame()].
     fn set_frame_delay(&self, frame_delay: u32, player_handle: u32) -> Result<(), GGEZError>;
 
     /// Sets the disconnect timeout.  The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
     /// You will be notified of the disconnect via a [GGEZEvent::DisconnectedFromPeer] event.
     fn set_disconnect_timeout(&self, timeout: u32) -> Result<(), GGEZError>;
 
-    /// The time to wait before the first GGPO_EVENTCODE_NETWORK_INTERRUPTED timeout will be sent.
+    /// The time to wait before the first [GGEZEvent::ConnectionInterrupted] event will be sent.
     fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGEZError>;
 
-    /// Should be called periodically by your application to give GGEZ a chance to do work. Packet transmissions and rollbacks occur here.
-    fn synchronize(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError>;
+    /// Should be called periodically by your application to give GGEZ a chance to do internal work. Packet transmissions and rollbacks can occur here.
+    fn idle(&self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError>;
 }
 
 /// Used to create a new GGEZ sync test session. During a sync test, every frame of execution is run twice: once in prediction mode and once again to

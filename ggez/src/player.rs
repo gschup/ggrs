@@ -11,8 +11,12 @@ pub enum PlayerType {
     Spectator(std::net::SocketAddr),
 }
 
+impl Default for PlayerType {
+    fn default() -> Self { PlayerType::Local }
+}
+
 /// Represents a player in the game.  
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Player {
     /// The type of the player.
     pub player_type: PlayerType,

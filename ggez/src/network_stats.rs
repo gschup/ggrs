@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Network {
     /// The length of the queue containing UDP packets which have not yet been acknowledged by the end client.  
     /// The length of the send queue is a rough indication of the quality of the connection. The longer the send queue, the higher the round-trip time between the
@@ -15,17 +15,13 @@ pub struct Network {
 }
 
 impl Network {
-    pub const fn new() -> Self {
-        Self {
-            send_queue_len: 0,
-            recv_queue_len: 0,
-            ping: 0,
-            kbps_sent: 0,
-        }
+    /// Creates a new [Network] instance with default values.
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TimeSync {
     /// The number of frames GGEZ calculates that the local client is behind the remote client at this instant in time.  
     /// For example, if at this instant the current game client is running frame 1002 and the remote game client is running frame 1009,
@@ -36,26 +32,22 @@ pub struct TimeSync {
 }
 
 impl TimeSync {
-    pub const fn new() -> Self {
-        Self {
-            local_frames_behind: 0,
-            remote_frames_behind: 0,
-        }
+    /// Creates a new [TimeSync] instance with default values.
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
 /// The NetworkStats struct contains some statistics about the current session.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct NetworkStats {
     pub network: Network,
     pub timesync: TimeSync,
 }
 
 impl NetworkStats {
-    pub const fn new() -> Self {
-        Self {
-            network: Network::new(),
-            timesync: TimeSync::new(),
-        }
+    /// Creates a new [NetworkStats] instance with default values.
+    pub fn new() -> Self {
+        Default::default()
     }
 }
