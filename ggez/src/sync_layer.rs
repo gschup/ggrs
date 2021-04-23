@@ -1,12 +1,12 @@
-use crate::{GGEZError, circular_buffer::CircularBuffer};
-use crate::frame_info::GameState;
+use crate::frame_info::{FrameInfo, GameInput};
 use crate::GGEZInterface;
+use crate::{circular_buffer::CircularBuffer, GGEZError};
 
 #[derive(Debug, Default)]
 pub struct SyncLayer {
     num_players: u32,
     input_size: usize,
-    saved_frames: CircularBuffer<GameState>,
+    saved_frames: CircularBuffer<FrameInfo>,
     rolling_back: bool,
     last_confirmed_frame: i32,
     frame: u32,
@@ -25,41 +25,55 @@ impl SyncLayer {
         }
     }
 
-    pub fn get_frame_count(&self) -> u32 {
+    pub fn get_current_frame(&self) -> u32 {
         self.frame
     }
 
-    pub fn save_current_frame(&mut self, interface: &mut impl GGEZInterface) {
-        self.saved_frames.push_back(interface.save_game_state());
+    pub fn advance_frame(&mut self) {
+        self.frame += 1;
     }
 
-    pub fn get_last_saved_frame(&self) -> Option<&GameState> {
+    pub fn save_current_state(&mut self, input: Option<GameInput>, interface: &impl GGEZInterface) {
+        let input_to_save: GameInput;
+        match input {
+            Some(inp) => input_to_save = inp,
+            None => {
+                input_to_save = GameInput::new(self.input_size * self.num_players as usize, None)
+            }
+        }
+        self.saved_frames.push_back(FrameInfo {
+            frame: self.frame,
+            state: interface.save_game_state(),
+            input: input_to_save,
+        });
+    }
+
+    pub fn get_last_saved_state(&self) -> Option<&FrameInfo> {
         self.saved_frames.front()
     }
 
-    pub fn advance_frame(&mut self, interface: &mut impl GGEZInterface) {
-        self.frame += 1;
-        self.save_current_frame(interface);
-    }
+    /// Loads the gamestate indicated by the frame_to_load. After execution, the desired frame is on the back of the gamestate queue.
+    /// TODO: If you specify a frame_to_load which does not exist, the sync_layer will be emptied and the whole session is unrecoverably ruined.
+    pub fn load_frame(
+        &mut self,
+        interface: &mut impl GGEZInterface,
+        frame_to_load: u32,
+    ) -> Result<(), GGEZError> {
+        // The state is the current state (not yet saved) or the state cannot possibly be inside our queue since it is too far away in the past
+        if self.frame == frame_to_load
+            || frame_to_load > self.frame
+            || frame_to_load < self.frame - crate::MAX_PREDICTION_FRAMES
+        {
+            return Err(GGEZError::InvalidRequest);
+        }
+        let pos = self.frame - frame_to_load;
+        let frame_info = self
+            .saved_frames
+            .get(pos as usize)
+            .ok_or(GGEZError::GeneralFailure)?;
 
-    pub fn load_frame(&mut self, interface: &mut impl GGEZInterface, frame_to_load: u32) -> Result<(), GGEZError>{
-        // The state is already loaded
-        if self.frame == frame_to_load {
-            return Ok(());
-        }
-        // go backwards through the queue
-        while !self.saved_frames.is_empty() {  
-            match self.saved_frames.front() {
-                Some(state) => {
-                    if state.frame == frame_to_load {
-                        interface.load_game_state(state)
-                    } else {
-                        self.saved_frames.pop_front();
-                    }
-                },
-                None => continue
-            }
-        }
+        assert_eq!(frame_info.frame, frame_to_load);
+        interface.load_game_state(&frame_info.state);
 
         Ok(())
     }

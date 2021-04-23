@@ -1,26 +1,20 @@
 use adler::Adler32;
 use bincode;
+use serde::{Deserialize, Serialize};
 use std::hash::Hash;
-use serde::{Serialize, Deserialize};
 
-use ggez::{GGEZEvent, GGEZInterface, GGEZSession};
-use ggez::sessions::sync_test::SyncTestSession;
-use ggez::frame_info::{GameState, GameInput};
+use ggez::frame_info::{GameInput, GameState};
 use ggez::player::{Player, PlayerType};
+use ggez::{GGEZEvent, GGEZInterface, GGEZSession};
 
 struct GameStub {
     gs: GameStateStub,
-    sess: SyncTestSession,
 }
 
 impl GameStub {
     fn new() -> GameStub {
         GameStub {
-            gs: GameStateStub {
-                frame: 0,
-                state: 0,
-            },
-            sess: ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>()),
+            gs: GameStateStub { frame: 0, state: 0 },
         }
     }
 }
@@ -44,11 +38,10 @@ impl GGEZInterface for GameStub {
         let buffer = bincode::serialize(&self.gs).unwrap();
         let mut adler = Adler32::new();
         self.gs.hash(&mut adler);
-        let checksum = Some(adler.checksum());
+        let checksum = adler.checksum();
         GameState {
-            frame: self.gs.frame,
             buffer,
-            checksum,
+            checksum: Some(checksum),
         }
     }
 
@@ -67,7 +60,28 @@ impl GGEZInterface for GameStub {
 
 #[test]
 fn test_start_synctest_session() {
-    let mut stub = GameStub::new();
+    //let mut stub = GameStub::new();
+    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
     let player = Player::new(PlayerType::Local, 1);
-    let _handle = stub.sess.add_player(&player).unwrap();
+    let handle = sess.add_player(&player).unwrap();
+    assert_eq!(handle, 1);
+    sess.start_session().unwrap();
+}
+
+#[test]
+fn test_advance_frame() {
+    let mut stub = GameStub::new();
+    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    let player = Player::new(PlayerType::Local, 1);
+    let handle = sess.add_player(&player).unwrap();
+    assert_eq!(handle, 1);
+    sess.start_session().unwrap();
+
+    for i in 0..10 {
+        let input: u32 = i;
+        let serialized_input = bincode::serialize(&input).unwrap();
+        sess.add_local_input(handle, &serialized_input).unwrap();
+        sess.advance_frame(&mut stub).unwrap();
+        assert_eq!(stub.gs.frame, i + 1); // frame should have advanced
+    }
 }

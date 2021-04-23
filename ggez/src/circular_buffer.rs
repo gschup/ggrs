@@ -45,18 +45,27 @@ impl<A> CircularBuffer<A> {
         out
     }
 
+    /// Provides a reference to the front element, or `None` if empty.
     pub fn front(&self) -> Option<&A> {
         self.queue.front()
     }
 
+    /// Provides a reference to the back element, or `None` if empty.
     pub fn back(&self) -> Option<&A> {
         self.queue.back()
     }
 
+    /// Provides a reference to the element at the given index. Element at index 0 is the front of the queue.
+    pub fn get(&self, index: usize) -> Option<&A> {
+        self.queue.get(index)
+    }
+
+    /// Removes the front element and returns it, or `None` if empty.
     pub fn pop_front(&mut self) -> Option<A> {
         self.queue.pop_front()
     }
 
+    /// Removes the back element and returns it, or `None` if empty.
     pub fn pop_back(&mut self) -> Option<A> {
         self.queue.pop_back()
     }
@@ -71,7 +80,13 @@ impl<A> CircularBuffer<A> {
         self.cap
     }
 
+    /// Checks if the queue is empty
     pub fn is_empty(&self) -> bool {
         self.queue.is_empty()
+    }
+
+    /// Return the number of elements in our queue
+    pub fn len(&self) -> usize {
+        self.queue.len()
     }
 }

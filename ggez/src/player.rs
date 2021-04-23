@@ -12,7 +12,9 @@ pub enum PlayerType {
 }
 
 impl Default for PlayerType {
-    fn default() -> Self { PlayerType::Local }
+    fn default() -> Self {
+        PlayerType::Local
+    }
 }
 
 /// Represents a player in the game.  
@@ -20,8 +22,7 @@ impl Default for PlayerType {
 pub struct Player {
     /// The type of the player.
     pub player_type: PlayerType,
-    /// The player number. The player handle should be between 0 and the number of players in the game - 1
-    /// (e.g. in a 2 player game, either 0 or 1).
+    /// The player number. The player handle should be between 0 and the number of players in the game - 1 (e.g. in a 2 player game, either 0 or 1).
     pub player_handle: u32,
 }
 
