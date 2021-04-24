@@ -1,18 +1,20 @@
 #![forbid(unsafe_code)] // let us try
 use thiserror::Error;
 
-use crate::frame_info::{GameInput, GameState};
+use crate::game_info::{GameInput, GameState};
 use crate::sessions::sync_test::SyncTestSession;
 
-/// The maximum number of players allowed. If your player number is higher than this, chances are that rollback netcode is not the right solution for your approach.
-pub const MAX_PLAYERS: u32 = 4;
+/// The maximum number of players allowed.
+pub const MAX_PLAYERS: usize = 2;
 /// The maximum number of spectators allowed.
-pub const MAX_SPECTATORS: u32 = 32;
+pub const MAX_SPECTATORS: usize = 8;
 /// The maximum number of frames GGEZ will roll back. Every gamestate older than this is guaranteed to be correct if the players did not disconnect.
 pub const MAX_PREDICTION_FRAMES: u32 = 8;
+/// The maximum number of bytes the input of a single player can consist of.
+pub const MAX_INPUT_BYTES: usize = 8;
 
 pub mod circular_buffer;
-pub mod frame_info;
+pub mod game_info;
 pub mod network_stats;
 pub mod player;
 pub mod sync_layer;
@@ -196,6 +198,10 @@ pub trait GGEZSession: Sized {
 /// let input_size : usize = std::mem::size_of::<u32>();
 /// let mut sess = ggez::start_synctest_session(check_distance, num_players, input_size);
 /// ```
-pub fn start_synctest_session(frames: u32, num_players: u32, input_size: usize) -> SyncTestSession {
-    SyncTestSession::new(frames, num_players, input_size)
+pub fn start_synctest_session(
+    check_distance: u32,
+    num_players: u32,
+    input_size: usize,
+) -> SyncTestSession {
+    SyncTestSession::new(check_distance, num_players, input_size)
 }

@@ -3,7 +3,7 @@ use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-use ggez::frame_info::{GameInput, GameState};
+use ggez::game_info::{GameInput, GameState};
 use ggez::player::{Player, PlayerType};
 use ggez::{GGEZEvent, GGEZInterface, GGEZSession};
 
@@ -40,6 +40,7 @@ impl GGEZInterface for GameStub {
         self.gs.hash(&mut adler);
         let checksum = adler.checksum();
         GameState {
+            frame: self.gs.frame,
             buffer,
             checksum: Some(checksum),
         }

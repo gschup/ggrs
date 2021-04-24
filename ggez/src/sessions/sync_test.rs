@@ -1,5 +1,5 @@
 use crate::circular_buffer::CircularBuffer;
-use crate::frame_info::{FrameInfo, GameInput};
+use crate::game_info::{GameInput, GameState};
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::sync_layer::SyncLayer;
@@ -15,11 +15,12 @@ pub struct SyncTestSession {
     check_distance: u32,
     running: bool,
     current_input: GameInput,
-    saved_frames: CircularBuffer<FrameInfo>,
+    saved_frames: CircularBuffer<GameState>,
     sync_layer: SyncLayer,
 }
 
 impl SyncTestSession {
+    /// Creates a new [SyncTestSession] instance with given values.
     pub fn new(check_distance: u32, num_players: u32, input_size: usize) -> SyncTestSession {
         SyncTestSession {
             frame: 0,
@@ -27,7 +28,7 @@ impl SyncTestSession {
             input_size,
             check_distance,
             running: false,
-            current_input: GameInput::new(input_size * num_players as usize, None),
+            current_input: GameInput::new(0, None, input_size),
             saved_frames: CircularBuffer::new(crate::MAX_PREDICTION_FRAMES as usize),
             sync_layer: SyncLayer::new(num_players, input_size),
         }
@@ -66,10 +67,8 @@ impl GGEZSession for SyncTestSession {
             return Err(GGEZError::NotSynchronized);
         }
         // copy the local input bits into the right place of the current input
-        let lower_bound: usize = player_handle as usize * self.input_size;
-        for i in 0..input.len() {
-            self.current_input.input_bits[lower_bound + i] |= input[i];
-        }
+        self.current_input
+            .add_input_for_player(player_handle as usize, input);
         Ok(())
     }
 
@@ -77,8 +76,7 @@ impl GGEZSession for SyncTestSession {
     /// resimulate and compare checksums with the original states. if checksums don't match, this will return [GGEZError::SyncTestFailed].
     fn advance_frame(&mut self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
         // save the current frame in the syncronization layer
-        self.sync_layer
-            .save_current_state(Some(self.current_input.clone()), interface);
+        self.sync_layer.save_current_state(interface);
 
         // save a copy info in our separate queue of saved [ggez::frame_info::FrameInfo] so we have something to compare to later
         //let frame_count = self.sync_layer.get_current_frame();
@@ -143,7 +141,7 @@ mod sync_test_session_tests {
     use serde::{Deserialize, Serialize};
     use std::hash::Hash;
 
-    use crate::frame_info::{GameInput, GameState};
+    use crate::game_info::{GameInput, GameState};
     use crate::player::{Player, PlayerType};
     use crate::{GGEZError, GGEZEvent, GGEZInterface, GGEZSession};
 
@@ -168,9 +166,8 @@ mod sync_test_session_tests {
     }
 
     impl GameStateStub {
-        fn advance_frame(&mut self, inputs: &GameInput) {
+        fn advance_frame(&mut self, _inputs: &GameInput) {
             // we ignore the inputs for now
-            let _inputs: u32 = bincode::deserialize(&inputs.input_bits).unwrap();
             self.frame += 1;
             self.state += 2;
         }
@@ -183,6 +180,7 @@ mod sync_test_session_tests {
             self.gs.hash(&mut adler);
             let checksum = adler.checksum();
             GameState {
+                frame: self.gs.frame,
                 buffer,
                 checksum: Some(checksum),
             }
@@ -264,7 +262,8 @@ mod sync_test_session_tests {
 
     #[test]
     fn test_add_local_input() {
-        let mut sess = crate::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+        let num_players: u32 = 2;
+        let mut sess = crate::start_synctest_session(1, num_players, std::mem::size_of::<u32>());
         sess.start_session().unwrap();
 
         // add 0 input for player 0
@@ -273,8 +272,10 @@ mod sync_test_session_tests {
 
         match sess.add_local_input(0, &serialized_inputs) {
             Ok(()) => {
-                for i in 0..sess.current_input.input_bits.len() {
-                    assert_eq!(sess.current_input.input_bits[i], 0);
+                for p in 0..num_players as usize {
+                    for i in 0..sess.current_input.bits[p].len() {
+                        assert_eq!(sess.current_input.bits[p][i], 0);
+                    }
                 }
             }
             _ => assert!(false),
@@ -285,10 +286,13 @@ mod sync_test_session_tests {
         let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
         match sess.add_local_input(1, &serialized_inputs) {
             Ok(()) => {
-                for i in 0..sess.current_input.input_bits.len() {
-                    match i {
-                        4 => assert_eq!(sess.current_input.input_bits[i], 16),
-                        _ => assert_eq!(sess.current_input.input_bits[i], 0),
+                for p in 0..num_players as usize {
+                    for i in 0..sess.current_input.bits[p].len() {
+                        if p == 1 && i == 0 {
+                            assert_eq!(sess.current_input.bits[p][i], 16);
+                        } else {
+                            assert_eq!(sess.current_input.bits[p][i], 0);
+                        }
                     }
                 }
             }
