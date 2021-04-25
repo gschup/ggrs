@@ -21,7 +21,7 @@ pub const NULL_FRAME: i32 = -1;
 
 pub type InputBuffer = [u8; MAX_INPUT_BYTES];
 pub type FrameNumber = i32;
-pub type PlayerHandle = u32;
+pub type PlayerHandle = usize;
 
 pub mod circular_buffer;
 pub mod game_info;
@@ -192,7 +192,7 @@ pub trait GGEZSession: Sized {
 
     /// Change the amount of frames GGEZ will delay your local inputs. Must be called before the first call to [GGEZSession::advance_frame()].
     fn set_frame_delay(
-        &self,
+        &mut self,
         frame_delay: u32,
         player_handle: PlayerHandle,
     ) -> Result<(), GGEZError>;

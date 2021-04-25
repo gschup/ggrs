@@ -34,7 +34,7 @@ impl SyncLayer {
         // initialize input_queues
         let mut input_queues = Vec::new();
         for i in 0..num_players {
-            input_queues.push(InputQueue::new(i, input_size));
+            input_queues.push(InputQueue::new(i as PlayerHandle, input_size));
         }
         SyncLayer {
             num_players,
@@ -77,7 +77,7 @@ impl SyncLayer {
         player_handle: PlayerHandle,
         delay: u32,
     ) -> Result<(), GGEZError> {
-        if player_handle >= self.num_players {
+        if player_handle >= self.num_players as PlayerHandle {
             return Err(GGEZError::InvalidPlayerHandle);
         }
         if delay > MAX_INPUT_DELAY {
@@ -138,7 +138,7 @@ impl SyncLayer {
             return Err(GGEZError::GeneralFailure);
         }
 
-        self.input_queues[player_handle as usize].add_input(input);
+        self.input_queues[player_handle as PlayerHandle].add_input(input);
         Ok(())
     }
 
@@ -147,7 +147,7 @@ impl SyncLayer {
         player_handle: PlayerHandle,
         input: &GameInput,
     ) -> Result<(), GGEZError> {
-        self.input_queues[player_handle as usize].add_input(input);
+        self.input_queues[player_handle as PlayerHandle].add_input(input);
         Ok(())
     }
 }

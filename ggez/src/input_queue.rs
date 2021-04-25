@@ -106,7 +106,7 @@ impl InputQueue {
         }
     }
 
-    /// Returns the game input (of all players) for a given frame
+    /// Returns the game input of a single player for a given frame
     pub fn get_input(&mut self, requested_frame: FrameNumber) -> GameInput {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
@@ -220,11 +220,10 @@ impl InputQueue {
         let mut expected_frame: FrameNumber;
         match self.first_frame {
             true => expected_frame = 0,
-            false => expected_frame = self.inputs[previous_position].frame,
+            false => expected_frame = self.inputs[previous_position].frame + 1,
         };
 
         input_frame += self.frame_delay as i32;
-
         //  This can occur when the frame delay has dropped since the last time we shoved a frame into the system. In this case, there's no room on the queue. Toss it.
         if expected_frame > input_frame {
             return NULL_FRAME;

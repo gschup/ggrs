@@ -1,9 +1,9 @@
-use crate::circular_buffer::CircularBuffer;
 use crate::game_info::{GameInput, GameState};
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::sync_layer::SyncLayer;
-use crate::{FrameNumber, GGEZError, GGEZInterface, GGEZSession};
+use crate::{circular_buffer::CircularBuffer, NULL_FRAME};
+use crate::{FrameNumber, GGEZError, GGEZInterface, GGEZSession, PlayerHandle};
 
 /// During a SyncTestSession, GGEZ will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
 /// in your [GGEZInterface::save_game_state()] function, the SyncTestSession will compare the resimulated checksums with the original checksums and report if there was a mismatch.
@@ -23,12 +23,12 @@ impl SyncTestSession {
     /// Creates a new [SyncTestSession] instance with given values.
     pub fn new(check_distance: u32, num_players: u32, input_size: usize) -> SyncTestSession {
         SyncTestSession {
-            current_frame: -1,
+            current_frame: NULL_FRAME,
             num_players,
             input_size,
             check_distance,
             running: false,
-            current_input: GameInput::new(-1, None, input_size),
+            current_input: GameInput::new(NULL_FRAME, None, input_size),
             saved_frames: CircularBuffer::new(crate::MAX_PREDICTION_FRAMES as usize),
             sync_layer: SyncLayer::new(num_players, input_size),
         }
@@ -37,8 +37,8 @@ impl SyncTestSession {
 
 impl GGEZSession for SyncTestSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
-    fn add_player(&mut self, player: &Player) -> Result<u32, GGEZError> {
-        if player.player_handle > self.num_players {
+    fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGEZError> {
+        if player.player_handle > self.num_players as PlayerHandle {
             return Err(GGEZError::InvalidPlayerHandle);
         }
         Ok(player.player_handle)
@@ -51,15 +51,19 @@ impl GGEZSession for SyncTestSession {
             true => return Err(GGEZError::InvalidRequest),
             false => self.running = true,
         }
-
+        self.current_frame = 0;
         Ok(())
     }
 
     /// Used to notify GGEZ of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all players of type [PlayerType::Local].
     /// In the sync test, we don't send anything, we simply save the latest input.
-    fn add_local_input(&mut self, player_handle: u32, input: &[u8]) -> Result<(), GGEZError> {
+    fn add_local_input(
+        &mut self,
+        player_handle: PlayerHandle,
+        input: &[u8],
+    ) -> Result<(), GGEZError> {
         // player handle is invalid
-        if player_handle > self.num_players {
+        if player_handle > self.num_players as PlayerHandle {
             return Err(GGEZError::InvalidPlayerHandle);
         }
         // session has not been started
@@ -69,7 +73,7 @@ impl GGEZSession for SyncTestSession {
         // copy the local input bits into the right place of the current input
         self.current_input.add_input(input);
         // update the current input to the right frame
-        self.current_input.frame = self.current_frame + 1;
+        self.current_input.frame = self.current_frame;
 
         // send the input into the sync layer
         self.sync_layer
@@ -83,8 +87,7 @@ impl GGEZSession for SyncTestSession {
         // save the current frame in the syncronization layer
         self.sync_layer.save_current_state(interface);
 
-        // save a copy info in our separate queue of saved [ggez::frame_info::FrameInfo] so we have something to compare to later
-        //let frame_count = self.sync_layer.get_current_frame();
+        // save a copy info in our separate queue so we have something to compare to later
         match self.sync_layer.get_last_saved_state() {
             Some(fi) => self.saved_frames.push_back(fi.clone()),
             None => return Err(GGEZError::GeneralFailure),
@@ -105,10 +108,14 @@ impl GGEZSession for SyncTestSession {
             self.sync_layer.load_frame(interface, frame_to_load)?;
             // resimulate the last frames
             for _i in (0..self.check_distance).rev() {
-                //let input = self.
+                // get the correct old inputs
+                // run the frame
+                // compare the checksums
             }
         }
 
+        //after all of this, the sync layer and our own frame_counting should match
+        assert_eq!(self.sync_layer.get_current_frame(), self.current_frame);
         Ok(())
     }
 
@@ -117,18 +124,24 @@ impl GGEZSession for SyncTestSession {
         Ok(())
     }
 
+    /// Sets the input delay for a given player to a given number.
+    fn set_frame_delay(
+        &mut self,
+        frame_delay: u32,
+        player_handle: PlayerHandle,
+    ) -> Result<(), GGEZError> {
+        self.sync_layer
+            .set_frame_delay(player_handle, frame_delay)?;
+        Ok(())
+    }
+
     /// Not supported in [SyncTestSession].
-    fn disconnect_player(&mut self, _player_handle: u32) -> Result<(), GGEZError> {
+    fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGEZError> {
         Err(GGEZError::Unsupported)
     }
 
     /// Not supported in [SyncTestSession].
-    fn get_network_stats(&self, _player_handle: u32) -> Result<NetworkStats, GGEZError> {
-        Err(GGEZError::Unsupported)
-    }
-
-    /// Not supported in [SyncTestSession].
-    fn set_frame_delay(&self, _frame_delay: u32, _player_handle: u32) -> Result<(), GGEZError> {
+    fn get_network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGEZError> {
         Err(GGEZError::Unsupported)
     }
 
@@ -164,7 +177,7 @@ mod sync_test_session_tests {
 
     /*
     impl GameStub {
-        fn new() -> GameStub {
+        pub fn new() -> GameStub {
             GameStub {
                 gs: GameStateStub { frame: 0, state: 0 },
             }
