@@ -9,12 +9,23 @@ pub const MAX_PLAYERS: usize = 2;
 /// The maximum number of spectators allowed.
 pub const MAX_SPECTATORS: usize = 8;
 /// The maximum number of frames GGEZ will roll back. Every gamestate older than this is guaranteed to be correct if the players did not disconnect.
-pub const MAX_PREDICTION_FRAMES: u32 = 8;
+pub const MAX_PREDICTION_FRAMES: usize = 8;
+/// The maximum input delay that can be set.
+pub const MAX_INPUT_DELAY: u32 = 10;
 /// The maximum number of bytes the input of a single player can consist of.
 pub const MAX_INPUT_BYTES: usize = 8;
+/// The length of the input queue
+pub const INPUT_QUEUE_LENGTH: usize = 128;
+/// Internally, -1 represents no frame / invalid frame.
+pub const NULL_FRAME: i32 = -1;
+
+pub type InputBuffer = [u8; MAX_INPUT_BYTES];
+pub type FrameNumber = i32;
+pub type PlayerHandle = u32;
 
 pub mod circular_buffer;
 pub mod game_info;
+pub mod input_queue;
 pub mod network_stats;
 pub mod player;
 pub mod sync_layer;
@@ -87,24 +98,24 @@ pub enum GGEZEvent {
 
 #[derive(Debug)]
 pub struct ConnectedToPeer {
-    pub player_handle: u32,
+    pub player_handle: PlayerHandle,
 }
 
 #[derive(Debug)]
 pub struct SynchronizingWithPeer {
     pub count: u32,
     pub total: u32,
-    pub player_handle: u32,
+    pub player_handle: PlayerHandle,
 }
 
 #[derive(Debug)]
 pub struct SynchronizedWithPeer {
-    pub player_handle: u32,
+    pub player_handle: PlayerHandle,
 }
 
 #[derive(Debug)]
 pub struct DisconnectedFromPeer {
-    pub player_handle: u32,
+    pub player_handle: PlayerHandle,
 }
 
 #[derive(Debug)]
@@ -114,13 +125,13 @@ pub struct TimeSyncEvent {
 
 #[derive(Debug)]
 pub struct ConnectionInterrupted {
-    pub player_handle: u32,
+    pub player_handle: PlayerHandle,
     pub disconnect_timeout: u32,
 }
 
 #[derive(Debug)]
 pub struct ConnectionResumed {
-    pub player_handle: u32,
+    pub player_handle: PlayerHandle,
 }
 
 /// The GGEZInterface trait describes the functions that your application must provide. GGEZ will call these functions after you called [GGEZSession::advance_frame()] or
@@ -136,7 +147,7 @@ pub trait GGEZInterface {
 
     /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
     /// GGEZ will call it at least once after each [GGEZSession::advance_frame()] call, but possible multiple times during rollbacks. Do not call this function yourself.
-    fn advance_frame(&mut self, inputs: &GameInput, disconnect_flags: u32);
+    fn advance_frame(&mut self, inputs: &GameInput, disconnect_flags: u8);
 
     /// GGEZ will call this function to notify you that something has happened. See the [GGPOEvent] enum for more information.
     fn on_event(&mut self, info: GGEZEvent);
@@ -154,17 +165,21 @@ pub trait GGEZSession: Sized {
     /// let dummy_player = Player::new(PlayerType::Local, 0);
     /// sess.add_player(&dummy_player).unwrap();
     /// ```
-    fn add_player(&mut self, player: &player::Player) -> Result<u32, GGEZError>;
+    fn add_player(&mut self, player: &player::Player) -> Result<PlayerHandle, GGEZError>;
 
     /// After you are done defining and adding all players, you should start the session
     fn start_session(&mut self) -> Result<(), GGEZError>;
 
     /// Disconnects a remote player from a game.  Will return [GGEZError::PlayerDisconnected] if you try to disconnect a player who has already been disconnected.
-    fn disconnect_player(&mut self, player_handle: u32) -> Result<(), GGEZError>;
+    fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGEZError>;
 
     /// Used to notify GGEZ of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all player of type [player::PlayerType::Local]
     /// before calling [GGEZSession::advance_frame()].
-    fn add_local_input(&mut self, player_handle: u32, input: &[u8]) -> Result<(), GGEZError>;
+    fn add_local_input(
+        &mut self,
+        player_handle: PlayerHandle,
+        input: &[u8],
+    ) -> Result<(), GGEZError>;
 
     /// You should call this to notify GGEZ that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
     fn advance_frame(&mut self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError>;
@@ -172,11 +187,15 @@ pub trait GGEZSession: Sized {
     /// Used to fetch some statistics about the quality of the network connection.
     fn get_network_stats(
         &self,
-        player_handle: u32,
+        player_handle: PlayerHandle,
     ) -> Result<network_stats::NetworkStats, GGEZError>;
 
-    /// Change the amount of frames GGEZ will delay your local inputs.  Must be called before the first call to [GGEZSession::advance_frame()].
-    fn set_frame_delay(&self, frame_delay: u32, player_handle: u32) -> Result<(), GGEZError>;
+    /// Change the amount of frames GGEZ will delay your local inputs. Must be called before the first call to [GGEZSession::advance_frame()].
+    fn set_frame_delay(
+        &self,
+        frame_delay: u32,
+        player_handle: PlayerHandle,
+    ) -> Result<(), GGEZError>;
 
     /// Sets the disconnect timeout.  The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
     /// You will be notified of the disconnect via a [GGEZEvent::DisconnectedFromPeer] event.

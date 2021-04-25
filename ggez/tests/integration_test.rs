@@ -21,7 +21,7 @@ impl GameStub {
 
 #[derive(Hash, Default, Serialize, Deserialize)]
 struct GameStateStub {
-    pub frame: u32,
+    pub frame: i32,
     pub state: u32,
 }
 
@@ -50,7 +50,7 @@ impl GGEZInterface for GameStub {
         self.gs = bincode::deserialize(&state.buffer).unwrap();
     }
 
-    fn advance_frame(&mut self, inputs: &GameInput, _disconnect_flags: u32) {
+    fn advance_frame(&mut self, inputs: &GameInput, _disconnect_flags: u8) {
         self.gs.advance_frame(inputs);
     }
 
@@ -72,7 +72,7 @@ fn test_start_synctest_session() {
 #[test]
 fn test_advance_frame() {
     let mut stub = GameStub::new();
-    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    let mut sess = ggez::start_synctest_session(7, 2, std::mem::size_of::<u32>());
     let player = Player::new(PlayerType::Local, 1);
     let handle = sess.add_player(&player).unwrap();
     assert_eq!(handle, 1);
@@ -83,6 +83,6 @@ fn test_advance_frame() {
         let serialized_input = bincode::serialize(&input).unwrap();
         sess.add_local_input(handle, &serialized_input).unwrap();
         sess.advance_frame(&mut stub).unwrap();
-        assert_eq!(stub.gs.frame, i + 1); // frame should have advanced
+        assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
 }

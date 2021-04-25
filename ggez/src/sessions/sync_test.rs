@@ -3,13 +3,13 @@ use crate::game_info::{GameInput, GameState};
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::sync_layer::SyncLayer;
-use crate::{GGEZError, GGEZInterface, GGEZSession};
+use crate::{FrameNumber, GGEZError, GGEZInterface, GGEZSession};
 
 /// During a SyncTestSession, GGEZ will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
 /// in your [GGEZInterface::save_game_state()] function, the SyncTestSession will compare the resimulated checksums with the original checksums and report if there was a mismatch.
 #[derive(Debug)]
 pub struct SyncTestSession {
-    frame: u32,
+    current_frame: FrameNumber,
     num_players: u32,
     input_size: usize,
     check_distance: u32,
@@ -23,12 +23,12 @@ impl SyncTestSession {
     /// Creates a new [SyncTestSession] instance with given values.
     pub fn new(check_distance: u32, num_players: u32, input_size: usize) -> SyncTestSession {
         SyncTestSession {
-            frame: 0,
+            current_frame: -1,
             num_players,
             input_size,
             check_distance,
             running: false,
-            current_input: GameInput::new(0, None, input_size),
+            current_input: GameInput::new(-1, None, input_size),
             saved_frames: CircularBuffer::new(crate::MAX_PREDICTION_FRAMES as usize),
             sync_layer: SyncLayer::new(num_players, input_size),
         }
@@ -67,8 +67,13 @@ impl GGEZSession for SyncTestSession {
             return Err(GGEZError::NotSynchronized);
         }
         // copy the local input bits into the right place of the current input
-        self.current_input
-            .add_input_for_player(player_handle as usize, input);
+        self.current_input.add_input(input);
+        // update the current input to the right frame
+        self.current_input.frame = self.current_frame + 1;
+
+        // send the input into the sync layer
+        self.sync_layer
+            .add_local_input(player_handle, &self.current_input)?;
         Ok(())
     }
 
@@ -88,13 +93,21 @@ impl GGEZSession for SyncTestSession {
         // advance the frame with the correct inputs (in sync testing that is just the current input)
         interface.advance_frame(&self.current_input, 0);
         self.sync_layer.advance_frame();
-        self.frame += 1;
+        self.current_frame += 1;
 
         // current input has been used, so we can delete the input bits
         self.current_input.erase_bits();
 
         // simulated rollback section, but only if we have enough frames in the queue
-        if self.saved_frames.len() > self.check_distance as usize {}
+        if self.saved_frames.len() > self.check_distance as usize {
+            // load the frame that lies `check_distance` frames in the past
+            let frame_to_load = self.current_frame - self.check_distance as i32;
+            self.sync_layer.load_frame(interface, frame_to_load)?;
+            // resimulate the last frames
+            for _i in (0..self.check_distance).rev() {
+                //let input = self.
+            }
+        }
 
         Ok(())
     }
@@ -161,7 +174,7 @@ mod sync_test_session_tests {
 
     #[derive(Hash, Default, Serialize, Deserialize)]
     struct GameStateStub {
-        pub frame: u32,
+        pub frame: i32,
         pub state: u32,
     }
 
@@ -190,7 +203,7 @@ mod sync_test_session_tests {
             self.gs = bincode::deserialize(&state.buffer).unwrap();
         }
 
-        fn advance_frame(&mut self, inputs: &GameInput, _disconnect_flags: u32) {
+        fn advance_frame(&mut self, inputs: &GameInput, _disconnect_flags: u8) {
             self.gs.advance_frame(inputs);
         }
 
@@ -272,13 +285,14 @@ mod sync_test_session_tests {
 
         match sess.add_local_input(0, &serialized_inputs) {
             Ok(()) => {
-                for p in 0..num_players as usize {
-                    for i in 0..sess.current_input.bits[p].len() {
-                        assert_eq!(sess.current_input.bits[p][i], 0);
-                    }
+                for i in 0..sess.current_input.bits.len() {
+                    assert_eq!(sess.current_input.bits[i], 0);
                 }
             }
-            _ => assert!(false),
+            Err(e) => {
+                println!("{:?}", e);
+                assert!(false);
+            }
         }
 
         // add 1 << 4 input for player 1, now the 5th byte should be 1 << 4
@@ -286,13 +300,11 @@ mod sync_test_session_tests {
         let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
         match sess.add_local_input(1, &serialized_inputs) {
             Ok(()) => {
-                for p in 0..num_players as usize {
-                    for i in 0..sess.current_input.bits[p].len() {
-                        if p == 1 && i == 0 {
-                            assert_eq!(sess.current_input.bits[p][i], 16);
-                        } else {
-                            assert_eq!(sess.current_input.bits[p][i], 0);
-                        }
+                for i in 0..sess.current_input.bits.len() {
+                    if i == 0 {
+                        assert_eq!(sess.current_input.bits[i], 16);
+                    } else {
+                        assert_eq!(sess.current_input.bits[i], 0);
                     }
                 }
             }

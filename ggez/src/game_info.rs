@@ -1,54 +1,65 @@
+use crate::{FrameNumber, InputBuffer, NULL_FRAME};
+
 #[derive(Debug, Default, Clone)]
 pub struct GameState {
     /// The frame to which this info belongs to.
-    pub frame: u32,
+    pub frame: FrameNumber,
     /// The serialized gamestate in bytes.
     pub buffer: Vec<u8>,
     /// The checksum of the gamestate.
     pub checksum: Option<u32>,
 }
 
-pub type Input = [u8; crate::MAX_INPUT_BYTES];
-pub type InputBuffer = [Input; crate::MAX_PLAYERS];
+impl GameState {
+    pub fn new() -> GameState {
+        GameState {
+            frame: NULL_FRAME,
+            buffer: Vec::new(),
+            checksum: None,
+        }
+    }
+}
 
 /// All input data for all players for a single frame is saved in this struct.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct GameInput {
-    /// The frame to which this info belongs to.
-    pub frame: u32,
+    /// The frame to which this info belongs to. -1 represents an invalid frame
+    pub frame: FrameNumber,
     // The input size per player
-    pub size_per_player: usize,
-    /// The game input for all players, each player gets their own array
+    pub size: usize,
+    /// The game input for a player in a single frame
     pub bits: InputBuffer,
 }
 
 impl GameInput {
-    pub fn new(frame: u32, bits: Option<&InputBuffer>, size_per_player: usize) -> GameInput {
-        assert!(size_per_player <= crate::MAX_INPUT_BYTES);
+    pub fn new(frame: FrameNumber, bits: Option<&InputBuffer>, size: usize) -> GameInput {
+        assert!(size <= crate::MAX_INPUT_BYTES);
         match bits {
             Some(i_bits) => GameInput {
                 frame,
-                size_per_player,
+                size,
                 bits: i_bits.clone(),
             },
             None => GameInput {
                 frame,
-                size_per_player,
-                bits: [[0; crate::MAX_INPUT_BYTES]; crate::MAX_PLAYERS],
+                size,
+                bits: [0; crate::MAX_INPUT_BYTES],
             },
         }
     }
 
-    pub fn add_input_for_player(&mut self, player_handle: usize, bits: &[u8]) {
-        assert!(player_handle <= crate::MAX_PLAYERS);
+    pub fn add_input(&mut self, bits: &[u8]) {
         assert!(bits.len() <= crate::MAX_INPUT_BYTES);
-        self.bits[player_handle][0..self.size_per_player].copy_from_slice(bits);
+        self.bits[0..self.size].copy_from_slice(bits);
     }
 
     pub fn erase_bits(&mut self) {
-        self.bits = [[0; crate::MAX_INPUT_BYTES]; crate::MAX_PLAYERS];
-        for elem in self.bits.iter_mut() {
-            elem.iter_mut().for_each(|m| *m = 0)
-        }
+        self.bits.iter_mut().for_each(|m| *m = 0)
+    }
+
+    pub fn equal(&self, other: &GameInput, bitsonly: bool) -> bool {
+        (bitsonly || self.frame == other.frame)
+            && self.size == other.size
+            && self.bits == other.bits
     }
 }
