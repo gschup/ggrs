@@ -17,12 +17,11 @@ pub struct InputQueue {
     first_frame: bool,
 
     /// The last frame added by the user
-    last_user_added_frame: FrameNumber,
     last_added_frame: FrameNumber,
     /// The first frame in the queue that is known to be an incorrect prediction
     first_incorrect_frame: FrameNumber,
     /// The last frame that has been requested. We make sure to never delete anything after this, as we would throw away important data.
-    last_frame_requested: FrameNumber,
+    last_requested_frame: FrameNumber,
 
     /// The delay in frames by which inputs are sent back to the user. This can be set during initialization.
     frame_delay: u32,
@@ -42,10 +41,9 @@ impl InputQueue {
             length: 0,
             frame_delay: 0,
             first_frame: true,
-            last_user_added_frame: NULL_FRAME,
             last_added_frame: NULL_FRAME,
             first_incorrect_frame: NULL_FRAME,
-            last_frame_requested: NULL_FRAME,
+            last_requested_frame: NULL_FRAME,
 
             prediction: GameInput::new(NULL_FRAME, None, input_size),
             inputs: [GameInput::new(NULL_FRAME, None, input_size); INPUT_QUEUE_LENGTH],
@@ -71,7 +69,7 @@ impl InputQueue {
 
         self.prediction.frame = NULL_FRAME;
         self.first_incorrect_frame = NULL_FRAME;
-        self.last_frame_requested = NULL_FRAME;
+        self.last_requested_frame = NULL_FRAME;
     }
 
     /// Returns a [GameInput], but only if the input for the requested frame is confirmed
@@ -100,8 +98,8 @@ impl InputQueue {
     /// Discards confirmed frames up to given `frame` from the queue. All confirmed frames are guaranteed to be synchronized between players, so there is no need to save the inputs anymore.
     pub fn discard_confirmed_frames(&mut self, mut frame: FrameNumber) {
         // we only drop frames until the last frame that was requested, otherwise we might delete data still needed
-        if self.last_frame_requested != NULL_FRAME {
-            frame = cmp::min(frame, self.last_frame_requested);
+        if self.last_requested_frame != NULL_FRAME {
+            frame = cmp::min(frame, self.last_requested_frame);
         }
 
         // move the tail to "delete inputs", wrap around if necessary
@@ -121,7 +119,7 @@ impl InputQueue {
         assert!(self.first_incorrect_frame < 0);
 
         // Remember the last requested frame number for later. We'll need this in add_input() to drop out of prediction mode.
-        self.last_frame_requested = requested_frame;
+        self.last_requested_frame = requested_frame;
 
         assert!(requested_frame >= self.inputs[self.tail].frame);
 
@@ -163,8 +161,7 @@ impl InputQueue {
     /// Adds an input frame to the queue. Will consider the set frame delay.
     pub fn add_input(&mut self, input: &GameInput) {
         // These next two lines simply verify that inputs are passed in sequentially by the user, regardless of frame delay.
-        assert!(self.last_user_added_frame < 0 || input.frame == self.last_user_added_frame + 1);
-        self.last_user_added_frame = input.frame;
+        assert!(self.last_added_frame == NULL_FRAME || input.frame == self.last_added_frame + 1);
 
         // Move the queue head to the correct point in preparation to input the frame into the queue.
         let new_frame = self.advance_queue_head(input.frame);
@@ -207,7 +204,7 @@ impl InputQueue {
 
             // If this input is the same frame as the last one requested and we still haven't found any mispredicted inputs, we can exit predition mode.
             // Otherwise, advance the prediction frame count up.
-            if self.prediction.frame == self.last_frame_requested
+            if self.prediction.frame == self.last_requested_frame
                 && self.first_incorrect_frame == NULL_FRAME
             {
                 self.prediction.frame = NULL_FRAME;
@@ -247,5 +244,43 @@ impl InputQueue {
 
         assert!(input_frame == 0 || input_frame == self.inputs[previous_position].frame + 1);
         input_frame
+    }
+}
+
+// #########
+// # TESTS #
+// #########
+
+#[cfg(test)]
+mod input_queue_tests {
+
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn test_add_input_wrong_frame() {
+        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
+        let input = GameInput::new(3, None, std::mem::size_of::<u32>());
+        queue.add_input(&input); // because input has a wrong frame, this panics
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_add_input_twice() {
+        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
+        let input = GameInput::new(0, None, std::mem::size_of::<u32>());
+        queue.add_input(&input); // fine
+        queue.add_input(&input); // not fine
+    }
+
+    #[test]
+    fn test_add_input_sequentally() {
+        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
+        for i in 0..10 {
+            let input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            queue.add_input(&input);
+            assert_eq!(queue.last_added_frame, i);
+            assert_eq!(queue.length, (i + 1) as usize);
+        }
     }
 }
