@@ -117,7 +117,7 @@ impl SyncLayer {
         }
 
         // The input provided should match the current frame
-        assert!(input.frame != self.current_frame);
+        assert_eq!(input.frame, self.current_frame);
         self.input_queues[player_handle as PlayerHandle].add_input(input);
         Ok(())
     }

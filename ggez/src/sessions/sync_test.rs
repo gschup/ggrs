@@ -39,7 +39,7 @@ impl GGEZSession for SyncTestSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
     fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGEZError> {
         if player.player_handle > self.num_players as PlayerHandle {
-            return Err(GGEZError::InvalidPlayerHandle);
+            return Err(GGEZError::InvalidRequest);
         }
         Ok(player.player_handle)
     }
@@ -245,7 +245,7 @@ mod sync_test_session_tests {
         let incorrect_player = Player::new(PlayerType::Local, 3);
 
         match sess.add_player(&incorrect_player) {
-            Err(GGEZError::InvalidPlayerHandle) => (),
+            Err(GGEZError::InvalidRequest) => (),
             _ => assert!(false),
         }
     }
