@@ -180,12 +180,10 @@ impl GGEZSession for SyncTestSession {
     /// Sets the input delay for a given player to a given number.
     fn set_frame_delay(
         &mut self,
-        frame_delay: u32,
-        player_handle: PlayerHandle,
+        _frame_delay: u32,
+        _player_handle: PlayerHandle,
     ) -> Result<(), GGEZError> {
-        self.sync_layer
-            .set_frame_delay(player_handle, frame_delay)?;
-        Ok(())
+        Err(GGEZError::Unsupported)
     }
 
     /// Not supported in [SyncTestSession].

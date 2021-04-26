@@ -61,7 +61,6 @@ impl GGEZInterface for GameStub {
 
 #[test]
 fn test_start_synctest_session() {
-    //let mut stub = GameStub::new();
     let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
     let player = Player::new(PlayerType::Local, 1);
     let handle = sess.add_player(&player).unwrap();
