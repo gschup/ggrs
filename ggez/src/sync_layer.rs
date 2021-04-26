@@ -90,7 +90,6 @@ impl SyncLayer {
     fn find_saved_frame_index(&self, frame: FrameNumber) -> Result<usize, GGEZError> {
         let count = self.saved_states.states.len();
         for i in 0..count {
-            println!("{}", self.saved_states.states[i].frame);
             if self.saved_states.states[i].frame == frame {
                 return Ok(i);
             }

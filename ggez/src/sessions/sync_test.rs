@@ -354,8 +354,7 @@ mod sync_test_session_tests {
                     assert_eq!(sess.current_input.bits[i], 0);
                 }
             }
-            Err(e) => {
-                println!("{:?}", e);
+            Err(_e) => {
                 assert!(false);
             }
         }
