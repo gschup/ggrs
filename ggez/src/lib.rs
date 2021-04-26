@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)] // let us try
 
 use crate::game_info::{GameInput, GameState};
-use crate::sessions::sync_test::SyncTestSession;
+use crate::sessions::test_session::SyncTestSession;
 
 /// The maximum number of players allowed.
 pub const MAX_PLAYERS: usize = 2;
@@ -29,7 +29,7 @@ pub mod network_stats;
 pub mod player;
 pub mod sync_layer;
 pub mod sessions {
-    pub mod sync_test;
+    pub mod test_session;
 }
 /// This enum contains all error messages this library can return. Most API functions will generally return a Result<T,GGEZError>.
 #[derive(Debug)]
