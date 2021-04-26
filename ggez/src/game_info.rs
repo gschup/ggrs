@@ -1,5 +1,12 @@
 use crate::{FrameNumber, InputBuffer, NULL_FRAME};
 
+#[derive(Debug, Clone)]
+pub struct FrameInfo {
+    pub frame: FrameNumber,
+    pub state: GameState,
+    pub input: GameInput,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct GameState {
     /// The frame to which this info belongs to.

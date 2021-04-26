@@ -78,7 +78,7 @@ fn test_advance_frame() {
     assert_eq!(handle, 1);
     sess.start_session().unwrap();
 
-    for i in 0..10 {
+    for i in 0..100 {
         let input: u32 = i;
         let serialized_input = bincode::serialize(&input).unwrap();
         sess.add_local_input(handle, &serialized_input).unwrap();

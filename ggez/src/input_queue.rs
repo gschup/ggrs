@@ -100,7 +100,7 @@ impl InputQueue {
         if frame >= self.last_added_frame {
             self.tail = self.head;
         } else {
-            let offset = (frame - (self.inputs[self.tail].frame + 1)) as usize;
+            let offset = (frame - (self.inputs[self.tail].frame)) as usize;
             self.tail = (self.tail + offset) % INPUT_QUEUE_LENGTH;
             self.length -= offset;
         }
@@ -112,7 +112,7 @@ impl InputQueue {
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
         assert!(self.first_incorrect_frame < 0);
 
-        // Remember the last requested frame number for later. We'll need this in [InputQueue::add_input()] to drop out of prediction mode.
+        // Remember the last requested frame number for later. We'll need this in add_input() to drop out of prediction mode.
         self.last_frame_requested = requested_frame;
 
         assert!(requested_frame >= self.inputs[self.tail].frame);

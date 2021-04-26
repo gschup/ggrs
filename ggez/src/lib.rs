@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)] // let us try
-use thiserror::Error;
 
 use crate::game_info::{GameInput, GameState};
 use crate::sessions::sync_test::SyncTestSession;
@@ -33,43 +32,21 @@ pub mod sessions {
     pub mod sync_test;
 }
 /// This enum contains all error messages this library can return. Most API functions will generally return a Result<T,GGEZError>.
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum GGEZError {
-    /// GGEZ general failure
-    #[error("GGEZ general failure.")]
-    GeneralFailure,
-    /// GGEZ invalid session
-    #[error("GGEZ invalid session.")]
+    /// a catch-all error, usage should be limited
+    GeneralFailure(String),
     InvalidSession,
     /// When this gets returned, the given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
-    #[error("GGEZ invalid player handle.")]
     InvalidPlayerHandle,
-    /// GGEZ prediction threshold
-    #[error("GGEZ prediction threshold.")]
     PredictionThreshold,
-    /// GGEZ unsupported
-    #[error("GGEZ unsupported.")]
     Unsupported,
-    /// GGEZ not synchronized
-    #[error("GGEZ not synchronized.")]
     NotSynchronized,
-    /// GGEZ in rollback
-    #[error("GGEZ in rollback.")]
     InRollback,
-    /// GGEZ input dropped
-    #[error("GGEZ input dropped.")]
     InputDropped,
-    /// GGEZ player disconnected
-    #[error("GGEZ player disconnected.")]
     PlayerDisconnected,
-    /// GGEZ too many spectators
-    #[error("GGEZ too many spectators.")]
     TooManySpectators,
-    /// GGEZ invalid request
-    #[error("GGEZ invalid request.")]
     InvalidRequest,
-    /// GGEZ SyncTest failed
-    #[error("GGEZ SyncTest failed.")]
     SyncTestFailed,
 }
 

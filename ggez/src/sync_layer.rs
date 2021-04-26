@@ -91,13 +91,15 @@ impl SyncLayer {
     /// Searches the saved states and returns the index of the state that matches the given frame number. If not found, returns an [GGEZError].
     fn find_saved_frame_index(&self, frame: FrameNumber) -> Result<usize, GGEZError> {
         let count = self.saved_states.states.len();
-
         for i in 0..count {
+            println!("{}", self.saved_states.states[i].frame);
             if self.saved_states.states[i].frame == frame {
                 return Ok(i);
             }
         }
-        Err(GGEZError::GeneralFailure)
+        Err(GGEZError::GeneralFailure(String::from(
+            "SyncLayer::find_saved_frame_index(): Requested state could not be found",
+        )))
     }
 
     /// Loads the gamestate indicated by the frame_to_load. After execution, `self.saved_states.head` is set to the loaded state.
@@ -130,12 +132,14 @@ impl SyncLayer {
         input: &GameInput,
     ) -> Result<(), GGEZError> {
         let frames_behind = self.current_frame - self.last_confirmed_frame;
-        if frames_behind >= MAX_PREDICTION_FRAMES as i32 {
+        if frames_behind > MAX_PREDICTION_FRAMES as i32 {
             return Err(GGEZError::PredictionThreshold);
         }
 
         if input.frame != self.current_frame {
-            return Err(GGEZError::GeneralFailure);
+            return Err(GGEZError::GeneralFailure(String::from(
+                "SyncLayer::add_local_input(): The input you provided does not match the current frame",
+            )));
         }
 
         self.input_queues[player_handle as PlayerHandle].add_input(input);
@@ -149,5 +153,15 @@ impl SyncLayer {
     ) -> Result<(), GGEZError> {
         self.input_queues[player_handle as PlayerHandle].add_input(input);
         Ok(())
+    }
+
+    /// Sets the last confirmed frame to a given frame. By raising the last confirmed frame, we can discard all previous frames, as they are no longer necessary.
+    pub fn set_last_confirmed_frame(&mut self, frame: FrameNumber) {
+        self.last_confirmed_frame = frame;
+        if self.last_confirmed_frame > 0 {
+            for i in 0..self.num_players {
+                self.input_queues[i as usize].discard_confirmed_frames(frame - 1);
+            }
+        }
     }
 }

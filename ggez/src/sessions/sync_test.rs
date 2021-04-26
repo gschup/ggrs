@@ -1,4 +1,4 @@
-use crate::game_info::{GameInput, GameState};
+use crate::game_info::{FrameInfo, GameInput};
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::sync_layer::SyncLayer;
@@ -15,7 +15,7 @@ pub struct SyncTestSession {
     check_distance: u32,
     running: bool,
     current_input: GameInput,
-    saved_frames: CircularBuffer<GameState>,
+    saved_frames: CircularBuffer<FrameInfo>,
     sync_layer: SyncLayer,
 }
 
@@ -89,8 +89,16 @@ impl GGEZSession for SyncTestSession {
 
         // save a copy info in our separate queue so we have something to compare to later
         match self.sync_layer.get_last_saved_state() {
-            Some(fi) => self.saved_frames.push_back(fi.clone()),
-            None => return Err(GGEZError::GeneralFailure),
+            Some(fi) => self.saved_frames.push_back(FrameInfo {
+                frame: self.current_frame,
+                state: fi.clone(),
+                input: self.current_input.clone(),
+            }),
+            None => {
+                return Err(GGEZError::GeneralFailure(String::from(
+                    "sync layer did not return a last saved state",
+                )));
+            }
         };
 
         // advance the frame with the correct inputs (in sync testing that is just the current input)
@@ -105,16 +113,61 @@ impl GGEZSession for SyncTestSession {
         if self.saved_frames.len() > self.check_distance as usize {
             // load the frame that lies `check_distance` frames in the past
             let frame_to_load = self.current_frame - self.check_distance as i32;
-            self.sync_layer.load_frame(interface, frame_to_load)?;
+            let pos_in_queue = self.saved_frames.len() - self.check_distance as usize;
+            let old_frame_info =
+                self.saved_frames
+                    .get(pos_in_queue)
+                    .ok_or(GGEZError::GeneralFailure(String::from(
+                        "sync test could not load frame info from own queue",
+                    )))?;
+            assert_eq!(old_frame_info.frame, frame_to_load);
+            interface.load_game_state(&old_frame_info.state);
+
             // resimulate the last frames
-            for _i in (0..self.check_distance).rev() {
-                // get the correct old inputs
-                // run the frame
+            for i in (0..self.check_distance).rev() {
+                // get the correct old frame info
+                let pos_in_queue = self.saved_frames.len() - 1 - i as usize;
+                let old_frame_info =
+                    self.saved_frames
+                        .get(pos_in_queue)
+                        .ok_or(GGEZError::GeneralFailure(String::from(
+                            "sync test could not load frame info from own queue",
+                        )))?;
+                // the frame we loaded should be from the correct frame
+                assert_eq!(
+                    old_frame_info.frame,
+                    frame_to_load + (self.check_distance - 1 - i) as i32
+                );
+
+                // get a copy of the current state to compare
+                let gs_compare = interface.save_game_state();
+                // the state should have the correct frame
+                assert_eq!(gs_compare.frame, old_frame_info.frame);
+
                 // compare the checksums
+                match (gs_compare.checksum, old_frame_info.state.checksum) {
+                    (Some(cs1), Some(cs2)) => {
+                        if cs1 != cs2 {
+                            return Err(GGEZError::SyncTestFailed);
+                        }
+                    }
+                    _ => (),
+                };
+
+                // advance the frame
+                interface.advance_frame(&old_frame_info.input, 0);
             }
+            // we should have arrived back at the current frame
+            let gs_compare = interface.save_game_state();
+            assert_eq!(gs_compare.frame, self.current_frame);
+
+            // since this is a sync test, we "cheat" by setting the last confirmed state to the current state - the check_distance, so the sync layer wont complain about missing
+            // inputs from other players
+            self.sync_layer
+                .set_last_confirmed_frame(self.current_frame - self.check_distance as i32);
         }
 
-        //after all of this, the sync layer and our own frame_counting should match
+        // after all of this, the sync layer and our own frame_counting should match
         assert_eq!(self.sync_layer.get_current_frame(), self.current_frame);
         Ok(())
     }
