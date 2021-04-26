@@ -26,7 +26,7 @@ struct GameStateStub {
 }
 
 impl GameStateStub {
-    fn advance_frame(&mut self, _inputs: &GameInput) {
+    fn advance_frame(&mut self) {
         // we ignore the inputs for now
         self.frame += 1;
         self.state += 2;
@@ -50,8 +50,8 @@ impl GGEZInterface for GameStub {
         self.gs = bincode::deserialize(&state.buffer).unwrap();
     }
 
-    fn advance_frame(&mut self, inputs: &GameInput, _disconnect_flags: u8) {
-        self.gs.advance_frame(inputs);
+    fn advance_frame(&mut self, _inputs: Vec<GameInput>, _disconnect_flags: u8) {
+        self.gs.advance_frame();
     }
 
     fn on_event(&mut self, info: GGEZEvent) {

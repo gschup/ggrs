@@ -70,3 +70,22 @@ impl GameInput {
             && self.bits == other.bits
     }
 }
+
+// #########
+// # TESTS #
+// #########
+
+#[cfg(test)]
+mod game_input_tests {
+    use super::*;
+    use bincode;
+
+    #[test]
+    fn test_input_equality() {
+        let fake_inputs: u32 = 5;
+        let input_size = std::mem::size_of::<u32>();
+        let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
+        let mut input1 = GameInput::new(0, None, input_size);
+        input1.copy_input(&serialized_inputs);
+    }
+}

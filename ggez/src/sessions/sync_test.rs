@@ -103,7 +103,7 @@ impl GGEZSession for SyncTestSession {
         };
 
         // advance the frame with the correct inputs (in sync testing that is just the current input)
-        interface.advance_frame(&self.current_input, 0);
+        interface.advance_frame(vec![self.current_input], 0); //TODO
         self.sync_layer.advance_frame();
         self.current_frame += 1;
 
@@ -156,7 +156,7 @@ impl GGEZSession for SyncTestSession {
                 };
 
                 // advance the frame
-                interface.advance_frame(&old_frame_info.input, 0);
+                interface.advance_frame(vec![old_frame_info.input], 0);
             }
             // we should have arrived back at the current frame
             let gs_compare = interface.save_game_state();
@@ -214,68 +214,9 @@ impl GGEZSession for SyncTestSession {
 
 #[cfg(test)]
 mod sync_test_session_tests {
-    use adler::Adler32;
-    use bincode;
-    use serde::{Deserialize, Serialize};
-    use std::hash::Hash;
-
-    use crate::game_info::{GameInput, GameState};
     use crate::player::{Player, PlayerType};
-    use crate::{GGEZError, GGEZEvent, GGEZInterface, GGEZSession};
-
-    struct GameStub {
-        gs: GameStateStub,
-    }
-
-    /*
-    impl GameStub {
-        pub fn new() -> GameStub {
-            GameStub {
-                gs: GameStateStub { frame: 0, state: 0 },
-            }
-        }
-    }
-    */
-
-    #[derive(Hash, Default, Serialize, Deserialize)]
-    struct GameStateStub {
-        pub frame: i32,
-        pub state: u32,
-    }
-
-    impl GameStateStub {
-        fn advance_frame(&mut self, _inputs: &GameInput) {
-            // we ignore the inputs for now
-            self.frame += 1;
-            self.state += 2;
-        }
-    }
-
-    impl GGEZInterface for GameStub {
-        fn save_game_state(&self) -> GameState {
-            let buffer = bincode::serialize(&self.gs).unwrap();
-            let mut adler = Adler32::new();
-            self.gs.hash(&mut adler);
-            let checksum = adler.checksum();
-            GameState {
-                frame: self.gs.frame,
-                buffer,
-                checksum: Some(checksum),
-            }
-        }
-
-        fn load_game_state(&mut self, state: &GameState) {
-            self.gs = bincode::deserialize(&state.buffer).unwrap();
-        }
-
-        fn advance_frame(&mut self, inputs: &GameInput, _disconnect_flags: u8) {
-            self.gs.advance_frame(inputs);
-        }
-
-        fn on_event(&mut self, info: GGEZEvent) {
-            println!("{:?}", info);
-        }
-    }
+    use crate::{GGEZError, GGEZSession};
+    use bincode;
 
     #[test]
     fn test_add_player() {

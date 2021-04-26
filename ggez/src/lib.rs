@@ -39,6 +39,7 @@ pub enum GGEZError {
     InvalidSession,
     /// When this gets returned, the given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
     InvalidPlayerHandle,
+    /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
     PredictionThreshold,
     Unsupported,
     NotSynchronized,
@@ -124,7 +125,7 @@ pub trait GGEZInterface {
 
     /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
     /// GGEZ will call it at least once after each [GGEZSession::advance_frame()] call, but possible multiple times during rollbacks. Do not call this function yourself.
-    fn advance_frame(&mut self, inputs: &GameInput, disconnect_flags: u8);
+    fn advance_frame(&mut self, inputs: Vec<GameInput>, disconnect_flags: u8);
 
     /// GGEZ will call this function to notify you that something has happened. See the [GGPOEvent] enum for more information.
     fn on_event(&mut self, info: GGEZEvent);

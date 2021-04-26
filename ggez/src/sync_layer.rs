@@ -70,51 +70,40 @@ impl SyncLayer {
         }
     }
 
-    pub fn set_frame_delay(
-        &mut self,
-        player_handle: PlayerHandle,
-        delay: u32,
-    ) -> Result<(), GGEZError> {
-        if player_handle >= self.num_players as PlayerHandle {
-            return Err(GGEZError::InvalidPlayerHandle);
-        }
-        if delay > MAX_INPUT_DELAY {
-            return Err(GGEZError::InvalidRequest);
-        }
+    pub fn set_frame_delay(&mut self, player_handle: PlayerHandle, delay: u32) {
+        assert!(player_handle < self.num_players as PlayerHandle);
+        assert!(delay <= MAX_INPUT_DELAY);
 
         self.input_queues[player_handle as usize].set_frame_delay(delay);
-        Ok(())
     }
 
-    /// Searches the saved states and returns the index of the state that matches the given frame number. If not found, returns an [GGEZError].
-    fn find_saved_frame_index(&self, frame: FrameNumber) -> Result<usize, GGEZError> {
+    /// Searches the saved states and returns the index of the state that matches the given frame number.
+    fn find_saved_frame_index(&self, frame: FrameNumber) -> usize {
         let count = self.saved_states.states.len();
         for i in 0..count {
             if self.saved_states.states[i].frame == frame {
-                return Ok(i);
+                return i;
             }
         }
-        Err(GGEZError::GeneralFailure(String::from(
-            "SyncLayer::find_saved_frame_index(): Requested state could not be found",
-        )))
+        panic!("SyncLayer::find_saved_frame_index(): requested state could not be found");
     }
 
     /// Loads the gamestate indicated by the frame_to_load. After execution, `self.saved_states.head` is set to the loaded state.
-    pub fn load_frame(&mut self, frame_to_load: FrameNumber) -> Result<&GameState, GGEZError> {
+    pub fn load_frame(&mut self, frame_to_load: FrameNumber) -> &GameState {
         // The state is the current state (not yet saved) or the state cannot possibly be inside our queue since it is too far away in the past
-        if self.current_frame == frame_to_load
-            || frame_to_load == NULL_FRAME
-            || frame_to_load > self.current_frame
-            || frame_to_load < self.current_frame - MAX_PREDICTION_FRAMES as i32
-        {
-            return Err(GGEZError::InvalidRequest);
-        }
+        assert!(
+            self.current_frame == frame_to_load
+                || frame_to_load == NULL_FRAME
+                || frame_to_load > self.current_frame
+                || frame_to_load < self.current_frame - MAX_PREDICTION_FRAMES as i32
+        );
 
-        self.saved_states.head = self.find_saved_frame_index(frame_to_load)?;
+        self.saved_states.head = self.find_saved_frame_index(frame_to_load);
         let state_to_load = &self.saved_states.states[self.saved_states.head];
+        self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES;
 
         assert_eq!(state_to_load.frame, frame_to_load);
-        Ok(&self.saved_states.states[self.saved_states.head])
+        state_to_load
     }
 
     pub fn add_local_input(
@@ -127,23 +116,14 @@ impl SyncLayer {
             return Err(GGEZError::PredictionThreshold);
         }
 
-        if input.frame != self.current_frame {
-            return Err(GGEZError::GeneralFailure(String::from(
-                "SyncLayer::add_local_input(): The input you provided does not match the current frame",
-            )));
-        }
-
+        // The input provided should match the current frame
+        assert!(input.frame != self.current_frame);
         self.input_queues[player_handle as PlayerHandle].add_input(input);
         Ok(())
     }
 
-    pub fn add_remote_input(
-        &mut self,
-        player_handle: PlayerHandle,
-        input: &GameInput,
-    ) -> Result<(), GGEZError> {
+    pub fn add_remote_input(&mut self, player_handle: PlayerHandle, input: &GameInput) {
         self.input_queues[player_handle as PlayerHandle].add_input(input);
-        Ok(())
     }
 
     /// Sets the last confirmed frame to a given frame. By raising the last confirmed frame, we can discard all previous frames, as they are no longer necessary.

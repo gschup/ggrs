@@ -283,4 +283,17 @@ mod input_queue_tests {
             assert_eq!(queue.length, (i + 1) as usize);
         }
     }
+
+    #[test]
+    fn test_get_input_sequentally() {
+        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
+        for i in 0..10 {
+            let input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            queue.add_input(&input);
+            assert_eq!(queue.last_added_frame, i);
+            assert_eq!(queue.length, (i + 1) as usize);
+            let input_in_queue = queue.get_input(i);
+            assert!(input_in_queue.equal(&input, false));
+        }
+    }
 }
