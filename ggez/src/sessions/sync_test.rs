@@ -70,8 +70,8 @@ impl GGEZSession for SyncTestSession {
         if !self.running {
             return Err(GGEZError::NotSynchronized);
         }
-        // copy the local input bits into the right place of the current input
-        self.current_input.add_input(input);
+        // copy the local input bits into the current input
+        self.current_input.copy_input(input);
         // update the current input to the right frame
         self.current_input.frame = self.current_frame;
 
@@ -85,7 +85,8 @@ impl GGEZSession for SyncTestSession {
     /// resimulate and compare checksums with the original states. if checksums don't match, this will return [GGEZError::SyncTestFailed].
     fn advance_frame(&mut self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
         // save the current frame in the syncronization layer
-        self.sync_layer.save_current_state(interface);
+        self.sync_layer
+            .save_current_state(interface.save_game_state());
 
         // save a copy info in our separate queue so we have something to compare to later
         match self.sync_layer.get_last_saved_state() {
@@ -109,7 +110,7 @@ impl GGEZSession for SyncTestSession {
         // current input has been used, so we can delete the input bits
         self.current_input.erase_bits();
 
-        // simulated rollback section, but only if we have enough frames in the queue
+        // manual simulated rollback section without using the sync_layer, but only if we have enough frames in the queue
         if self.saved_frames.len() > self.check_distance as usize {
             // load the frame that lies `check_distance` frames in the past
             let frame_to_load = self.current_frame - self.check_distance as i32;

@@ -1,8 +1,8 @@
 use crate::game_info::GameInput;
-use crate::{FrameNumber, PlayerHandle, INPUT_QUEUE_LENGTH, NULL_FRAME};
+use crate::{FrameNumber, GGEZError, PlayerHandle, INPUT_QUEUE_LENGTH, NULL_FRAME};
 use std::cmp;
 
-/// `InputQueue` handles inputs for a single player. All methods have a lot of sanity checks and will panic if not used as intended.
+/// `InputQueue` handles inputs for a single player and saves them in a circular array. Valid Inputs are between `head` and `tail`.
 #[derive(Debug, Copy, Clone)]
 pub struct InputQueue {
     /// Identifies the player this InputQueue belongs to
@@ -64,7 +64,8 @@ impl InputQueue {
         self.frame_delay = delay;
     }
 
-    /// Resets all prediction errors back to `frame`.
+    /// Resets all prediction errors back to `frame` or the `last_requested_frame`, whichever comes first.
+    /// This is important to not throw away inputs that might still be necessary to synchronize.
     pub fn reset_prediction(&mut self, frame: FrameNumber) {
         assert!(self.first_incorrect_frame == NULL_FRAME || frame <= self.first_incorrect_frame);
 
@@ -74,19 +75,26 @@ impl InputQueue {
     }
 
     /// Returns a [GameInput], but only if the input for the requested frame is confirmed
-    pub fn get_confirmed_input(&self, requested_frame: FrameNumber) -> Option<GameInput> {
-        // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame
-        assert!(
-            self.first_incorrect_frame == NULL_FRAME
-                || self.first_incorrect_frame > requested_frame
-        );
+    pub fn get_confirmed_input(
+        &self,
+        requested_frame: FrameNumber,
+    ) -> Result<GameInput, GGEZError> {
+        // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should never ask for such a frame.
+        if self.first_incorrect_frame == NULL_FRAME || self.first_incorrect_frame > requested_frame
+        {
+            return Err(GGEZError::GeneralFailure(String::from(
+                "InputQueue::get_confirmed_input(): The requested confirmed input is beyond a detected incorrect frame.",
+            )));
+        }
 
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
         if self.inputs[offset].frame == requested_frame {
-            return Some(self.inputs[offset]); // GameInput has copy semantics
+            return Ok(self.inputs[offset]); // GameInput has copy semantics
         }
-        None
+        Err(GGEZError::GeneralFailure(String::from(
+            "InputQueue::get_confirmed_input(): The requested confirmed input could not be found",
+        )))
     }
 
     /// Discards confirmed frames up to given `frame` from the queue. All confirmed frames are guaranteed to be synchronized between players, so there is no need to save the inputs anymore.
@@ -106,7 +114,7 @@ impl InputQueue {
         }
     }
 
-    /// Returns the game input of a single player for a given frame
+    /// Returns the game input of a single player for a given frame, if that input does not exist, we return a prediction instead.
     pub fn get_input(&mut self, requested_frame: FrameNumber) -> GameInput {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.

@@ -2,12 +2,11 @@ use crate::game_info::GameInput;
 use crate::game_info::GameState;
 use crate::input_queue::InputQueue;
 use crate::{
-    FrameNumber, GGEZError, GGEZInterface, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES,
-    NULL_FRAME,
+    FrameNumber, GGEZError, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES, NULL_FRAME,
 };
 #[derive(Debug, Clone)]
 struct SavedStates {
-    states: [GameState; MAX_PREDICTION_FRAMES as usize + 2],
+    states: [GameState; MAX_PREDICTION_FRAMES as usize],
     head: usize,
 }
 
@@ -44,7 +43,7 @@ impl SyncLayer {
             current_frame: 0,
             saved_states: SavedStates {
                 head: 0,
-                states: [BLANK_STATE; MAX_PREDICTION_FRAMES + 2],
+                states: [BLANK_STATE; MAX_PREDICTION_FRAMES],
             },
             input_queues: input_queues,
         }
@@ -58,8 +57,7 @@ impl SyncLayer {
         self.current_frame += 1;
     }
 
-    pub fn save_current_state(&mut self, interface: &impl GGEZInterface) {
-        let state_to_save = interface.save_game_state();
+    pub fn save_current_state(&mut self, state_to_save: GameState) {
         self.saved_states.head = (self.saved_states.head + 1) % self.saved_states.states.len();
         assert!(state_to_save.frame != NULL_FRAME);
         self.saved_states.states[self.saved_states.head] = state_to_save;
@@ -103,11 +101,7 @@ impl SyncLayer {
     }
 
     /// Loads the gamestate indicated by the frame_to_load. After execution, `self.saved_states.head` is set to the loaded state.
-    pub fn load_frame(
-        &mut self,
-        interface: &mut impl GGEZInterface,
-        frame_to_load: FrameNumber,
-    ) -> Result<(), GGEZError> {
+    pub fn load_frame(&mut self, frame_to_load: FrameNumber) -> Result<&GameState, GGEZError> {
         // The state is the current state (not yet saved) or the state cannot possibly be inside our queue since it is too far away in the past
         if self.current_frame == frame_to_load
             || frame_to_load == NULL_FRAME
@@ -121,9 +115,7 @@ impl SyncLayer {
         let state_to_load = &self.saved_states.states[self.saved_states.head];
 
         assert_eq!(state_to_load.frame, frame_to_load);
-        interface.load_game_state(state_to_load);
-
-        Ok(())
+        Ok(&self.saved_states.states[self.saved_states.head])
     }
 
     pub fn add_local_input(

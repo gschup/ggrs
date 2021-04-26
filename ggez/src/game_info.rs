@@ -55,7 +55,7 @@ impl GameInput {
         }
     }
 
-    pub fn add_input(&mut self, bits: &[u8]) {
+    pub fn copy_input(&mut self, bits: &[u8]) {
         assert!(bits.len() <= crate::MAX_INPUT_BYTES);
         self.bits[0..self.size].copy_from_slice(bits);
     }
