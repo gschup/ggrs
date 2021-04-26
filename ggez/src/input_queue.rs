@@ -62,8 +62,6 @@ impl InputQueue {
         self.frame_delay = delay;
     }
 
-    /// Resets all prediction errors back to `frame` or the `last_requested_frame`, whichever comes first.
-    /// This is important to not throw away inputs that might still be necessary to synchronize.
     pub fn reset_prediction(&mut self, frame: FrameNumber) {
         assert!(self.first_incorrect_frame == NULL_FRAME || frame <= self.first_incorrect_frame);
 
@@ -72,18 +70,17 @@ impl InputQueue {
         self.last_requested_frame = NULL_FRAME;
     }
 
-    /// Returns a [GameInput], but only if the input for the requested frame is confirmed
+    /// Returns a [GameInput], but only if the input for the requested frame is confirmed.
+    /// In contrast to `get_input()`, this will not return a prediction if there is no confirmed input for the frame, but throw an error instead.
     pub fn get_confirmed_input(
         &self,
         requested_frame: FrameNumber,
     ) -> Result<GameInput, GGEZError> {
-        // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should never ask for such a frame.
-        if self.first_incorrect_frame == NULL_FRAME || self.first_incorrect_frame > requested_frame
-        {
-            return Err(GGEZError::GeneralFailure(String::from(
-                "InputQueue::get_confirmed_input(): The requested confirmed input is beyond a detected incorrect frame.",
-            )));
-        }
+        // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should not have asked for a known incorrect frame.
+        assert!(
+            self.first_incorrect_frame == NULL_FRAME
+                || self.first_incorrect_frame > requested_frame
+        );
 
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
