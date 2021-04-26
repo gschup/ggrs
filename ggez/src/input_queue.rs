@@ -1,5 +1,5 @@
 use crate::game_info::GameInput;
-use crate::{FrameNumber, GGEZError, PlayerHandle, INPUT_QUEUE_LENGTH, NULL_FRAME};
+use crate::{FrameNumber, PlayerHandle, INPUT_QUEUE_LENGTH, NULL_FRAME};
 use std::cmp;
 
 /// `InputQueue` handles inputs for a single player and saves them in a circular array. Valid Inputs are between `head` and `tail`.
@@ -71,11 +71,8 @@ impl InputQueue {
     }
 
     /// Returns a [GameInput], but only if the input for the requested frame is confirmed.
-    /// In contrast to `get_input()`, this will not return a prediction if there is no confirmed input for the frame, but throw an error instead.
-    pub fn get_confirmed_input(
-        &self,
-        requested_frame: FrameNumber,
-    ) -> Result<GameInput, GGEZError> {
+    /// In contrast to `get_input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
+    pub fn get_confirmed_input(&self, requested_frame: FrameNumber) -> GameInput {
         // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should not have asked for a known incorrect frame.
         assert!(
             self.first_incorrect_frame == NULL_FRAME
@@ -85,11 +82,11 @@ impl InputQueue {
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
         if self.inputs[offset].frame == requested_frame {
-            return Ok(self.inputs[offset]); // GameInput has copy semantics
+            return self.inputs[offset]; // GameInput has copy semantics
         }
-        Err(GGEZError::GeneralFailure(String::from(
-            "InputQueue::get_confirmed_input(): The requested confirmed input could not be found",
-        )))
+        panic!(
+            "SyncLayer::get_confirmed_input(): There is no confirmed input for the requested frame"
+        );
     }
 
     /// Discards confirmed frames up to given `frame` from the queue. All confirmed frames are guaranteed to be synchronized between players, so there is no need to save the inputs anymore.

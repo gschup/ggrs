@@ -58,8 +58,8 @@ impl SyncLayer {
     }
 
     pub fn save_current_state(&mut self, state_to_save: GameState) {
-        self.saved_states.head = (self.saved_states.head + 1) % self.saved_states.states.len();
         assert!(state_to_save.frame != NULL_FRAME);
+        self.saved_states.head = (self.saved_states.head + 1) % self.saved_states.states.len();
         self.saved_states.states[self.saved_states.head] = state_to_save;
     }
 
@@ -75,6 +75,12 @@ impl SyncLayer {
         assert!(delay <= MAX_INPUT_DELAY);
 
         self.input_queues[player_handle as usize].set_frame_delay(delay);
+    }
+
+    pub fn reset_prediction(&mut self, frame: FrameNumber) {
+        for i in 0..self.num_players {
+            self.input_queues[i as usize].reset_prediction(frame);
+        }
     }
 
     /// Searches the saved states and returns the index of the state that matches the given frame number.
@@ -134,6 +140,15 @@ impl SyncLayer {
         let mut inputs = Vec::new();
         for i in 0..self.num_players {
             inputs.push(self.input_queues[i as usize].get_input(self.current_frame));
+        }
+        inputs
+    }
+
+    /// Returns confirmed inputs for all players for the current frame of the sync layer.
+    pub fn get_confirmed_inputs(&mut self) -> Vec<GameInput> {
+        let mut inputs = Vec::new();
+        for i in 0..self.num_players {
+            inputs.push(self.input_queues[i as usize].get_confirmed_input(self.current_frame));
         }
         inputs
     }
