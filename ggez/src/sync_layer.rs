@@ -123,8 +123,19 @@ impl SyncLayer {
         Ok(())
     }
 
+    /// Adds remote input to the correspoinding input queue.
+    /// Unlike `add_local_input`, this will not check for correct conditions, as remote inputs have already been checked on another device.
     pub fn add_remote_input(&mut self, player_handle: PlayerHandle, input: &GameInput) {
         self.input_queues[player_handle as PlayerHandle].add_input(input);
+    }
+
+    /// Returns inputs for all players for the current frame of the sync layer. If there are none for a specific player, return predictions.
+    pub fn get_synchronized_inputs(&mut self) -> Vec<GameInput> {
+        let mut inputs = Vec::new();
+        for i in 0..self.num_players {
+            inputs.push(self.input_queues[i as usize].get_input(self.current_frame));
+        }
+        inputs
     }
 
     /// Sets the last confirmed frame to a given frame. By raising the last confirmed frame, we can discard all previous frames, as they are no longer necessary.
