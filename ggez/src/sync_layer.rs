@@ -106,6 +106,7 @@ impl SyncLayer {
         state_to_load
     }
 
+    /// Adds local input to the corresponding input queue. Checks if the prediction threshold has been reached.
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,

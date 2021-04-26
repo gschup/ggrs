@@ -81,11 +81,31 @@ mod game_input_tests {
     use bincode;
 
     #[test]
-    fn test_input_equality() {
+    fn test_input_equality_bits_only() {
         let fake_inputs: u32 = 5;
         let input_size = std::mem::size_of::<u32>();
         let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
         let mut input1 = GameInput::new(0, None, input_size);
         input1.copy_input(&serialized_inputs);
+        let mut input2 = GameInput::new(5, None, input_size);
+        input2.copy_input(&serialized_inputs);
+        assert!(input1.equal(&input2, true)); // different frames, but does not matter
+    }
+
+    #[test]
+    fn test_input_equality_fail() {
+        let input_size = std::mem::size_of::<u32>();
+
+        let fake_inputs: u32 = 5;
+        let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
+        let mut input1 = GameInput::new(0, None, input_size);
+        input1.copy_input(&serialized_inputs);
+
+        let fake_inputs: u32 = 7;
+        let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
+        let mut input2 = GameInput::new(0, None, input_size);
+        input2.copy_input(&serialized_inputs);
+
+        assert!(!input1.equal(&input2, false)); // different bits
     }
 }

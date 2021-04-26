@@ -175,7 +175,7 @@ impl InputQueue {
         }
     }
 
-    /// Adds an input frame to the queue at the given frame number
+    /// Adds an input frame to the queue at the given frame number. If there are predicted inputs, we will check those and mark them as incorrect, if necessary.
     fn add_input_by_frame(&mut self, input: &GameInput, frame_number: FrameNumber) {
         let previous_position: usize;
         match self.head {
