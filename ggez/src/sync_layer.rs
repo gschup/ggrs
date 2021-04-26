@@ -6,7 +6,7 @@ use crate::{
 };
 #[derive(Debug, Clone)]
 struct SavedStates {
-    states: [GameState; MAX_PREDICTION_FRAMES as usize],
+    states: [GameState; MAX_PREDICTION_FRAMES],
     head: usize,
 }
 
@@ -125,14 +125,14 @@ impl SyncLayer {
 
         // The input provided should match the current frame
         assert_eq!(input.frame, self.current_frame);
-        self.input_queues[player_handle as PlayerHandle].add_input(input);
+        self.input_queues[player_handle].add_input(input);
         Ok(())
     }
 
     /// Adds remote input to the correspoinding input queue.
     /// Unlike `add_local_input`, this will not check for correct conditions, as remote inputs have already been checked on another device.
     pub fn add_remote_input(&mut self, player_handle: PlayerHandle, input: &GameInput) {
-        self.input_queues[player_handle as PlayerHandle].add_input(input);
+        self.input_queues[player_handle].add_input(input);
     }
 
     /// Returns inputs for all players for the current frame of the sync layer. If there are none for a specific player, return predictions.
