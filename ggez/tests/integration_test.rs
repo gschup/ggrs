@@ -26,10 +26,14 @@ struct GameStateStub {
 }
 
 impl GameStateStub {
-    fn advance_frame(&mut self) {
-        // we ignore the inputs for now
+    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
+        let player0_inputs: u32 = bincode::deserialize(&inputs[1].bits).unwrap();
+        if player0_inputs % 2 == 0 {
+            self.state += 2;
+        } else {
+            self.state += 1;
+        }
         self.frame += 1;
-        self.state += 2;
     }
 }
 
@@ -50,13 +54,65 @@ impl GGEZInterface for GameStub {
         self.gs = bincode::deserialize(&state.buffer).unwrap();
     }
 
-    fn advance_frame(&mut self, _inputs: Vec<GameInput>, _disconnect_flags: u8) {
-        self.gs.advance_frame();
+    fn advance_frame(&mut self, inputs: Vec<GameInput>, _disconnect_flags: u8) {
+        self.gs.advance_frame(inputs);
     }
 
     fn on_event(&mut self, info: GGEZEvent) {
         println!("{:?}", info);
     }
+}
+
+#[test]
+fn test_add_player() {
+    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+
+    // add players correctly
+    let dummy_player_0 = Player::new(PlayerType::Local, 0);
+    let dummy_player_1 = Player::new(PlayerType::Local, 1);
+
+    match sess.add_player(&dummy_player_0) {
+        Ok(handle) => assert_eq!(handle, 0),
+        Err(_) => assert!(false),
+    }
+
+    match sess.add_player(&dummy_player_1) {
+        Ok(handle) => assert_eq!(handle, 1),
+        Err(_) => assert!(false),
+    }
+}
+
+#[test]
+fn test_add_player_invalid_handle() {
+    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+
+    // add a player incorrectly
+    let incorrect_player = Player::new(PlayerType::Local, 3);
+
+    assert!(sess.add_player(&incorrect_player).is_err());
+}
+
+#[test]
+fn test_add_local_input_not_running() {
+    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+
+    // add 0 input for player 0
+    let fake_inputs: u32 = 0;
+    let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
+
+    assert!(sess.add_local_input(0, &serialized_inputs).is_err());
+}
+
+#[test]
+fn test_add_local_input_invalid_handle() {
+    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    sess.start_session().unwrap();
+
+    // add 0 input for player 3
+    let fake_inputs: u32 = 0;
+    let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
+
+    assert!(sess.add_local_input(3, &serialized_inputs).is_err());
 }
 
 #[test]
@@ -96,7 +152,7 @@ fn test_advance_frames_with_delayed_input() {
     sess.set_frame_delay(2, handle).unwrap();
     sess.start_session().unwrap();
 
-    for i in 0..10 {
+    for i in 0..100 {
         let input: u32 = i;
         let serialized_input = bincode::serialize(&input).unwrap();
         sess.add_local_input(handle, &serialized_input).unwrap();
