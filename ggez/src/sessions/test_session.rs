@@ -102,8 +102,13 @@ impl GGEZSession for SyncTestSession {
             }
         };
 
-        // advance the frame with the correct inputs (in sync testing that is just the current input)
-        interface.advance_frame(vec![self.current_input], 0); //TODO
+        // get the correct inputs for all players from the sync layer
+        let sync_inputs = self.sync_layer.get_synchronized_inputs();
+        assert_eq!(sync_inputs[0].frame, self.sync_layer.get_current_frame());
+        assert_eq!(sync_inputs[0].frame, self.current_frame);
+
+        // advance the frame
+        interface.advance_frame(sync_inputs, 0); 
         self.sync_layer.advance_frame();
         self.current_frame += 1;
 
