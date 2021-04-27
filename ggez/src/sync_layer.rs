@@ -106,9 +106,13 @@ impl SyncLayer {
 
         self.saved_states.head = self.find_saved_frame_index(frame_to_load);
         let state_to_load = &self.saved_states.states[self.saved_states.head];
-        self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES;
-
         assert_eq!(state_to_load.frame, frame_to_load);
+
+        // Reset framecount and the head of the state ring-buffer to point in
+        // advance of the current frame (as if we had just finished executing it).
+        self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES;
+        self.current_frame = frame_to_load;
+        
         state_to_load
     }
 

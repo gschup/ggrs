@@ -160,7 +160,7 @@ impl GGEZSession for SyncTestSession {
             let gs_compare = interface.save_game_state();
             assert_eq!(gs_compare.frame, self.current_frame);
 
-            // since this is a sync test, we "cheat" by setting the last confirmed state to the current state - the check_distance, so the sync layer wont complain about missing
+            // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer wont complain about missing
             // inputs from other players
             self.sync_layer
                 .set_last_confirmed_frame(self.current_frame - self.check_distance as i32);
