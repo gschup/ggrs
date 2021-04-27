@@ -146,14 +146,12 @@ impl GGEZSession for SyncTestSession {
                 assert_eq!(gs_compare.frame, old_frame_info.frame);
 
                 // compare the checksums
-                match (gs_compare.checksum, old_frame_info.state.checksum) {
-                    (Some(cs1), Some(cs2)) => {
-                        if cs1 != cs2 {
-                            return Err(GGEZError::SyncTestFailed);
-                        }
+                if let (Some(cs1), Some(cs2)) = (gs_compare.checksum, old_frame_info.state.checksum)
+                {
+                    if cs1 != cs2 {
+                        return Err(GGEZError::SyncTestFailed);
                     }
-                    _ => (),
-                };
+                }
 
                 // advance the frame
                 interface.advance_frame(vec![old_frame_info.input], 0);
