@@ -187,6 +187,9 @@ impl GGEZSession for SyncTestSession {
         frame_delay: u32,
         player_handle: PlayerHandle,
     ) -> Result<(), GGEZError> {
+        if self.running {
+            return Err(GGEZError::InvalidRequest);
+        }
         self.sync_layer.set_frame_delay(player_handle, frame_delay);
         Ok(())
     }
