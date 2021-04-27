@@ -77,7 +77,7 @@ impl GGEZSession for SyncTestSession {
 
         // send the input into the sync layer
         self.sync_layer
-            .add_local_input(player_handle, &self.current_input)?;
+            .add_local_input(player_handle, self.current_input)?;
         Ok(())
     }
 
@@ -176,11 +176,6 @@ impl GGEZSession for SyncTestSession {
         Ok(())
     }
 
-    /// Nothing happens here in [SyncTestSession]. There are no packets to be received or sent and no rollbacks can occur other than the manually induced ones.
-    fn idle(&self, _interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
-        Ok(())
-    }
-
     /// Sets the input delay for a given player to a given number.
     fn set_frame_delay(
         &mut self,
@@ -194,6 +189,11 @@ impl GGEZSession for SyncTestSession {
         Ok(())
     }
 
+    /// Nothing happens here in [SyncTestSession]. There are no packets to be received or sent and no rollbacks can occur other than the manually induced ones.
+    fn idle(&self, _interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
+        Ok(())
+    }
+    
     /// Not supported in [SyncTestSession].
     fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGEZError> {
         Err(GGEZError::Unsupported)

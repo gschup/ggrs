@@ -1,4 +1,11 @@
 #![forbid(unsafe_code)] // let us try
+#![warn(
+    clippy::all,
+    clippy::restriction,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::cargo,
+)]
 
 use crate::game_info::{GameInput, GameState};
 use crate::sessions::test_session::SyncTestSession;

@@ -153,7 +153,7 @@ impl InputQueue {
     }
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
-    pub fn add_input(&mut self, input: &GameInput) {
+    pub fn add_input(&mut self, input: GameInput) {
         // These next two lines simply verify that inputs are passed in sequentially by the user, regardless of frame delay.
         assert!(
             self.last_added_frame == NULL_FRAME
@@ -169,7 +169,7 @@ impl InputQueue {
     }
 
     /// Adds an input frame to the queue at the given frame number. If there are predicted inputs, we will check those and mark them as incorrect, if necessary.
-    fn add_input_by_frame(&mut self, input: &GameInput, frame_number: FrameNumber) {
+    fn add_input_by_frame(&mut self, input: GameInput, frame_number: FrameNumber) {
         let previous_position: usize;
         match self.head {
             0 => previous_position = INPUT_QUEUE_LENGTH - 1,
@@ -235,7 +235,7 @@ impl InputQueue {
         // We need to replicate the last frame in the queue several times in order to fill the space left.
         while expected_frame < input_frame {
             let input_to_replicate = self.inputs[previous_position];
-            self.add_input_by_frame(&input_to_replicate, expected_frame);
+            self.add_input_by_frame(input_to_replicate, expected_frame);
             expected_frame += 1;
         }
 
@@ -263,9 +263,9 @@ mod input_queue_tests {
     fn test_add_input_wrong_frame() {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
         let input = GameInput::new(0, None, std::mem::size_of::<u32>());
-        queue.add_input(&input); // fine
+        queue.add_input(input); // fine
         let input_wrong_frame = GameInput::new(3, None, std::mem::size_of::<u32>());
-        queue.add_input(&input_wrong_frame); // not fine
+        queue.add_input(input_wrong_frame); // not fine
     }
 
     #[test]
@@ -273,8 +273,8 @@ mod input_queue_tests {
     fn test_add_input_twice() {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
         let input = GameInput::new(0, None, std::mem::size_of::<u32>());
-        queue.add_input(&input); // fine
-        queue.add_input(&input); // not fine
+        queue.add_input(input); // fine
+        queue.add_input(input); // not fine
     }
 
     #[test]
@@ -282,7 +282,7 @@ mod input_queue_tests {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
         for i in 0..10 {
             let input = GameInput::new(i, None, std::mem::size_of::<u32>());
-            queue.add_input(&input);
+            queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
         }
@@ -296,7 +296,7 @@ mod input_queue_tests {
             let fake_inputs: u32 = i as u32;
             let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
             input.copy_input(&serialized_inputs);
-            queue.add_input(&input);
+            queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
             let input_in_queue = queue.get_input(i);
@@ -314,7 +314,7 @@ mod input_queue_tests {
             let fake_inputs: u32 = i as u32;
             let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
             input.copy_input(&serialized_inputs);
-            queue.add_input(&input);
+            queue.add_input(input);
             assert_eq!(queue.last_added_frame, i + delay);
             assert_eq!(queue.length, (i + delay + 1) as usize);
             let input_in_queue = queue.get_input(i + delay);

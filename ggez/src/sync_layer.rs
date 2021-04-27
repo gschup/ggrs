@@ -115,7 +115,7 @@ impl SyncLayer {
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
-        input: &GameInput,
+        input: GameInput,
     ) -> Result<(), GGEZError> {
         let frames_behind = self.current_frame - self.last_confirmed_frame;
         if frames_behind > MAX_PREDICTION_FRAMES as i32 {
@@ -130,7 +130,7 @@ impl SyncLayer {
 
     /// Adds remote input to the correspoinding input queue.
     /// Unlike `add_local_input`, this will not check for correct conditions, as remote inputs have already been checked on another device.
-    pub fn add_remote_input(&mut self, player_handle: PlayerHandle, input: &GameInput) {
+    pub fn add_remote_input(&mut self, player_handle: PlayerHandle, input: GameInput) {
         self.input_queues[player_handle].add_input(input);
     }
 
