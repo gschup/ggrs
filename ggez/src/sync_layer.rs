@@ -94,15 +94,10 @@ impl SyncLayer {
         panic!("SyncLayer::find_saved_frame_index(): requested state could not be found");
     }
 
-    /// Loads the gamestate indicated by the frame_to_load. After execution, `self.saved_states.head` is set to the loaded state.
+    /// Loads the gamestate indicated by the frame_to_load. After execution, `self.saved_states.head` is set one position after the loaded state.
     pub fn load_frame(&mut self, frame_to_load: FrameNumber) -> &GameState {
-        // The state is the current state (not yet saved) or the state cannot possibly be inside our queue since it is too far away in the past
-        assert!(
-            self.current_frame == frame_to_load
-                || frame_to_load == NULL_FRAME
-                || frame_to_load > self.current_frame
-                || frame_to_load < self.current_frame - MAX_PREDICTION_FRAMES as i32
-        );
+        // The state should not be the current state or the state should not be in the future or too far away in the past
+        assert!(frame_to_load != NULL_FRAME && frame_to_load < self.current_frame && frame_to_load >= self.current_frame - MAX_PREDICTION_FRAMES as i32);
 
         self.saved_states.head = self.find_saved_frame_index(frame_to_load);
         let state_to_load = &self.saved_states.states[self.saved_states.head];
