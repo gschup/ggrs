@@ -39,44 +39,6 @@ pub mod sessions {
     pub mod test_session;
 }
 
-#[derive(Debug)]
-pub struct ConnectedToPeer {
-    pub player_handle: PlayerHandle,
-}
-
-#[derive(Debug)]
-pub struct SynchronizingWithPeer {
-    pub count: u32,
-    pub total: u32,
-    pub player_handle: PlayerHandle,
-}
-
-#[derive(Debug)]
-pub struct SynchronizedWithPeer {
-    pub player_handle: PlayerHandle,
-}
-
-#[derive(Debug)]
-pub struct DisconnectedFromPeer {
-    pub player_handle: PlayerHandle,
-}
-
-#[derive(Debug)]
-pub struct TimeSyncEvent {
-    pub frames_ahead: u32,
-}
-
-#[derive(Debug)]
-pub struct ConnectionInterrupted {
-    pub player_handle: PlayerHandle,
-    pub disconnect_timeout: u32,
-}
-
-#[derive(Debug)]
-pub struct ConnectionResumed {
-    pub player_handle: PlayerHandle,
-}
-
 /// The GGRSInterface trait describes the functions that your application must provide. GGRS will call these functions after you called [GGRSSession::advance_frame()] or
 /// [GGRSSession::idle()]. All functions must be implemented.
 pub trait GGRSInterface {
