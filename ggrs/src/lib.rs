@@ -170,7 +170,7 @@ pub trait GGRSSession: Sized {
     fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGSRSError>;
 
     /// Used to fetch some statistics about the quality of the network connection.
-    fn get_network_stats(
+    fn network_stats(
         &self,
         player_handle: PlayerHandle,
     ) -> Result<network_stats::NetworkStats, GGSRSError>;

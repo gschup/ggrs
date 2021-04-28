@@ -89,7 +89,7 @@ impl GGRSSession for SyncTestSession {
             .save_current_state(interface.save_game_state());
 
         // save a copy info in our separate queue so we have something to compare to later
-        match self.sync_layer.get_last_saved_state() {
+        match self.sync_layer.last_saved_state() {
             Some(fi) => self.saved_frames.push_back(FrameInfo {
                 frame: self.current_frame,
                 state: fi.clone(),
@@ -103,8 +103,8 @@ impl GGRSSession for SyncTestSession {
         };
 
         // get the correct inputs for all players from the sync layer
-        let sync_inputs = self.sync_layer.get_synchronized_inputs();
-        assert_eq!(sync_inputs[0].frame, self.sync_layer.get_current_frame());
+        let sync_inputs = self.sync_layer.synchronized_inputs();
+        assert_eq!(sync_inputs[0].frame, self.sync_layer.current_frame());
         assert_eq!(sync_inputs[0].frame, self.current_frame);
 
         // advance the frame
@@ -122,7 +122,7 @@ impl GGRSSession for SyncTestSession {
             interface.load_game_state(self.sync_layer.load_frame(frame_to_load));
 
             // sanity check frame counts
-            assert_eq!(self.sync_layer.get_current_frame(), frame_to_load);
+            assert_eq!(self.sync_layer.current_frame(), frame_to_load);
 
             // resimulate the last frames
             for i in (0..self.check_distance).rev() {
@@ -145,10 +145,10 @@ impl GGRSSession for SyncTestSession {
                 );
 
                 // the current state should have the correct frame
-                assert_eq!(self.sync_layer.get_current_frame(), old_frame_info.frame);
+                assert_eq!(self.sync_layer.current_frame(), old_frame_info.frame);
 
                 // compare the checksums
-                let last_saved_state = self.sync_layer.get_last_saved_state().unwrap();
+                let last_saved_state = self.sync_layer.last_saved_state().unwrap();
                 if let (Some(cs1), Some(cs2)) =
                     (last_saved_state.checksum, old_frame_info.state.checksum)
                 {
@@ -158,14 +158,14 @@ impl GGRSSession for SyncTestSession {
                 }
 
                 // advance the frame
-                let sync_inputs = self.sync_layer.get_synchronized_inputs();
+                let sync_inputs = self.sync_layer.synchronized_inputs();
                 self.sync_layer.advance_frame();
                 interface.advance_frame(sync_inputs, 0);
             }
             // we should have arrived back at the current frame
             let gs_compare = interface.save_game_state();
             assert_eq!(gs_compare.frame, self.current_frame);
-            assert_eq!(self.sync_layer.get_current_frame(), self.current_frame);
+            assert_eq!(self.sync_layer.current_frame(), self.current_frame);
 
             // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer wont complain about missing
             // inputs from other players
@@ -174,7 +174,7 @@ impl GGRSSession for SyncTestSession {
         }
 
         // after all of this, the sync layer and our own frame_counting should match
-        assert_eq!(self.sync_layer.get_current_frame(), self.current_frame);
+        assert_eq!(self.sync_layer.current_frame(), self.current_frame);
         Ok(())
     }
 
@@ -202,7 +202,7 @@ impl GGRSSession for SyncTestSession {
     }
 
     /// Not supported in [SyncTestSession].
-    fn get_network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGSRSError> {
+    fn network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGSRSError> {
         Err(GGSRSError::Unsupported)
     }
 

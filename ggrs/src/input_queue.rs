@@ -50,11 +50,11 @@ impl InputQueue {
         }
     }
 
-    pub fn get_last_confirmed_frame(&self) -> FrameNumber {
+    pub fn last_confirmed_frame(&self) -> FrameNumber {
         self.last_added_frame
     }
 
-    pub fn get_first_incorrect_frame(&self) -> FrameNumber {
+    pub fn first_incorrect_frame(&self) -> FrameNumber {
         self.first_incorrect_frame
     }
 
@@ -71,8 +71,8 @@ impl InputQueue {
     }
 
     /// Returns a [GameInput], but only if the input for the requested frame is confirmed.
-    /// In contrast to `get_input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
-    pub fn get_confirmed_input(&self, requested_frame: FrameNumber) -> GameInput {
+    /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
+    pub fn confirmed_input(&self, requested_frame: FrameNumber) -> GameInput {
         // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should not have asked for a known incorrect frame.
         assert!(
             self.first_incorrect_frame == NULL_FRAME
@@ -84,9 +84,7 @@ impl InputQueue {
         if self.inputs[offset].frame == requested_frame {
             return self.inputs[offset]; // GameInput has copy semantics
         }
-        panic!(
-            "SyncLayer::get_confirmed_input(): There is no confirmed input for the requested frame"
-        );
+        panic!("SyncLayer::confirmed_input(): There is no confirmed input for the requested frame");
     }
 
     /// Discards confirmed frames up to given `frame` from the queue. All confirmed frames are guaranteed to be synchronized between players, so there is no need to save the inputs anymore.
@@ -107,7 +105,7 @@ impl InputQueue {
     }
 
     /// Returns the game input of a single player for a given frame, if that input does not exist, we return a prediction instead.
-    pub fn get_input(&mut self, requested_frame: FrameNumber) -> GameInput {
+    pub fn input(&mut self, requested_frame: FrameNumber) -> GameInput {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
         assert!(self.first_incorrect_frame < 0);
@@ -190,11 +188,10 @@ impl InputQueue {
         self.last_added_frame = frame_number;
 
         // We have been predicting. See if the inputs we've gotten match what we've been predicting. If so, don't worry about it.
-        // If not, remember the first input which was incorrect so we can report it in GetFirstIncorrectFrame()
         if self.prediction.frame != NULL_FRAME {
             assert!(frame_number == self.prediction.frame);
 
-            // Remember the first input which was incorrect so we can report it in GetFirstIncorrectFrame()
+            // Remember the first input which was incorrect so we can report it in first_incorrect_frame()
             if self.first_incorrect_frame == NULL_FRAME && !self.prediction.equal(&input, true) {
                 self.first_incorrect_frame = frame_number;
             }
@@ -289,7 +286,7 @@ mod input_queue_tests {
     }
 
     #[test]
-    fn test_get_input_sequentially() {
+    fn test_input_sequentially() {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
         for i in 0..10 {
             let mut input = GameInput::new(i, None, std::mem::size_of::<u32>());
@@ -299,7 +296,7 @@ mod input_queue_tests {
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
-            let input_in_queue = queue.get_input(i);
+            let input_in_queue = queue.input(i);
             assert!(input_in_queue.equal(&input, false));
         }
     }
@@ -317,7 +314,7 @@ mod input_queue_tests {
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i + delay);
             assert_eq!(queue.length, (i + delay + 1) as usize);
-            let input_in_queue = queue.get_input(i + delay);
+            let input_in_queue = queue.input(i + delay);
             assert!(input_in_queue.equal(&input, true));
         }
     }

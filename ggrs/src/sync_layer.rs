@@ -49,7 +49,7 @@ impl SyncLayer {
         }
     }
 
-    pub fn get_current_frame(&self) -> FrameNumber {
+    pub fn current_frame(&self) -> FrameNumber {
         self.current_frame
     }
 
@@ -63,7 +63,7 @@ impl SyncLayer {
         self.saved_states.states[self.saved_states.head] = state_to_save;
     }
 
-    pub fn get_last_saved_state(&self) -> Option<&GameState> {
+    pub fn last_saved_state(&self) -> Option<&GameState> {
         match self.saved_states.states[self.saved_states.head].frame {
             NULL_FRAME => None,
             _ => Some(&self.saved_states.states[self.saved_states.head]),
@@ -139,19 +139,19 @@ impl SyncLayer {
     }
 
     /// Returns inputs for all players for the current frame of the sync layer. If there are none for a specific player, return predictions.
-    pub fn get_synchronized_inputs(&mut self) -> Vec<GameInput> {
+    pub fn synchronized_inputs(&mut self) -> Vec<GameInput> {
         let mut inputs = Vec::new();
         for i in 0..self.num_players {
-            inputs.push(self.input_queues[i as usize].get_input(self.current_frame));
+            inputs.push(self.input_queues[i as usize].input(self.current_frame));
         }
         inputs
     }
 
     /// Returns confirmed inputs for all players for the current frame of the sync layer.
-    pub fn get_confirmed_inputs(&mut self) -> Vec<GameInput> {
+    pub fn confirmed_inputs(&mut self) -> Vec<GameInput> {
         let mut inputs = Vec::new();
         for i in 0..self.num_players {
-            inputs.push(self.input_queues[i as usize].get_confirmed_input(self.current_frame));
+            inputs.push(self.input_queues[i as usize].confirmed_input(self.current_frame));
         }
         inputs
     }
