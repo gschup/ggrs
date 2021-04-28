@@ -9,6 +9,7 @@
 
 use crate::error::GGSRSError;
 use crate::frame_info::{GameInput, GameState};
+use crate::network_stats::NetworkStats;
 use crate::sessions::test_session::SyncTestSession;
 
 /// The maximum number of players allowed.
@@ -87,10 +88,7 @@ pub trait GGRSSession: Sized {
     fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGSRSError>;
 
     /// Used to fetch some statistics about the quality of the network connection.
-    fn network_stats(
-        &self,
-        player_handle: PlayerHandle,
-    ) -> Result<network_stats::NetworkStats, GGSRSError>;
+    fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGSRSError>;
 
     /// Change the amount of frames GGRS will delay your local inputs. Must be called before the first call to [GGRSSession::advance_frame()].
     fn set_frame_delay(
