@@ -97,7 +97,11 @@ impl SyncLayer {
     /// Loads the gamestate indicated by the frame_to_load. After execution, `self.saved_states.head` is set one position after the loaded state.
     pub fn load_frame(&mut self, frame_to_load: FrameNumber) -> &GameState {
         // The state should not be the current state or the state should not be in the future or too far away in the past
-        assert!(frame_to_load != NULL_FRAME && frame_to_load < self.current_frame && frame_to_load >= self.current_frame - MAX_PREDICTION_FRAMES as i32);
+        assert!(
+            frame_to_load != NULL_FRAME
+                && frame_to_load < self.current_frame
+                && frame_to_load >= self.current_frame - MAX_PREDICTION_FRAMES as i32
+        );
 
         self.saved_states.head = self.find_saved_frame_index(frame_to_load);
         let state_to_load = &self.saved_states.states[self.saved_states.head];
@@ -107,7 +111,7 @@ impl SyncLayer {
         // advance of the current frame (as if we had just finished executing it).
         self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES;
         self.current_frame = frame_to_load;
-        
+
         state_to_load
     }
 

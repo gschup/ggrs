@@ -4,7 +4,7 @@
     clippy::restriction,
     clippy::pedantic,
     clippy::nursery,
-    clippy::cargo,
+    clippy::cargo
 )]
 
 use crate::game_info::{GameInput, GameState};

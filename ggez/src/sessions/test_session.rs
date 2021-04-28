@@ -108,7 +108,7 @@ impl GGEZSession for SyncTestSession {
         assert_eq!(sync_inputs[0].frame, self.current_frame);
 
         // advance the frame
-        interface.advance_frame(sync_inputs, 0); 
+        interface.advance_frame(sync_inputs, 0);
         self.sync_layer.advance_frame();
         self.current_frame += 1;
 
@@ -127,7 +127,8 @@ impl GGEZSession for SyncTestSession {
             // resimulate the last frames
             for i in (0..self.check_distance).rev() {
                 // let the sync layer save
-                self.sync_layer.save_current_state(interface.save_game_state());
+                self.sync_layer
+                    .save_current_state(interface.save_game_state());
 
                 // get the correct old frame info
                 let pos_in_queue = self.saved_frames.len() - 1 - i as usize;
@@ -148,7 +149,8 @@ impl GGEZSession for SyncTestSession {
 
                 // compare the checksums
                 let last_saved_state = self.sync_layer.get_last_saved_state().unwrap();
-                if let (Some(cs1), Some(cs2)) = (last_saved_state.checksum, old_frame_info.state.checksum)
+                if let (Some(cs1), Some(cs2)) =
+                    (last_saved_state.checksum, old_frame_info.state.checksum)
                 {
                     if cs1 != cs2 {
                         return Err(GGEZError::SyncTestFailed);
@@ -157,8 +159,8 @@ impl GGEZSession for SyncTestSession {
 
                 // advance the frame
                 let sync_inputs = self.sync_layer.get_synchronized_inputs();
-                self.sync_layer.advance_frame();                
-                interface.advance_frame(sync_inputs, 0); 
+                self.sync_layer.advance_frame();
+                interface.advance_frame(sync_inputs, 0);
             }
             // we should have arrived back at the current frame
             let gs_compare = interface.save_game_state();
@@ -193,7 +195,7 @@ impl GGEZSession for SyncTestSession {
     fn idle(&self, _interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
         Ok(())
     }
-    
+
     /// Not supported in [SyncTestSession].
     fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGEZError> {
         Err(GGEZError::Unsupported)
