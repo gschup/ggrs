@@ -3,9 +3,9 @@ use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-use ggez::game_info::{GameInput, GameState};
-use ggez::player::{Player, PlayerType};
-use ggez::{GGEZEvent, GGEZInterface, GGEZSession};
+use ggrs::game_info::{GameInput, GameState};
+use ggrs::player::{Player, PlayerType};
+use ggrs::{GGRSEvent, GGRSInterface, GGRSSession};
 
 struct GameStub {
     gs: GameStateStub,
@@ -37,7 +37,7 @@ impl GameStateStub {
     }
 }
 
-impl GGEZInterface for GameStub {
+impl GGRSInterface for GameStub {
     fn save_game_state(&self) -> GameState {
         let buffer = bincode::serialize(&self.gs).unwrap();
         let mut adler = Adler32::new();
@@ -58,14 +58,14 @@ impl GGEZInterface for GameStub {
         self.gs.advance_frame(inputs);
     }
 
-    fn on_event(&mut self, info: GGEZEvent) {
+    fn on_event(&mut self, info: GGRSEvent) {
         println!("{:?}", info);
     }
 }
 
 #[test]
 fn test_add_player() {
-    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>());
 
     // add players correctly
     let dummy_player_0 = Player::new(PlayerType::Local, 0);
@@ -84,7 +84,7 @@ fn test_add_player() {
 
 #[test]
 fn test_add_player_invalid_handle() {
-    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>());
 
     // add a player incorrectly
     let incorrect_player = Player::new(PlayerType::Local, 3);
@@ -94,7 +94,7 @@ fn test_add_player_invalid_handle() {
 
 #[test]
 fn test_add_local_input_not_running() {
-    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>());
 
     // add 0 input for player 0
     let fake_inputs: u32 = 0;
@@ -105,7 +105,7 @@ fn test_add_local_input_not_running() {
 
 #[test]
 fn test_add_local_input_invalid_handle() {
-    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>());
     sess.start_session().unwrap();
 
     // add 0 input for player 3
@@ -117,7 +117,7 @@ fn test_add_local_input_invalid_handle() {
 
 #[test]
 fn test_start_synctest_session() {
-    let mut sess = ggez::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>());
     let player = Player::new(PlayerType::Local, 1);
     let handle = sess.add_player(&player).unwrap();
     assert_eq!(handle, 1);
@@ -127,7 +127,7 @@ fn test_start_synctest_session() {
 #[test]
 fn test_advance_frame() {
     let mut stub = GameStub::new();
-    let mut sess = ggez::start_synctest_session(7, 2, std::mem::size_of::<u32>());
+    let mut sess = ggrs::start_synctest_session(7, 2, std::mem::size_of::<u32>());
     let player = Player::new(PlayerType::Local, 1);
     let handle = sess.add_player(&player).unwrap();
     assert_eq!(handle, 1);
@@ -145,7 +145,7 @@ fn test_advance_frame() {
 #[test]
 fn test_advance_frames_with_delayed_input() {
     let mut stub = GameStub::new();
-    let mut sess = ggez::start_synctest_session(7, 2, std::mem::size_of::<u32>());
+    let mut sess = ggrs::start_synctest_session(7, 2, std::mem::size_of::<u32>());
     let player = Player::new(PlayerType::Local, 1);
     let handle = sess.add_player(&player).unwrap();
     assert_eq!(handle, 1);

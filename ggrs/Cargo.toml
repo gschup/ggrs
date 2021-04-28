@@ -1,18 +1,17 @@
 [package]
-name = "ggez"
+name = "ggrs"
 version = "0.1.0"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
 edition = "2018"
 description = "A reimplementation of the GGPO network SDK(https://github.com/pond3r/ggpo) in Rust"
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/gschup/ggpo-rs"
-homepage = "https://github.com/gschup/ggpo-rs"
+repository = "https://github.com/gschup/ggrs"
+homepage = "https://github.com/gschup/ggrs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1"
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }

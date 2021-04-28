@@ -3,10 +3,10 @@ use crate::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::sync_layer::SyncLayer;
 use crate::{circular_buffer::CircularBuffer, NULL_FRAME};
-use crate::{FrameNumber, GGEZError, GGEZInterface, GGEZSession, PlayerHandle};
+use crate::{FrameNumber, GGRSInterface, GGRSSession, GGSRSError, PlayerHandle};
 
-/// During a SyncTestSession, GGEZ will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
-/// in your [GGEZInterface::save_game_state()] function, the SyncTestSession will compare the resimulated checksums with the original checksums and report if there was a mismatch.
+/// During a SyncTestSession, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
+/// in your [GGRSInterface::save_game_state()] function, the SyncTestSession will compare the resimulated checksums with the original checksums and report if there was a mismatch.
 #[derive(Debug)]
 pub struct SyncTestSession {
     current_frame: FrameNumber,
@@ -35,40 +35,40 @@ impl SyncTestSession {
     }
 }
 
-impl GGEZSession for SyncTestSession {
+impl GGRSSession for SyncTestSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
-    fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGEZError> {
+    fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGSRSError> {
         if player.player_handle > self.num_players as PlayerHandle {
-            return Err(GGEZError::InvalidRequest);
+            return Err(GGSRSError::InvalidRequest);
         }
         Ok(player.player_handle)
     }
 
     /// After you are done defining and adding all players, you should start the session. In a sync test, starting the session saves the initial game state and sets running to true.
     /// If the session is already running, return an error.
-    fn start_session(&mut self) -> Result<(), GGEZError> {
+    fn start_session(&mut self) -> Result<(), GGSRSError> {
         match self.running {
-            true => return Err(GGEZError::InvalidRequest),
+            true => return Err(GGSRSError::InvalidRequest),
             false => self.running = true,
         }
         self.current_frame = 0;
         Ok(())
     }
 
-    /// Used to notify GGEZ of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all players of type [PlayerType::Local].
+    /// Used to notify GGRS of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all players of type [PlayerType::Local].
     /// In the sync test, we don't send anything, we simply save the latest input.
     fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
         input: &[u8],
-    ) -> Result<(), GGEZError> {
+    ) -> Result<(), GGSRSError> {
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
-            return Err(GGEZError::InvalidPlayerHandle);
+            return Err(GGSRSError::InvalidPlayerHandle);
         }
         // session has not been started
         if !self.running {
-            return Err(GGEZError::NotSynchronized);
+            return Err(GGSRSError::NotSynchronized);
         }
         // copy the local input bits into the current input
         self.current_input.copy_input(input);
@@ -82,8 +82,8 @@ impl GGEZSession for SyncTestSession {
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback "check_distance" amount of frames,
-    /// resimulate and compare checksums with the original states. if checksums don't match, this will return [GGEZError::SyncTestFailed].
-    fn advance_frame(&mut self, interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
+    /// resimulate and compare checksums with the original states. if checksums don't match, this will return [GGRSError::SyncTestFailed].
+    fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGSRSError> {
         // save the current frame in the syncronization layer
         self.sync_layer
             .save_current_state(interface.save_game_state());
@@ -96,7 +96,7 @@ impl GGEZSession for SyncTestSession {
                 input: self.current_input.clone(),
             }),
             None => {
-                return Err(GGEZError::GeneralFailure(String::from(
+                return Err(GGSRSError::GeneralFailure(String::from(
                     "sync layer did not return a last saved state",
                 )));
             }
@@ -135,7 +135,7 @@ impl GGEZSession for SyncTestSession {
                 let old_frame_info =
                     self.saved_frames
                         .get(pos_in_queue)
-                        .ok_or(GGEZError::GeneralFailure(String::from(
+                        .ok_or(GGSRSError::GeneralFailure(String::from(
                             "sync test could not load frame info from own queue",
                         )))?;
                 // the frame we loaded should be from the correct frame
@@ -153,7 +153,7 @@ impl GGEZSession for SyncTestSession {
                     (last_saved_state.checksum, old_frame_info.state.checksum)
                 {
                     if cs1 != cs2 {
-                        return Err(GGEZError::SyncTestFailed);
+                        return Err(GGSRSError::SyncTestFailed);
                     }
                 }
 
@@ -183,36 +183,36 @@ impl GGEZSession for SyncTestSession {
         &mut self,
         frame_delay: u32,
         player_handle: PlayerHandle,
-    ) -> Result<(), GGEZError> {
+    ) -> Result<(), GGSRSError> {
         if self.running {
-            return Err(GGEZError::InvalidRequest);
+            return Err(GGSRSError::InvalidRequest);
         }
         self.sync_layer.set_frame_delay(player_handle, frame_delay);
         Ok(())
     }
 
     /// Nothing happens here in [SyncTestSession]. There are no packets to be received or sent and no rollbacks can occur other than the manually induced ones.
-    fn idle(&self, _interface: &mut impl GGEZInterface) -> Result<(), GGEZError> {
+    fn idle(&self, _interface: &mut impl GGRSInterface) -> Result<(), GGSRSError> {
         Ok(())
     }
 
     /// Not supported in [SyncTestSession].
-    fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGEZError> {
-        Err(GGEZError::Unsupported)
+    fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGSRSError> {
+        Err(GGSRSError::Unsupported)
     }
 
     /// Not supported in [SyncTestSession].
-    fn get_network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGEZError> {
-        Err(GGEZError::Unsupported)
+    fn get_network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGSRSError> {
+        Err(GGSRSError::Unsupported)
     }
 
     /// Not supported in [SyncTestSession].
-    fn set_disconnect_timeout(&self, _timeout: u32) -> Result<(), GGEZError> {
-        Err(GGEZError::Unsupported)
+    fn set_disconnect_timeout(&self, _timeout: u32) -> Result<(), GGSRSError> {
+        Err(GGSRSError::Unsupported)
     }
 
     /// Not supported in [SyncTestSession].
-    fn set_disconnect_notify_delay(&self, _notify_delay: u32) -> Result<(), GGEZError> {
-        Err(GGEZError::Unsupported)
+    fn set_disconnect_notify_delay(&self, _notify_delay: u32) -> Result<(), GGSRSError> {
+        Err(GGSRSError::Unsupported)
     }
 }

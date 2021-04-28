@@ -32,7 +32,7 @@ impl Player {
     /// # Examples
     ///
     /// ```
-    /// use ggez::player::{Player, PlayerType};
+    /// use ggrs::player::{Player, PlayerType};
     /// let player = Player::new(PlayerType::Local, 0);
     /// ```
     pub fn new(player_type: PlayerType, player_handle: PlayerHandle) -> Player {

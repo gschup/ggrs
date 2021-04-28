@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 /// # Example
 ///
 /// ```rust
-/// use ggez::circular_buffer::CircularBuffer;
+/// use ggrs::circular_buffer::CircularBuffer;
 /// use std::collections::VecDeque;
 ///
 /// let mut buf = CircularBuffer::<u32>::new(2);

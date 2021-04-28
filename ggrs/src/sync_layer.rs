@@ -2,7 +2,7 @@ use crate::game_info::GameInput;
 use crate::game_info::GameState;
 use crate::input_queue::InputQueue;
 use crate::{
-    FrameNumber, GGEZError, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES, NULL_FRAME,
+    FrameNumber, GGSRSError, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES, NULL_FRAME,
 };
 #[derive(Debug, Clone)]
 struct SavedStates {
@@ -120,10 +120,10 @@ impl SyncLayer {
         &mut self,
         player_handle: PlayerHandle,
         input: GameInput,
-    ) -> Result<(), GGEZError> {
+    ) -> Result<(), GGSRSError> {
         let frames_behind = self.current_frame - self.last_confirmed_frame;
         if frames_behind > MAX_PREDICTION_FRAMES as i32 {
-            return Err(GGEZError::PredictionThreshold);
+            return Err(GGSRSError::PredictionThreshold);
         }
 
         // The input provided should match the current frame
