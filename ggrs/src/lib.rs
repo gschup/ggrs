@@ -30,7 +30,6 @@ pub type InputBuffer = [u8; MAX_INPUT_BYTES];
 pub type FrameNumber = i32;
 pub type PlayerHandle = usize;
 
-pub mod circular_buffer;
 pub mod error;
 pub mod game_info;
 pub mod input_queue;

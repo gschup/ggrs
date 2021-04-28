@@ -1,10 +1,10 @@
 use crate::error::GGSRSError;
-use crate::game_info::{FrameInfo, GameInput};
+use crate::game_info::{FrameInfo, GameInput, BLANK_FRAME};
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
-use crate::sync_layer::SyncLayer;
-use crate::{circular_buffer::CircularBuffer, NULL_FRAME};
+use crate::sync_layer::{SavedStates, SyncLayer};
 use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle};
+use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
 
 /// During a SyncTestSession, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
 /// in your [GGRSInterface::save_game_state()] function, the SyncTestSession will compare the resimulated checksums with the original checksums and report if there was a mismatch.
@@ -16,7 +16,7 @@ pub struct SyncTestSession {
     check_distance: u32,
     running: bool,
     current_input: GameInput,
-    saved_frames: CircularBuffer<FrameInfo>,
+    saved_states: SavedStates<FrameInfo>,
     sync_layer: SyncLayer,
 }
 
@@ -30,7 +30,10 @@ impl SyncTestSession {
             check_distance,
             running: false,
             current_input: GameInput::new(NULL_FRAME, None, input_size),
-            saved_frames: CircularBuffer::new(crate::MAX_PREDICTION_FRAMES as usize),
+            saved_states: SavedStates {
+                head: 0,
+                states: [BLANK_FRAME; MAX_PREDICTION_FRAMES],
+            },
             sync_layer: SyncLayer::new(num_players, input_size),
         }
     }
@@ -91,7 +94,7 @@ impl GGRSSession for SyncTestSession {
 
         // save a copy info in our separate queue so we have something to compare to later
         if let Some(frame_info) = self.sync_layer.last_saved_state() {
-            self.saved_frames.push_back(FrameInfo {
+            self.saved_states.save_state(FrameInfo {
                 frame: self.current_frame,
                 state: frame_info.clone(),
                 input: self.current_input.clone(),
@@ -113,8 +116,8 @@ impl GGRSSession for SyncTestSession {
         // current input has been used, so we can delete the input bits
         self.current_input.erase_bits();
 
-        // manual simulated rollback section without using the sync_layer, but only if we have enough frames in the queue
-        if self.saved_frames.len() > self.check_distance as usize {
+        // manual simulated rollback section without using the sync_layer, but only if we have enough frames in the past
+        if self.current_frame > self.check_distance as i32 {
             // load the frame that lies `check_distance` frames in the past
             let frame_to_load = self.current_frame - self.check_distance as i32;
             interface.load_game_state(self.sync_layer.load_frame(frame_to_load));
@@ -129,11 +132,7 @@ impl GGRSSession for SyncTestSession {
                     .save_current_state(interface.save_game_state());
 
                 // get the correct old frame info
-                let pos_in_queue = self.saved_frames.len() - 1 - i as usize;
-                let old_frame_info = self
-                    .saved_frames
-                    .get(pos_in_queue)
-                    .ok_or(GGSRSError::GeneralFailureError)?;
+                let old_frame_info = self.saved_states.state_in_past(i as usize);
                 // the frame we loaded should be from the correct frame
                 assert_eq!(
                     old_frame_info.frame,

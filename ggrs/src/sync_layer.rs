@@ -1,25 +1,37 @@
 use crate::error::GGSRSError;
 use crate::game_info::GameInput;
-use crate::game_info::GameState;
+use crate::game_info::{GameState, BLANK_STATE};
 use crate::input_queue::InputQueue;
 use crate::{FrameNumber, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES, NULL_FRAME};
 #[derive(Debug, Clone)]
-struct SavedStates {
-    states: [GameState; MAX_PREDICTION_FRAMES],
-    head: usize,
+pub struct SavedStates<T> {
+    pub states: [T; MAX_PREDICTION_FRAMES],
+    pub head: usize,
 }
 
-const BLANK_STATE: GameState = GameState {
-    frame: NULL_FRAME,
-    buffer: Vec::new(),
-    checksum: None,
-};
+impl<T> SavedStates<T> {
+    pub fn save_state(&mut self, state_to_save: T) {
+        self.head = (self.head + 1) % self.states.len();
+        self.states[self.head] = state_to_save;
+    }
+
+    pub fn state_at_head(&self) -> &T {
+        &self.states[self.head]
+    }
+
+    pub fn state_in_past(&self, frames_in_past: usize) -> &T {
+        let pos =
+            (self.head as i64 - frames_in_past as i64).rem_euclid(MAX_PREDICTION_FRAMES as i64);
+        assert!(pos >= 0);
+        &self.states[pos as usize]
+    }
+}
 
 #[derive(Debug)]
 pub struct SyncLayer {
     num_players: u32,
     input_size: usize,
-    saved_states: SavedStates,
+    saved_states: SavedStates<GameState>,
     rolling_back: bool,
     last_confirmed_frame: FrameNumber,
     current_frame: FrameNumber,
@@ -58,14 +70,13 @@ impl SyncLayer {
 
     pub fn save_current_state(&mut self, state_to_save: GameState) {
         assert!(state_to_save.frame != NULL_FRAME);
-        self.saved_states.head = (self.saved_states.head + 1) % self.saved_states.states.len();
-        self.saved_states.states[self.saved_states.head] = state_to_save;
+        self.saved_states.save_state(state_to_save)
     }
 
     pub fn last_saved_state(&self) -> Option<&GameState> {
-        match self.saved_states.states[self.saved_states.head].frame {
+        match self.saved_states.state_at_head().frame {
             NULL_FRAME => None,
-            _ => Some(&self.saved_states.states[self.saved_states.head]),
+            _ => Some(self.saved_states.state_at_head()),
         }
     }
 
@@ -84,8 +95,7 @@ impl SyncLayer {
 
     /// Searches the saved states and returns the index of the state that matches the given frame number.
     fn find_saved_frame_index(&self, frame: FrameNumber) -> usize {
-        let count = self.saved_states.states.len();
-        for i in 0..count {
+        for i in 0..MAX_PREDICTION_FRAMES {
             if self.saved_states.states[i].frame == frame {
                 return i;
             }

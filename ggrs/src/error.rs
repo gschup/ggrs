@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Display;
 
 /// This enum contains all error messages this library can return. Most API functions will generally return a Result<T,GGRS>.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGSRSError {
     /// a catch-all error, usage should be limited
     GeneralFailureError,
@@ -21,7 +21,7 @@ pub enum GGSRSError {
 
 impl Display for GGSRSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
+        match self {
             GGSRSError::GeneralFailureError => {
                 write!(f, "General Failure. If this happens, then GGRS is faulty.")
             }
@@ -47,4 +47,5 @@ impl Display for GGSRSError {
         }
     }
 }
+
 impl Error for GGSRSError {}

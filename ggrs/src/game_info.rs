@@ -1,5 +1,23 @@
 use crate::{FrameNumber, InputBuffer, NULL_FRAME};
 
+pub const BLANK_FRAME: FrameInfo = FrameInfo {
+    frame: NULL_FRAME,
+    state: BLANK_STATE,
+    input: BLANK_INPUT,
+};
+
+pub const BLANK_STATE: GameState = GameState {
+    frame: NULL_FRAME,
+    buffer: Vec::new(),
+    checksum: None,
+};
+
+pub const BLANK_INPUT: GameInput = GameInput {
+    frame: NULL_FRAME,
+    bits: [0; crate::MAX_INPUT_BYTES],
+    size: 0,
+};
+
 #[derive(Debug, Clone)]
 pub struct FrameInfo {
     pub frame: FrameNumber,
