@@ -1,4 +1,4 @@
-use crate::game_info::GameInput;
+use crate::frame_info::GameInput;
 use crate::{FrameNumber, PlayerHandle, INPUT_QUEUE_LENGTH, NULL_FRAME};
 use std::cmp;
 

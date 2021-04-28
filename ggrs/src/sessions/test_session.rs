@@ -1,5 +1,5 @@
 use crate::error::GGSRSError;
-use crate::game_info::{FrameInfo, GameInput, BLANK_FRAME};
+use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::sync_layer::{SavedStates, SyncLayer};

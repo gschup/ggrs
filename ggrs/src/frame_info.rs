@@ -20,7 +20,8 @@ pub const BLANK_INPUT: GameInput = GameInput {
     size: 0,
 };
 
-#[derive(Debug, Clone)]
+/// This struct holds a state and an input. It is intended that both the state and the input correspond to the same frame.
+#[derive(Debug, Clone, Default)]
 pub struct FrameInfo {
     pub frame: FrameNumber,
     pub state: GameState,

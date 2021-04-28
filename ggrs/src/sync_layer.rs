@@ -1,6 +1,6 @@
 use crate::error::GGSRSError;
-use crate::game_info::GameInput;
-use crate::game_info::{GameState, BLANK_STATE};
+use crate::frame_info::GameInput;
+use crate::frame_info::{GameState, BLANK_STATE};
 use crate::input_queue::InputQueue;
 use crate::{FrameNumber, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES, NULL_FRAME};
 #[derive(Debug, Clone)]

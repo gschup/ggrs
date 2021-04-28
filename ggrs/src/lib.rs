@@ -8,7 +8,7 @@
 )]
 
 use crate::error::GGSRSError;
-use crate::game_info::{GameInput, GameState};
+use crate::frame_info::{GameInput, GameState};
 use crate::sessions::test_session::SyncTestSession;
 
 /// The maximum number of players allowed.
@@ -30,7 +30,7 @@ pub type FrameNumber = i32;
 pub type PlayerHandle = usize;
 
 pub mod error;
-pub mod game_info;
+pub mod frame_info;
 pub mod input_queue;
 pub mod network_stats;
 pub mod player;

@@ -3,7 +3,7 @@ use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-use ggrs::game_info::{GameInput, GameState};
+use ggrs::frame_info::{GameInput, GameState};
 use ggrs::player::{Player, PlayerType};
 use ggrs::{GGRSInterface, GGRSSession};
 
