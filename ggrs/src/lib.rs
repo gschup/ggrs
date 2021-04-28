@@ -57,7 +57,7 @@ pub trait GGRSInterface {
 }
 
 /// All GGRSSession backends implement this trait.
-pub trait GGRSSession: Sized {
+pub trait GGRSSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
     /// #Example
     /// ```
