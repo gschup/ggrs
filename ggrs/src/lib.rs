@@ -26,7 +26,6 @@ pub const INPUT_QUEUE_LENGTH: usize = 128;
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;
 
-pub type InputBuffer = [u8; MAX_INPUT_BYTES];
 pub type FrameNumber = i32;
 pub type PlayerHandle = usize;
 

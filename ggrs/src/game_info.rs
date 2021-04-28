@@ -1,4 +1,6 @@
-use crate::{FrameNumber, InputBuffer, NULL_FRAME};
+use crate::{FrameNumber, MAX_INPUT_BYTES, NULL_FRAME};
+
+pub type InputBuffer = [u8; MAX_INPUT_BYTES];
 
 pub const BLANK_FRAME: FrameInfo = FrameInfo {
     frame: NULL_FRAME,
