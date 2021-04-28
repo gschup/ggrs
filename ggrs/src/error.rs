@@ -13,7 +13,7 @@ pub enum GGSRSError {
     PredictionThresholdError,
     /// The function you called is unsupported with given session type you are using
     UnsupportedError,
-    /// You made an invalid request, usually by
+    /// You made an invalid request, usually by using wrong parameters for function calls or starting a session that is already started.
     InvalidRequestError,
     NotSynchronizedError,
     MismatchedChecksumError,
