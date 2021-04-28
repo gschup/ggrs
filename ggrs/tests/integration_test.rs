@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 use ggrs::game_info::{GameInput, GameState};
 use ggrs::player::{Player, PlayerType};
-use ggrs::{GGRSEvent, GGRSInterface, GGRSSession};
+use ggrs::{GGRSInterface, GGRSSession};
 
 struct GameStub {
     gs: GameStateStub,
@@ -56,10 +56,6 @@ impl GGRSInterface for GameStub {
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>, _disconnect_flags: u8) {
         self.gs.advance_frame(inputs);
-    }
-
-    fn on_event(&mut self, info: GGRSEvent) {
-        println!("{:?}", info);
     }
 }
 

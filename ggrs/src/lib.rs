@@ -7,6 +7,7 @@
     clippy::cargo
 )]
 
+use crate::error::GGSRSError;
 use crate::game_info::{GameInput, GameState};
 use crate::sessions::test_session::SyncTestSession;
 
@@ -30,6 +31,7 @@ pub type FrameNumber = i32;
 pub type PlayerHandle = usize;
 
 pub mod circular_buffer;
+pub mod error;
 pub mod game_info;
 pub mod input_queue;
 pub mod network_stats;
@@ -37,48 +39,6 @@ pub mod player;
 pub mod sync_layer;
 pub mod sessions {
     pub mod test_session;
-}
-/// This enum contains all error messages this library can return. Most API functions will generally return a Result<T,GGRS>.
-#[derive(Debug)]
-pub enum GGSRSError {
-    /// a catch-all error, usage should be limited
-    GeneralFailure(String),
-    InvalidSession,
-    /// When this gets returned, the given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
-    InvalidPlayerHandle,
-    /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
-    PredictionThreshold,
-    Unsupported,
-    NotSynchronized,
-    InRollback,
-    InputDropped,
-    PlayerDisconnected,
-    TooManySpectators,
-    InvalidRequest,
-    SyncTestFailed,
-}
-
-/// The Event enumeration describes some type of event that just happened.
-#[derive(Debug)]
-pub enum GGRSEvent {
-    /// All the clients have synchronized. You may begin sending inputs with synchronize_inputs.
-    Running,
-    /// Handshake with the game running on the other side of the network has been completed.
-    ConnectedToPeer(ConnectedToPeer),
-    /// Beginning the synchronization process with the client on the other end of the networking.
-    /// The count and total fields in the SynchronizingWithPeer struct of the Event object indicate progress.
-    SynchronizingWithPeer(SynchronizingWithPeer),
-    /// The synchronziation with this peer has finished.
-    SynchronizedWithPeer(SynchronizedWithPeer),
-    /// The network connection on the other end of the network has closed.
-    DisconnectedFromPeer(DisconnectedFromPeer),
-    /// The time synchronziation code has determined that this client is too far ahead of the other one and should slow
-    /// down to ensure fairness. The TimeSyncEvent.frames_ahead parameter indicates how many frames the client is ahead.
-    TimeSync(TimeSyncEvent),
-    /// The network connection on the other end of the network has been interrupted.
-    ConnectionInterrupted(ConnectionInterrupted),
-    /// The network connection on the other end of the network has been resumed.
-    ConnectionResumed(ConnectionResumed),
 }
 
 #[derive(Debug)]
@@ -133,9 +93,6 @@ pub trait GGRSInterface {
     /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
     /// GGRS will call it at least once after each [GGRSSession::advance_frame()] call, but possible multiple times during rollbacks. Do not call this function yourself.
     fn advance_frame(&mut self, inputs: Vec<GameInput>, disconnect_flags: u8);
-
-    /// GGRS will call this function to notify you that something has happened. See the [GGPOEvent] enum for more information.
-    fn on_event(&mut self, info: GGRSEvent);
 }
 
 /// All GGRSSession backends implement this trait.
