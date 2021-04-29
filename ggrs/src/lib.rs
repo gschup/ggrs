@@ -56,7 +56,7 @@ pub trait GGRSInterface {
     fn advance_frame(&mut self, inputs: Vec<GameInput>, disconnect_flags: u8);
 }
 
-/// All GGRSSession backends implement this trait.
+/// All GGRSSession backends implement this trait. Some GGERSSessions might not support a certain operation and will return [GGRSError::UnsupportedError] in that case.
 pub trait GGRSSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
     /// #Example
