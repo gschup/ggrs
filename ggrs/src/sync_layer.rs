@@ -175,3 +175,54 @@ impl SyncLayer {
         panic!("SyncLayer::find_saved_frame_index(): requested state could not be found");
     }
 }
+
+// #########
+// # TESTS #
+// #########
+
+#[cfg(test)]
+mod sync_layer_tests {
+
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn test_reach_prediction_threshold() {
+        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>());
+        for i in 0..20 {
+            let serialized_input = bincode::serialize(&i).unwrap();
+            let mut game_input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            game_input.copy_input(&serialized_input);
+            sync_layer.add_local_input(0, game_input).unwrap(); // should crash at frame 7
+        }
+    }
+
+    #[test]
+    fn test_different_delays() {
+        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>());
+        let p1_delay = 2;
+        let p2_delay = 0;
+        sync_layer.set_frame_delay(0, p1_delay);
+        sync_layer.set_frame_delay(1, p2_delay);
+
+        for i in 0..20 {
+            let serialized_input = bincode::serialize(&i).unwrap();
+            let mut game_input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            game_input.copy_input(&serialized_input);
+            // adding input as remote to avoid prediction threshold detection
+            sync_layer.add_remote_input(0, game_input);
+            sync_layer.add_remote_input(1, game_input);
+
+            if i >= 3 {
+                let sync_inputs = sync_layer.synchronized_inputs();
+                let player0_inputs: u32 = bincode::deserialize(&sync_inputs[0].bits).unwrap();
+                let player1_inputs: u32 = bincode::deserialize(&sync_inputs[1].bits).unwrap();
+                println!("{},{},{}", i, player0_inputs, player1_inputs);
+                assert_eq!(player0_inputs, i as u32 - p1_delay);
+                assert_eq!(player1_inputs, i as u32 - p2_delay);
+            }
+
+            sync_layer.advance_frame();
+        }
+    }
+}
