@@ -3,8 +3,8 @@ use crate::{FrameNumber, PlayerHandle, INPUT_QUEUE_LENGTH, NULL_FRAME};
 use std::cmp;
 
 /// `InputQueue` handles inputs for a single player and saves them in a circular array. Valid Inputs are between `head` and `tail`.
-#[derive(Debug, Copy, Clone)]
-pub struct InputQueue {
+#[derive(Debug, Clone)]
+pub(crate) struct InputQueue {
     /// Identifies the player this InputQueue belongs to
     pub id: PlayerHandle,
     /// The head of the queue. The newest [GameInput] is here      
@@ -33,7 +33,7 @@ pub struct InputQueue {
 }
 
 impl InputQueue {
-    pub fn new(id: PlayerHandle, input_size: usize) -> InputQueue {
+    pub(crate) fn new(id: PlayerHandle, input_size: usize) -> InputQueue {
         InputQueue {
             id,
             head: 0,
@@ -50,19 +50,19 @@ impl InputQueue {
         }
     }
 
-    pub fn last_confirmed_frame(&self) -> FrameNumber {
+    pub(crate) fn last_confirmed_frame(&self) -> FrameNumber {
         self.last_added_frame
     }
 
-    pub fn first_incorrect_frame(&self) -> FrameNumber {
+    pub(crate) fn first_incorrect_frame(&self) -> FrameNumber {
         self.first_incorrect_frame
     }
 
-    pub fn set_frame_delay(&mut self, delay: u32) {
+    pub(crate) fn set_frame_delay(&mut self, delay: u32) {
         self.frame_delay = delay;
     }
 
-    pub fn reset_prediction(&mut self, frame: FrameNumber) {
+    pub(crate) fn reset_prediction(&mut self, frame: FrameNumber) {
         assert!(self.first_incorrect_frame == NULL_FRAME || frame <= self.first_incorrect_frame);
 
         self.prediction.frame = NULL_FRAME;
@@ -72,7 +72,7 @@ impl InputQueue {
 
     /// Returns a [GameInput], but only if the input for the requested frame is confirmed.
     /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
-    pub fn confirmed_input(&self, requested_frame: FrameNumber) -> GameInput {
+    pub(crate) fn confirmed_input(&self, requested_frame: FrameNumber) -> GameInput {
         // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should not have asked for a known incorrect frame.
         assert!(
             self.first_incorrect_frame == NULL_FRAME
@@ -88,7 +88,7 @@ impl InputQueue {
     }
 
     /// Discards confirmed frames up to given `frame` from the queue. All confirmed frames are guaranteed to be synchronized between players, so there is no need to save the inputs anymore.
-    pub fn discard_confirmed_frames(&mut self, mut frame: FrameNumber) {
+    pub(crate) fn discard_confirmed_frames(&mut self, mut frame: FrameNumber) {
         // we only drop frames until the last frame that was requested, otherwise we might delete data still needed
         if self.last_requested_frame != NULL_FRAME {
             frame = cmp::min(frame, self.last_requested_frame);
@@ -105,7 +105,7 @@ impl InputQueue {
     }
 
     /// Returns the game input of a single player for a given frame, if that input does not exist, we return a prediction instead.
-    pub fn input(&mut self, requested_frame: FrameNumber) -> GameInput {
+    pub(crate) fn input(&mut self, requested_frame: FrameNumber) -> GameInput {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
         assert!(self.first_incorrect_frame < 0);
@@ -151,7 +151,7 @@ impl InputQueue {
     }
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
-    pub fn add_input(&mut self, input: GameInput) {
+    pub(crate) fn add_input(&mut self, input: GameInput) {
         // These next two lines simply verify that inputs are passed in sequentially by the user, regardless of frame delay.
         assert!(
             self.last_added_frame == NULL_FRAME

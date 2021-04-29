@@ -1,4 +1,4 @@
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy, Hash)]
 pub struct Network {
     /// The length of the queue containing UDP packets which have not yet been acknowledged by the end client.  
     /// The length of the send queue is a rough indication of the quality of the connection. The longer the send queue, the higher the round-trip time between the
@@ -21,7 +21,7 @@ impl Network {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy, Hash)]
 pub struct TimeSync {
     /// The number of frames GGRS calculates that the local client is behind the remote client at this instant in time.  
     /// For example, if at this instant the current game client is running frame 1002 and the remote game client is running frame 1009,
@@ -39,7 +39,7 @@ impl TimeSync {
 }
 
 /// The NetworkStats struct contains some statistics about the current session.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy, Hash)]
 pub struct NetworkStats {
     pub network: Network,
     pub timesync: TimeSync,

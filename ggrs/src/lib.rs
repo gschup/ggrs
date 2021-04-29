@@ -112,7 +112,9 @@ pub trait GGRSSession {
 }
 
 /// Used to create a new GGRS sync test session. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
-/// ## Examples
+/// If checksums are provided with the saved states, the SyncTestSession will compare the checksums from resimulated states to the original states.
+/// This is a great way to test if your system runs deterministically.
+/// ## Example
 ///
 /// ```
 /// # use ggrs::error::GGRSError;
