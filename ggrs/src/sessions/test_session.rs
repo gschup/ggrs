@@ -1,4 +1,4 @@
-use crate::error::GGSRSError;
+use crate::error::GGRSError;
 use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
@@ -41,18 +41,18 @@ impl SyncTestSession {
 
 impl GGRSSession for SyncTestSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
-    fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGSRSError> {
+    fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGRSError> {
         if player.player_handle > self.num_players as PlayerHandle {
-            return Err(GGSRSError::InvalidRequestError);
+            return Err(GGRSError::InvalidRequestError);
         }
         Ok(player.player_handle)
     }
 
     /// After you are done defining and adding all players, you should start the session. In a sync test, starting the session saves the initial game state and sets running to true.
     /// If the session is already running, return an error.
-    fn start_session(&mut self) -> Result<(), GGSRSError> {
+    fn start_session(&mut self) -> Result<(), GGRSError> {
         match self.running {
-            true => return Err(GGSRSError::InvalidRequestError),
+            true => return Err(GGRSError::InvalidRequestError),
             false => self.running = true,
         }
         self.current_frame = 0;
@@ -65,14 +65,14 @@ impl GGRSSession for SyncTestSession {
         &mut self,
         player_handle: PlayerHandle,
         input: &[u8],
-    ) -> Result<(), GGSRSError> {
+    ) -> Result<(), GGRSError> {
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
-            return Err(GGSRSError::InvalidHandleError);
+            return Err(GGRSError::InvalidHandleError);
         }
         // session has not been started
         if !self.running {
-            return Err(GGSRSError::NotSynchronizedError);
+            return Err(GGRSError::NotSynchronizedError);
         }
         // copy the local input bits into the current input
         self.current_input.copy_input(input);
@@ -87,7 +87,7 @@ impl GGRSSession for SyncTestSession {
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback "check_distance" amount of frames,
     /// resimulate and compare checksums with the original states. if checksums don't match, this will return [GGRSError::SyncTestFailed].
-    fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGSRSError> {
+    fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
         // save the current frame in the syncronization layer
         self.sync_layer
             .save_current_state(interface.save_game_state());
@@ -100,7 +100,7 @@ impl GGRSSession for SyncTestSession {
                 input: self.current_input.clone(),
             })
         } else {
-            return Err(GGSRSError::GeneralFailureError);
+            return Err(GGRSError::GeneralFailureError);
         };
 
         // get the correct inputs for all players from the sync layer
@@ -148,7 +148,7 @@ impl GGRSSession for SyncTestSession {
                     (last_saved_state.checksum, old_frame_info.state.checksum)
                 {
                     if cs1 != cs2 {
-                        return Err(GGSRSError::MismatchedChecksumError);
+                        return Err(GGRSError::MismatchedChecksumError);
                     }
                 }
 
@@ -178,36 +178,36 @@ impl GGRSSession for SyncTestSession {
         &mut self,
         frame_delay: u32,
         player_handle: PlayerHandle,
-    ) -> Result<(), GGSRSError> {
+    ) -> Result<(), GGRSError> {
         if self.running {
-            return Err(GGSRSError::InvalidRequestError);
+            return Err(GGRSError::InvalidRequestError);
         }
         self.sync_layer.set_frame_delay(player_handle, frame_delay);
         Ok(())
     }
 
     /// Nothing happens here in [SyncTestSession]. There are no packets to be received or sent and no rollbacks can occur other than the manually induced ones.
-    fn idle(&self, _interface: &mut impl GGRSInterface) -> Result<(), GGSRSError> {
+    fn idle(&self, _interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
         Ok(())
     }
 
     /// Not supported in [SyncTestSession].
-    fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGSRSError> {
-        Err(GGSRSError::UnsupportedError)
+    fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGRSError> {
+        Err(GGRSError::UnsupportedError)
     }
 
     /// Not supported in [SyncTestSession].
-    fn network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGSRSError> {
-        Err(GGSRSError::UnsupportedError)
+    fn network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
+        Err(GGRSError::UnsupportedError)
     }
 
     /// Not supported in [SyncTestSession].
-    fn set_disconnect_timeout(&self, _timeout: u32) -> Result<(), GGSRSError> {
-        Err(GGSRSError::UnsupportedError)
+    fn set_disconnect_timeout(&self, _timeout: u32) -> Result<(), GGRSError> {
+        Err(GGRSError::UnsupportedError)
     }
 
     /// Not supported in [SyncTestSession].
-    fn set_disconnect_notify_delay(&self, _notify_delay: u32) -> Result<(), GGSRSError> {
-        Err(GGSRSError::UnsupportedError)
+    fn set_disconnect_notify_delay(&self, _notify_delay: u32) -> Result<(), GGRSError> {
+        Err(GGRSError::UnsupportedError)
     }
 }

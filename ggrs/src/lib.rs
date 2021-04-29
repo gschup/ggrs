@@ -7,7 +7,7 @@
     clippy::cargo
 )]
 
-use crate::error::GGSRSError;
+use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState};
 use crate::network_stats::NetworkStats;
 use crate::sessions::test_session::SyncTestSession;
@@ -61,20 +61,23 @@ pub trait GGRSSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
     /// #Example
     /// ```
-    /// use ggrs::GGRSSession;
-    /// use ggrs::player::{Player, PlayerType};
-    ///
-    /// let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>());
+    /// # use ggrs::error::GGRSError;
+    /// # use ggrs::GGRSSession;
+    /// # use ggrs::player::{Player, PlayerType};
+    /// # fn main() -> Result<(), GGRSError> {
+    /// let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>())?;
     /// let dummy_player = Player::new(PlayerType::Local, 0);
-    /// sess.add_player(&dummy_player).unwrap();
+    /// sess.add_player(&dummy_player)?;
+    /// # Ok(())
+    /// # }
     /// ```
-    fn add_player(&mut self, player: &player::Player) -> Result<PlayerHandle, GGSRSError>;
+    fn add_player(&mut self, player: &player::Player) -> Result<PlayerHandle, GGRSError>;
 
     /// After you are done defining and adding all players, you should start the session
-    fn start_session(&mut self) -> Result<(), GGSRSError>;
+    fn start_session(&mut self) -> Result<(), GGRSError>;
 
     /// Disconnects a remote player from a game.  Will return [GGRSError::PlayerDisconnected] if you try to disconnect a player who has already been disconnected.
-    fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGSRSError>;
+    fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError>;
 
     /// Used to notify GGRS of inputs that should be transmitted to remote players. add_local_input must be called once every frame for all player of type [player::PlayerType::Local]
     /// before calling [GGRSSession::advance_frame()].
@@ -82,45 +85,62 @@ pub trait GGRSSession {
         &mut self,
         player_handle: PlayerHandle,
         input: &[u8],
-    ) -> Result<(), GGSRSError>;
+    ) -> Result<(), GGRSError>;
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
-    fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGSRSError>;
+    fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError>;
 
     /// Used to fetch some statistics about the quality of the network connection.
-    fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGSRSError>;
+    fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError>;
 
     /// Change the amount of frames GGRS will delay your local inputs. Must be called before the first call to [GGRSSession::advance_frame()].
     fn set_frame_delay(
         &mut self,
         frame_delay: u32,
         player_handle: PlayerHandle,
-    ) -> Result<(), GGSRSError>;
+    ) -> Result<(), GGRSError>;
 
     /// Sets the disconnect timeout.  The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
     /// You will be notified of the disconnect via a [GGRSEvent::DisconnectedFromPeer] event.
-    fn set_disconnect_timeout(&self, timeout: u32) -> Result<(), GGSRSError>;
+    fn set_disconnect_timeout(&self, timeout: u32) -> Result<(), GGRSError>;
 
     /// The time to wait before the first [GGRSEvent::ConnectionInterrupted] event will be sent.
-    fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGSRSError>;
+    fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGRSError>;
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work. Packet transmissions and rollbacks can occur here.
-    fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGSRSError>;
+    fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError>;
 }
 
 /// Used to create a new GGRS sync test session. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// ## Examples
 ///
 /// ```
+/// # use ggrs::error::GGRSError;
+/// # fn main() -> Result<(), GGRSError> {
 /// let check_distance : u32 = 1;
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
-/// let mut sess = ggrs::start_synctest_session(check_distance, num_players, input_size);
+/// let mut sess = ggrs::start_synctest_session(check_distance, num_players, input_size)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn start_synctest_session(
     check_distance: u32,
     num_players: u32,
     input_size: usize,
-) -> SyncTestSession {
-    SyncTestSession::new(check_distance, num_players, input_size)
+) -> Result<SyncTestSession, GGRSError> {
+    if num_players as usize > MAX_PLAYERS {
+        return Err(GGRSError::InvalidRequestError);
+    }
+    if input_size > MAX_INPUT_BYTES {
+        return Err(GGRSError::InvalidRequestError);
+    }
+    if check_distance as usize > MAX_PREDICTION_FRAMES {
+        return Err(GGRSError::InvalidRequestError);
+    }
+    Ok(SyncTestSession::new(
+        check_distance,
+        num_players,
+        input_size,
+    ))
 }

@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 /// This enum contains all error messages this library can return. Most API functions will generally return a Result<T,GGRS>.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum GGSRSError {
+pub enum GGRSError {
     /// a catch-all error, usage should be limited
     GeneralFailureError,
     /// When this gets returned, the given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
@@ -19,33 +19,33 @@ pub enum GGSRSError {
     MismatchedChecksumError,
 }
 
-impl Display for GGSRSError {
+impl Display for GGRSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GGSRSError::GeneralFailureError => {
+            GGRSError::GeneralFailureError => {
                 write!(f, "General Failure. If this happens, then GGRS is faulty.")
             }
-            GGSRSError::InvalidHandleError => {
+            GGRSError::InvalidHandleError => {
                 write!(f, "The player handle you provided is invalid.")
             }
-            GGSRSError::PredictionThresholdError => write!(
+            GGRSError::PredictionThresholdError => write!(
                 f,
                 "Prediction threshold is reached, cannot proceed without catching up."
             ),
-            GGSRSError::UnsupportedError => write!(
+            GGRSError::UnsupportedError => write!(
                 f,
                 "The function you called is not supported by this session type"
             ),
-            GGSRSError::InvalidRequestError => write!(
+            GGRSError::InvalidRequestError => write!(
                 f,
                 "You called the function with invalid/unexpected parameters."
             ),
-            GGSRSError::NotSynchronizedError => write!(f, "Not all players are synchronized."),
-            GGSRSError::MismatchedChecksumError => {
+            GGRSError::NotSynchronizedError => write!(f, "Not all players are synchronized."),
+            GGRSError::MismatchedChecksumError => {
                 write!(f, "Detected checksum mismatch during rollback.")
             }
         }
     }
 }
 
-impl Error for GGSRSError {}
+impl Error for GGRSError {}
