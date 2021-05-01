@@ -129,7 +129,7 @@ fn test_advance_frame() {
     assert_eq!(handle, 1);
     sess.start_session().unwrap();
 
-    for i in 0..100 {
+    for i in 0..200 {
         let input: u32 = i;
         let serialized_input = bincode::serialize(&input).unwrap();
         sess.add_local_input(handle, &serialized_input).unwrap();
@@ -148,7 +148,7 @@ fn test_advance_frames_with_delayed_input() {
     sess.set_frame_delay(2, handle).unwrap();
     sess.start_session().unwrap();
 
-    for i in 0..100 {
+    for i in 0..200 {
         let input: u32 = i;
         let serialized_input = bincode::serialize(&input).unwrap();
         sess.add_local_input(handle, &serialized_input).unwrap();
