@@ -5,7 +5,7 @@ use crate::input_queue::InputQueue;
 use crate::{FrameNumber, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES, NULL_FRAME};
 #[derive(Debug, Clone)]
 pub(crate) struct SavedStates<T> {
-    pub states: [T; MAX_PREDICTION_FRAMES],
+    pub states: [T; MAX_PREDICTION_FRAMES as usize],
     pub head: usize,
 }
 
@@ -15,7 +15,7 @@ impl<T> SavedStates<T> {
         self.states[self.head] = state_to_save;
     }
 
-    pub(crate) fn state_at_head(&self) -> &T {
+    pub(crate) const fn state_at_head(&self) -> &T {
         &self.states[self.head]
     }
 
@@ -39,14 +39,14 @@ pub(crate) struct SyncLayer {
 }
 
 impl SyncLayer {
-    /// Creates a new [SyncLayer] instance with given values.
-    pub(crate) fn new(num_players: u32, input_size: usize) -> SyncLayer {
+    /// Creates a new `SyncLayer` instance with given values.
+    pub(crate) fn new(num_players: u32, input_size: usize) -> Self {
         // initialize input_queues
         let mut input_queues = Vec::new();
         for i in 0..num_players {
             input_queues.push(InputQueue::new(i as PlayerHandle, input_size));
         }
-        SyncLayer {
+        Self {
             num_players,
             input_size,
             rolling_back: false,
@@ -54,13 +54,13 @@ impl SyncLayer {
             current_frame: 0,
             saved_states: SavedStates {
                 head: 0,
-                states: [BLANK_STATE; MAX_PREDICTION_FRAMES],
+                states: [BLANK_STATE; MAX_PREDICTION_FRAMES as usize],
             },
-            input_queues: input_queues,
+            input_queues,
         }
     }
 
-    pub(crate) fn current_frame(&self) -> FrameNumber {
+    pub(crate) const fn current_frame(&self) -> FrameNumber {
         self.current_frame
     }
 
@@ -73,7 +73,7 @@ impl SyncLayer {
         self.saved_states.save_state(state_to_save)
     }
 
-    pub(crate) fn last_saved_state(&self) -> Option<&GameState> {
+    pub(crate) const fn last_saved_state(&self) -> Option<&GameState> {
         match self.saved_states.state_at_head().frame {
             NULL_FRAME => None,
             _ => Some(self.saved_states.state_at_head()),
@@ -93,7 +93,7 @@ impl SyncLayer {
         }
     }
 
-    /// Loads the gamestate indicated by the frame_to_load. After execution, `self.saved_states.head` is set one position after the loaded state.
+    /// Loads the gamestate indicated by `frame_to_load`. After execution, `self.saved_states.head` is set one position after the loaded state.
     pub(crate) fn load_frame(&mut self, frame_to_load: FrameNumber) -> &GameState {
         // The state should not be the current state or the state should not be in the future or too far away in the past
         assert!(
@@ -108,7 +108,7 @@ impl SyncLayer {
 
         // Reset framecount and the head of the state ring-buffer to point in
         // advance of the current frame (as if we had just finished executing it).
-        self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES;
+        self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES as usize;
         self.current_frame = frame_to_load;
 
         state_to_load
@@ -150,7 +150,7 @@ impl SyncLayer {
     pub(crate) fn confirmed_inputs(&mut self) -> Vec<GameInput> {
         let mut inputs = Vec::new();
         for i in 0..self.num_players {
-            inputs.push(self.input_queues[i as usize].confirmed_input(self.current_frame));
+            inputs.push(self.input_queues[i as usize].confirmed_input(self.current_frame as u32));
         }
         inputs
     }
@@ -167,7 +167,7 @@ impl SyncLayer {
 
     /// Searches the saved states and returns the index of the state that matches the given frame number.
     fn find_saved_frame_index(&self, frame: FrameNumber) -> usize {
-        for i in 0..MAX_PREDICTION_FRAMES {
+        for i in 0..MAX_PREDICTION_FRAMES as usize {
             if self.saved_states.states[i].frame == frame {
                 return i;
             }

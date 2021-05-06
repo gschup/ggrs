@@ -14,7 +14,7 @@ pub enum PlayerType {
 
 impl Default for PlayerType {
     fn default() -> Self {
-        PlayerType::Local
+        Self::Local
     }
 }
 
@@ -35,10 +35,10 @@ impl Player {
     /// # use ggrs::player::{Player, PlayerType};
     /// let player = Player::new(PlayerType::Local, 0);
     /// ```
-    pub fn new(player_type: PlayerType, player_handle: PlayerHandle) -> Player {
-        Player {
-            player_handle,
+    pub const fn new(player_type: PlayerType, player_handle: PlayerHandle) -> Self {
+        Self {
             player_type,
+            player_handle,
         }
     }
 }

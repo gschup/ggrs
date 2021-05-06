@@ -33,8 +33,8 @@ pub(crate) struct InputQueue {
 }
 
 impl InputQueue {
-    pub(crate) fn new(id: PlayerHandle, input_size: usize) -> InputQueue {
-        InputQueue {
+    pub(crate) fn new(id: PlayerHandle, input_size: usize) -> Self {
+        Self {
             id,
             head: 0,
             tail: 0,
@@ -50,11 +50,11 @@ impl InputQueue {
         }
     }
 
-    pub(crate) fn last_confirmed_frame(&self) -> FrameNumber {
+    pub(crate) const fn last_confirmed_frame(&self) -> FrameNumber {
         self.last_added_frame
     }
 
-    pub(crate) fn first_incorrect_frame(&self) -> FrameNumber {
+    pub(crate) const fn first_incorrect_frame(&self) -> FrameNumber {
         self.first_incorrect_frame
     }
 
@@ -70,18 +70,18 @@ impl InputQueue {
         self.last_requested_frame = NULL_FRAME;
     }
 
-    /// Returns a [GameInput], but only if the input for the requested frame is confirmed.
+    /// Returns a `GameInput`, but only if the input for the requested frame is confirmed.
     /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
-    pub(crate) fn confirmed_input(&self, requested_frame: FrameNumber) -> GameInput {
+    pub(crate) fn confirmed_input(&self, requested_frame: u32) -> GameInput {
         // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should not have asked for a known incorrect frame.
         assert!(
             self.first_incorrect_frame == NULL_FRAME
-                || self.first_incorrect_frame > requested_frame
+                || self.first_incorrect_frame > requested_frame as i32
         );
 
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
-        if self.inputs[offset].frame == requested_frame {
+        if self.inputs[offset].frame == requested_frame as i32 {
             return self.inputs[offset]; // GameInput has copy semantics
         }
         panic!("SyncLayer::confirmed_input(): There is no confirmed input for the requested frame");
@@ -210,16 +210,16 @@ impl InputQueue {
 
     /// Advances the queue head to the next frame and either drops inputs or fills the queue if the input delay has changed since the last frame.
     fn advance_queue_head(&mut self, mut input_frame: FrameNumber) -> FrameNumber {
-        let previous_position: usize;
+        let mut previous_position: usize;
         match self.head {
             0 => previous_position = INPUT_QUEUE_LENGTH - 1,
             _ => previous_position = self.head - 1,
         }
 
-        let mut expected_frame: FrameNumber;
-        match self.first_frame {
-            true => expected_frame = 0,
-            false => expected_frame = self.inputs[previous_position].frame + 1,
+        let mut expected_frame = if self.first_frame {
+            0
+        } else {
+            self.inputs[previous_position].frame + 1
         };
 
         input_frame += self.frame_delay as i32;
@@ -236,7 +236,6 @@ impl InputQueue {
             expected_frame += 1;
         }
 
-        let previous_position: usize;
         match self.head {
             0 => previous_position = INPUT_QUEUE_LENGTH - 1,
             _ => previous_position = self.head - 1,

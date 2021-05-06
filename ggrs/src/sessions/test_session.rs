@@ -7,7 +7,7 @@ use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
-/// in your `save_game_state()` function, the SyncTestSession will compare the resimulated checksums with the original checksums and report if there was a mismatch.
+/// in your `save_game_state()` function, the `SyncTestSession` will compare the resimulated checksums with the original checksums and report if there was a mismatch.
 #[derive(Debug)]
 pub struct SyncTestSession {
     current_frame: FrameNumber,
@@ -22,8 +22,8 @@ pub struct SyncTestSession {
 
 impl SyncTestSession {
     /// Creates a new `SyncTestSession` instance with given values.
-    pub fn new(check_distance: u32, num_players: u32, input_size: usize) -> SyncTestSession {
-        SyncTestSession {
+    pub fn new(check_distance: u32, num_players: u32, input_size: usize) -> Self {
+        Self {
             current_frame: NULL_FRAME,
             num_players,
             input_size,
@@ -32,7 +32,7 @@ impl SyncTestSession {
             current_input: GameInput::new(NULL_FRAME, None, input_size),
             saved_states: SavedStates {
                 head: 0,
-                states: [BLANK_FRAME; MAX_PREDICTION_FRAMES],
+                states: [BLANK_FRAME; MAX_PREDICTION_FRAMES as usize],
             },
             sync_layer: SyncLayer::new(num_players, input_size),
         }
@@ -53,10 +53,11 @@ impl GGRSSession for SyncTestSession {
     /// # Errors
     /// Return a `InvalidRequestError`, if the session is already running.
     fn start_session(&mut self) -> Result<(), GGRSError> {
-        match self.running {
-            true => return Err(GGRSError::InvalidRequestError),
-            false => self.running = true,
+        if self.running {
+            return Err(GGRSError::InvalidRequestError);
         }
+
+        self.running = true;
         self.current_frame = 0;
         Ok(())
     }

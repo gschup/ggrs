@@ -7,18 +7,18 @@ use crate::network_stats::NetworkStats;
 use crate::sessions::test_session::SyncTestSession;
 
 /// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
-pub const MAX_PLAYERS: usize = 2;
+pub const MAX_PLAYERS: u32 = 2;
 /// The maximum number of spectators allowed. This number is arbitrarily chosen and could be higher in theory.
-pub const MAX_SPECTATORS: usize = 8;
+pub const MAX_SPECTATORS: u32 = 8;
 /// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct if the players did not desync.
-pub const MAX_PREDICTION_FRAMES: usize = 8;
+pub const MAX_PREDICTION_FRAMES: u32 = 8;
 /// The maximum input delay that can be set. This number is arbirarily chosen, but 10 frames of input delay is already rather unlayable.
 pub const MAX_INPUT_DELAY: u32 = 10;
 /// The maximum number of bytes the input of a single player can consist of. This corresponds to the size of `usize`.
 /// Higher values should be possible, but are not tested.
 pub const MAX_INPUT_BYTES: usize = 8;
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
-/// It needs to be higher than MAX_PREDICTION_FRAMES.
+/// It needs to be higher than `MAX_PREDICTION_FRAMES`. TODO CHECK HOW BIG ACTUALLY
 pub const INPUT_QUEUE_LENGTH: usize = 128;
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;
@@ -138,13 +138,13 @@ pub fn start_synctest_session(
     num_players: u32,
     input_size: usize,
 ) -> Result<SyncTestSession, GGRSError> {
-    if num_players as usize > MAX_PLAYERS {
+    if num_players > MAX_PLAYERS {
         return Err(GGRSError::InvalidRequestError);
     }
     if input_size > MAX_INPUT_BYTES {
         return Err(GGRSError::InvalidRequestError);
     }
-    if check_distance as usize > MAX_PREDICTION_FRAMES {
+    if check_distance > MAX_PREDICTION_FRAMES {
         return Err(GGRSError::InvalidRequestError);
     }
     Ok(SyncTestSession::new(

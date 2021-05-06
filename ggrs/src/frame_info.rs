@@ -39,8 +39,8 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new() -> GameState {
-        GameState {
+    pub const fn new() -> Self {
+        Self {
             frame: NULL_FRAME,
             buffer: Vec::new(),
             checksum: None,
@@ -60,15 +60,15 @@ pub struct GameInput {
 }
 
 impl GameInput {
-    pub fn new(frame: FrameNumber, bits: Option<InputBuffer>, size: usize) -> GameInput {
+    pub fn new(frame: FrameNumber, bits: Option<InputBuffer>, size: usize) -> Self {
         assert!(size <= crate::MAX_INPUT_BYTES);
         match bits {
-            Some(i_bits) => GameInput {
+            Some(i_bits) => Self {
                 frame,
                 size,
                 bits: i_bits,
             },
-            None => GameInput {
+            None => Self {
                 frame,
                 size,
                 bits: [0; crate::MAX_INPUT_BYTES],
@@ -85,7 +85,7 @@ impl GameInput {
         self.bits.iter_mut().for_each(|m| *m = 0)
     }
 
-    pub fn equal(&self, other: &GameInput, bitsonly: bool) -> bool {
+    pub fn equal(&self, other: &Self, bitsonly: bool) -> bool {
         (bitsonly || self.frame == other.frame)
             && self.size == other.size
             && self.bits == other.bits
