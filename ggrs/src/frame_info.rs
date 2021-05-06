@@ -60,13 +60,13 @@ pub struct GameInput {
 }
 
 impl GameInput {
-    pub fn new(frame: FrameNumber, bits: Option<&InputBuffer>, size: usize) -> GameInput {
+    pub fn new(frame: FrameNumber, bits: Option<InputBuffer>, size: usize) -> GameInput {
         assert!(size <= crate::MAX_INPUT_BYTES);
         match bits {
             Some(i_bits) => GameInput {
                 frame,
                 size,
-                bits: i_bits.clone(),
+                bits: i_bits,
             },
             None => GameInput {
                 frame,

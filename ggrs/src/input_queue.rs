@@ -147,7 +147,7 @@ impl InputQueue {
         assert!(self.prediction.frame != NULL_FRAME);
         let mut prediction_to_return = self.prediction; // GameInput has copy semantics
         prediction_to_return.frame = requested_frame;
-        return prediction_to_return;
+        prediction_to_return
     }
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
@@ -179,7 +179,7 @@ impl InputQueue {
         assert!(frame_number == 0 || self.inputs[previous_position].frame == frame_number - 1);
 
         // Add the frame to the back of the queue
-        self.inputs[self.head] = input.clone();
+        self.inputs[self.head] = input; // copy semantics
         self.inputs[self.head].frame = frame_number;
         self.head = (self.head + 1) % INPUT_QUEUE_LENGTH;
         self.length += 1;
