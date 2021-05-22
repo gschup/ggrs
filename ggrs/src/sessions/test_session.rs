@@ -43,7 +43,7 @@ impl GGRSSession for SyncTestSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
     fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGRSError> {
         if player.player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidRequestError);
+            return Err(GGRSError::InvalidRequest);
         }
         Ok(player.player_handle)
     }
@@ -54,7 +54,7 @@ impl GGRSSession for SyncTestSession {
     /// Return a `InvalidRequestError`, if the session is already running.
     fn start_session(&mut self) -> Result<(), GGRSError> {
         if self.running {
-            return Err(GGRSError::InvalidRequestError);
+            return Err(GGRSError::InvalidRequest);
         }
 
         self.running = true;
@@ -71,11 +71,11 @@ impl GGRSSession for SyncTestSession {
     ) -> Result<(), GGRSError> {
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandleError);
+            return Err(GGRSError::InvalidHandle);
         }
         // session has not been started
         if !self.running {
-            return Err(GGRSError::NotSynchronizedError);
+            return Err(GGRSError::NotSynchronized);
         }
         // copy the local input bits into the current input
         self.current_input.copy_input(input);
@@ -106,7 +106,7 @@ impl GGRSSession for SyncTestSession {
                 input: self.current_input, // copy semantics
             })
         } else {
-            return Err(GGRSError::GeneralFailureError);
+            return Err(GGRSError::GeneralFailure);
         };
 
         // get the correct inputs for all players from the sync layer
@@ -154,7 +154,7 @@ impl GGRSSession for SyncTestSession {
                     (last_saved_state.checksum, old_frame_info.state.checksum)
                 {
                     if cs1 != cs2 {
-                        return Err(GGRSError::MismatchedChecksumError);
+                        return Err(GGRSError::MismatchedChecksum);
                     }
                 }
 
@@ -186,7 +186,7 @@ impl GGRSSession for SyncTestSession {
         player_handle: PlayerHandle,
     ) -> Result<(), GGRSError> {
         if self.running {
-            return Err(GGRSError::InvalidRequestError);
+            return Err(GGRSError::InvalidRequest);
         }
         self.sync_layer.set_frame_delay(player_handle, frame_delay);
         Ok(())
@@ -199,21 +199,21 @@ impl GGRSSession for SyncTestSession {
 
     /// Not supported in `SyncTestSession`.
     fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGRSError> {
-        Err(GGRSError::UnsupportedError)
+        Err(GGRSError::Unsupported)
     }
 
     /// Not supported in `SyncTestSession`.
     fn network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
-        Err(GGRSError::UnsupportedError)
+        Err(GGRSError::Unsupported)
     }
 
     /// Not supported in `SyncTestSession`.
     fn set_disconnect_timeout(&self, _timeout: u32) -> Result<(), GGRSError> {
-        Err(GGRSError::UnsupportedError)
+        Err(GGRSError::Unsupported)
     }
 
     /// Not supported in `SyncTestSession`.
     fn set_disconnect_notify_delay(&self, _notify_delay: u32) -> Result<(), GGRSError> {
-        Err(GGRSError::UnsupportedError)
+        Err(GGRSError::Unsupported)
     }
 }

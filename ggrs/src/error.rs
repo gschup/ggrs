@@ -6,42 +6,42 @@ use std::fmt::Display;
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGRSError {
     /// a catch-all error, usage should be limited
-    GeneralFailureError,
+    GeneralFailure,
     /// When this gets returned, the given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
-    InvalidHandleError,
+    InvalidHandle,
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
-    PredictionThresholdError,
+    PredictionThreshold,
     /// The function you called is unsupported with given session type you are using
-    UnsupportedError,
+    Unsupported,
     /// You made an invalid request, usually by using wrong parameters for function calls or starting a session that is already started.
-    InvalidRequestError,
-    NotSynchronizedError,
-    MismatchedChecksumError,
+    InvalidRequest,
+    NotSynchronized,
+    MismatchedChecksum,
 }
 
 impl Display for GGRSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GGRSError::GeneralFailureError => {
+            GGRSError::GeneralFailure => {
                 write!(f, "General Failure. If this happens, then GGRS is faulty.")
             }
-            GGRSError::InvalidHandleError => {
+            GGRSError::InvalidHandle => {
                 write!(f, "The player handle you provided is invalid.")
             }
-            GGRSError::PredictionThresholdError => write!(
+            GGRSError::PredictionThreshold => write!(
                 f,
                 "Prediction threshold is reached, cannot proceed without catching up."
             ),
-            GGRSError::UnsupportedError => write!(
+            GGRSError::Unsupported => write!(
                 f,
                 "The function you called is not supported by this session type"
             ),
-            GGRSError::InvalidRequestError => write!(
+            GGRSError::InvalidRequest => write!(
                 f,
                 "You called the function with invalid/unexpected parameters."
             ),
-            GGRSError::NotSynchronizedError => write!(f, "Not all players are synchronized."),
-            GGRSError::MismatchedChecksumError => {
+            GGRSError::NotSynchronized => write!(f, "Not all players are synchronized."),
+            GGRSError::MismatchedChecksum => {
                 write!(f, "Detected checksum mismatch during rollback.")
             }
         }

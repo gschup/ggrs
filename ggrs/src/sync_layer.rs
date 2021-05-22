@@ -122,7 +122,7 @@ impl SyncLayer {
     ) -> Result<(), GGRSError> {
         let frames_behind = self.current_frame - self.last_confirmed_frame;
         if frames_behind > MAX_PREDICTION_FRAMES as i32 {
-            return Err(GGRSError::PredictionThresholdError);
+            return Err(GGRSError::PredictionThreshold);
         }
 
         // The input provided should match the current frame

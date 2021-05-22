@@ -139,13 +139,13 @@ pub fn start_synctest_session(
     input_size: usize,
 ) -> Result<SyncTestSession, GGRSError> {
     if num_players > MAX_PLAYERS {
-        return Err(GGRSError::InvalidRequestError);
+        return Err(GGRSError::InvalidRequest);
     }
     if input_size > MAX_INPUT_BYTES {
-        return Err(GGRSError::InvalidRequestError);
+        return Err(GGRSError::InvalidRequest);
     }
     if check_distance > MAX_PREDICTION_FRAMES {
-        return Err(GGRSError::InvalidRequestError);
+        return Err(GGRSError::InvalidRequest);
     }
     Ok(SyncTestSession::new(
         check_distance,
