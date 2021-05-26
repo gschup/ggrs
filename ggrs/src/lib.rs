@@ -4,7 +4,7 @@
 use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState};
 use crate::network_stats::NetworkStats;
-use crate::sessions::test_session::SyncTestSession;
+use crate::sessions::sync_test_session::SyncTestSession;
 
 /// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
 pub const MAX_PLAYERS: u32 = 2;
@@ -33,7 +33,7 @@ pub mod network_stats;
 pub mod player;
 pub mod sync_layer;
 pub mod sessions {
-    pub mod test_session;
+    pub mod sync_test_session;
 }
 pub mod network {
     pub mod udp_msg;
