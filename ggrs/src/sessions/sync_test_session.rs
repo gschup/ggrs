@@ -41,11 +41,11 @@ impl SyncTestSession {
 
 impl GGRSSession for SyncTestSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
-    fn add_player(&mut self, player: &Player) -> Result<PlayerHandle, GGRSError> {
+    fn add_player(&mut self, player: &Player) -> Result<(), GGRSError> {
         if player.player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidHandle);
         }
-        Ok(player.player_handle)
+        Ok(())
     }
 
     /// After you are done defining and adding all players, you should start the session. In a sync test, starting the session saves the initial game state and sets running to true.

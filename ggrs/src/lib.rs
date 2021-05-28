@@ -33,6 +33,7 @@ pub mod network_stats;
 pub mod player;
 pub mod sync_layer;
 pub mod sessions {
+    pub mod p2p_session;
     pub mod sync_test_session;
 }
 pub mod network {
@@ -57,7 +58,7 @@ pub trait GGRSInterface {
 
 /// All `GGRSSession` backends implement this trait. Some `GGRSSession` might not support a certain operation and will return an `UnsupportedError` in that case.
 pub trait GGRSSession {
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
+    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
     ///
     /// # Example
     /// ```
@@ -71,7 +72,7 @@ pub trait GGRSSession {
     /// # Ok(())
     /// # }
     /// ```
-    fn add_player(&mut self, player: &player::Player) -> Result<PlayerHandle, GGRSError>;
+    fn add_player(&mut self, player: &player::Player) -> Result<(), GGRSError>;
 
     /// After you are done defining and adding all players, you should start the session
     fn start_session(&mut self) -> Result<(), GGRSError>;

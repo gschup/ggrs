@@ -67,15 +67,8 @@ fn test_add_player() {
     let dummy_player_0 = Player::new(PlayerType::Local, 0);
     let dummy_player_1 = Player::new(PlayerType::Local, 1);
 
-    match sess.add_player(&dummy_player_0) {
-        Ok(handle) => assert_eq!(handle, 0),
-        Err(_) => assert!(false),
-    }
-
-    match sess.add_player(&dummy_player_1) {
-        Ok(handle) => assert_eq!(handle, 1),
-        Err(_) => assert!(false),
-    }
+    assert!(sess.add_player(&dummy_player_0).is_ok());
+    assert!(sess.add_player(&dummy_player_1).is_ok());
 }
 
 #[test]
@@ -115,18 +108,17 @@ fn test_add_local_input_invalid_handle() {
 fn test_start_synctest_session() {
     let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>()).unwrap();
     let player = Player::new(PlayerType::Local, 1);
-    let handle = sess.add_player(&player).unwrap();
-    assert_eq!(handle, 1);
+    sess.add_player(&player).unwrap();
     sess.start_session().unwrap();
 }
 
 #[test]
 fn test_advance_frame() {
+    let handle = 1;
     let mut stub = GameStub::new();
     let mut sess = ggrs::start_synctest_session(7, 2, std::mem::size_of::<u32>()).unwrap();
-    let player = Player::new(PlayerType::Local, 1);
-    let handle = sess.add_player(&player).unwrap();
-    assert_eq!(handle, 1);
+    let player = Player::new(PlayerType::Local, handle);
+    sess.add_player(&player).unwrap();
     sess.start_session().unwrap();
 
     for i in 0..200 {
@@ -140,11 +132,11 @@ fn test_advance_frame() {
 
 #[test]
 fn test_advance_frames_with_delayed_input() {
+    let handle = 1;
     let mut stub = GameStub::new();
     let mut sess = ggrs::start_synctest_session(7, 2, std::mem::size_of::<u32>()).unwrap();
     let player = Player::new(PlayerType::Local, 1);
-    let handle = sess.add_player(&player).unwrap();
-    assert_eq!(handle, 1);
+    sess.add_player(&player).unwrap();
     sess.set_frame_delay(2, handle).unwrap();
     sess.start_session().unwrap();
 
