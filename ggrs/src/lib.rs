@@ -41,6 +41,7 @@ pub mod sessions {
 pub mod network {
     pub mod network_stats;
     pub mod udp_msg;
+    pub mod udp_socket;
 }
 
 /// The `GGRSInterface` trait describes the functions that your application must provide. GGRS might call these functions after you called `advance_frame()` or

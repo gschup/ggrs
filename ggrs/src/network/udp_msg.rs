@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{FrameNumber, NULL_FRAME};
 
 /*
@@ -13,13 +15,13 @@ pub enum MessageType {
 }
 */
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MessageHeader {
     pub magic: u16,
     pub sequence_number: u16,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConnectionStatus {
     disconnected: bool,
     last_frame: FrameNumber,
@@ -34,7 +36,7 @@ impl ConnectionStatus {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UdpMessage {
     SyncRequest {
         header: MessageHeader,
@@ -71,11 +73,3 @@ pub enum UdpMessage {
         header: MessageHeader,
     },
 }
-
-/*
-impl UdpMessage {
-    pub const fn new(t: MessageType) -> Self {
-        match t {}
-    }
-}
-*/

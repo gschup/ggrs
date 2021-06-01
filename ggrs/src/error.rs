@@ -5,7 +5,7 @@ use std::fmt::Display;
 /// This enum contains all error messages this library can return. Most API functions will generally return a Result<T,GGRS>.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGRSError {
-    /// a catch-all error, usage should be limited
+    /// a catch-all error if something breaks internally
     GeneralFailure,
     /// When this gets returned, the given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
     InvalidHandle,
@@ -16,6 +16,7 @@ pub enum GGRSError {
     /// You made an invalid request, usually by using wrong parameters for function calls or starting a session that is already started.
     InvalidRequest,
     NotSynchronized,
+    /// In a `SyncTestSession`, this error is returned if checksums of resimulated frames do not match up with the original checksum.
     MismatchedChecksum,
 }
 
