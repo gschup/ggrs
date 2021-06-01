@@ -41,6 +41,7 @@ pub mod sessions {
 pub mod network {
     pub mod network_stats;
     pub mod udp_msg;
+    pub mod udp_protocol;
     pub mod udp_socket;
 }
 
