@@ -1,11 +1,11 @@
 use crate::error::GGRSError;
 use crate::frame_info::GameInput;
-use crate::network_stats::NetworkStats;
-use crate::player::Player;
-use crate::player::PlayerType;
+use crate::network::network_stats::NetworkStats;
+use crate::network::udp_msg::ConnectionStatus;
+use crate::player::{Player, PlayerType};
 use crate::sync_layer::SyncLayer;
-use crate::NULL_FRAME;
 use crate::{GGRSInterface, GGRSSession, PlayerHandle};
+use crate::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, NULL_FRAME};
 
 #[derive(Debug, PartialEq, Eq)]
 enum SessionState {
@@ -16,19 +16,35 @@ enum SessionState {
 
 #[derive(Debug)]
 pub struct P2PSession {
+    /// Internal State of the Session
     state: SessionState,
+    /// The number of players of the session
     num_players: u32,
+    /// The number of bytes an input uses
     input_size: usize,
     sync_layer: SyncLayer,
+    local_connect_status: Vec<ConnectionStatus>,
+    disconnect_timeout: u32,
+    disconnect_notify_start: u32,
+    next_recommended_sleep: u32,
 }
 
 impl P2PSession {
     pub fn new(num_players: u32, input_size: usize) -> Self {
+        // local connection status
+        let mut local_connect_status = Vec::new();
+        for _ in 0..num_players {
+            local_connect_status.push(ConnectionStatus::new());
+        }
         Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
             sync_layer: SyncLayer::new(num_players, input_size),
+            local_connect_status,
+            disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
+            disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
+            next_recommended_sleep: 0,
         }
     }
 
@@ -68,6 +84,7 @@ impl GGRSSession for P2PSession {
         if self.state != SessionState::Initializing {
             return Err(GGRSError::InvalidRequest);
         }
+        self.state = SessionState::Synchronizing;
         todo!()
     }
 

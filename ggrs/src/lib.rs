@@ -3,7 +3,7 @@
 
 use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState};
-use crate::network_stats::NetworkStats;
+use crate::network::network_stats::NetworkStats;
 use crate::sessions::sync_test_session::SyncTestSession;
 
 /// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
@@ -22,6 +22,9 @@ pub const MAX_INPUT_BYTES: usize = 8;
 pub const INPUT_QUEUE_LENGTH: usize = 128;
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;
+pub const RECOMMENDATION_INTERVAL: u32 = 240;
+pub const DEFAULT_DISCONNECT_TIMEOUT: u32 = 5000;
+pub const DEFAULT_DISCONNECT_NOTIFY_START: u32 = 750;
 
 pub type FrameNumber = i32;
 pub type PlayerHandle = usize;
@@ -29,7 +32,6 @@ pub type PlayerHandle = usize;
 pub mod error;
 pub mod frame_info;
 pub mod input_queue;
-pub mod network_stats;
 pub mod player;
 pub mod sync_layer;
 pub mod sessions {
@@ -37,6 +39,7 @@ pub mod sessions {
     pub mod sync_test_session;
 }
 pub mod network {
+    pub mod network_stats;
     pub mod udp_msg;
 }
 

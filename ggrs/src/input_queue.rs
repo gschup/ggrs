@@ -6,7 +6,7 @@ use std::cmp;
 #[derive(Debug, Clone)]
 pub(crate) struct InputQueue {
     /// Identifies the player this InputQueue belongs to
-    pub id: PlayerHandle,
+    id: PlayerHandle,
     /// The head of the queue. The newest [GameInput] is here      
     head: usize,
     /// The tail of the queue. The oldest [GameInput] still valid is here.

@@ -1,6 +1,6 @@
 use crate::error::GGRSError;
 use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
-use crate::network_stats::NetworkStats;
+use crate::network::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::sync_layer::{SavedStates, SyncLayer};
 use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle};

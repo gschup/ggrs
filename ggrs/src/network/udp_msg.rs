@@ -1,4 +1,4 @@
-use crate::{FrameNumber, MAX_PLAYERS};
+use crate::{FrameNumber, NULL_FRAME};
 
 /*
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -25,6 +25,15 @@ pub struct ConnectionStatus {
     last_frame: FrameNumber,
 }
 
+impl ConnectionStatus {
+    pub fn new() -> Self {
+        Self {
+            disconnected: false,
+            last_frame: NULL_FRAME,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UdpMessage {
     SyncRequest {
@@ -39,7 +48,7 @@ pub enum UdpMessage {
     },
     Input {
         header: MessageHeader,
-        peer_connect_status: [ConnectionStatus; MAX_PLAYERS as usize],
+        peer_connect_status: Vec<ConnectionStatus>,
         start_frame: FrameNumber,
         disconnect_requested: bool,
         ack_frame: FrameNumber,
