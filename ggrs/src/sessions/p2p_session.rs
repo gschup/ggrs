@@ -1,16 +1,20 @@
 use crate::error::GGRSError;
+use crate::frame_info::GameInput;
 use crate::network_stats::NetworkStats;
 use crate::player::Player;
 use crate::player::PlayerType;
 use crate::sync_layer::SyncLayer;
+use crate::NULL_FRAME;
 use crate::{GGRSInterface, GGRSSession, PlayerHandle};
 
+#[derive(Debug, PartialEq, Eq)]
 enum SessionState {
     Initializing,
     Synchronizing,
     Running,
 }
 
+#[derive(Debug)]
 pub struct P2PSession {
     state: SessionState,
     num_players: u32,
@@ -36,7 +40,7 @@ impl P2PSession {
         if player.player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
         }
-        todo!()
+        Ok(())
     }
 
     fn add_remote_player(&mut self, player: &Player) -> Result<(), GGRSError> {
@@ -57,14 +61,19 @@ impl GGRSSession for P2PSession {
         }
     }
 
-    /// After you are done defining and adding all players, you should start the session
+    /// After you are done defining and adding all players, you should start the session.
+    /// # Errors
+    /// Will return 'InvalidRequest' if the session has already been started before.
     fn start_session(&mut self) -> Result<(), GGRSError> {
+        if self.state != SessionState::Initializing {
+            return Err(GGRSError::InvalidRequest);
+        }
         todo!()
     }
 
     /// Disconnects a remote player from a game.  
     /// # Errors
-    ///Will return a `PlayerDisconnectedError` if you try to disconnect a player who has already been disconnected.
+    ///Will return `PlayerDisconnected` if you try to disconnect a player who has already been disconnected.
     fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
         todo!()
     }
@@ -76,11 +85,46 @@ impl GGRSSession for P2PSession {
         player_handle: PlayerHandle,
         input: &[u8],
     ) -> Result<(), GGRSError> {
-        todo!()
+        // player handle is invalid
+        if player_handle > self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+        // session is not running
+        if self.state != SessionState::Running {
+            return Err(GGRSError::NotSynchronized);
+        }
+        let mut game_input: GameInput =
+            GameInput::new(self.sync_layer.current_frame(), None, self.input_size);
+        game_input.copy_input(input);
+
+        // send the input into the sync layer
+        let actual_frame = self.sync_layer.add_local_input(player_handle, game_input)?;
+
+        // if the actual frame is the null frame, the frame has been dropped by the input queues (due to changed input delay)
+        if actual_frame != NULL_FRAME {
+            // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
+            game_input.frame = actual_frame;
+            todo!();
+        }
+
+        Ok(())
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
     fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
+        // save the current frame in the syncronization layer
+        self.sync_layer
+            .save_current_state(interface.save_game_state());
+        // get correct inputs for the current frame
+        let sync_inputs = self.sync_layer.synchronized_inputs();
+        for input in &sync_inputs {
+            assert_eq!(input.frame, self.sync_layer.current_frame());
+        }
+        // advance the frame
+        self.sync_layer.advance_frame();
+        interface.advance_frame(sync_inputs);
+
+        // do poll
         todo!()
     }
 
@@ -95,7 +139,12 @@ impl GGRSSession for P2PSession {
         frame_delay: u32,
         player_handle: PlayerHandle,
     ) -> Result<(), GGRSError> {
-        todo!()
+        // player handle is invalid
+        if player_handle > self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+        self.sync_layer.set_frame_delay(player_handle, frame_delay);
+        Ok(())
     }
 
     /// Sets the disconnect timeout.  The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
@@ -110,6 +159,7 @@ impl GGRSSession for P2PSession {
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work. Packet transmissions and rollbacks can occur here.
     fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
+        // do poll
         todo!()
     }
 }

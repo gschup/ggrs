@@ -151,7 +151,7 @@ impl InputQueue {
     }
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
-    pub(crate) fn add_input(&mut self, input: GameInput) {
+    pub(crate) fn add_input(&mut self, input: GameInput) -> FrameNumber {
         // These next two lines simply verify that inputs are passed in sequentially by the user, regardless of frame delay.
         assert!(
             self.last_added_frame == NULL_FRAME
@@ -164,9 +164,11 @@ impl InputQueue {
         if new_frame != NULL_FRAME {
             self.add_input_by_frame(input, new_frame);
         }
+        new_frame
     }
 
     /// Adds an input frame to the queue at the given frame number. If there are predicted inputs, we will check those and mark them as incorrect, if necessary.
+    /// Returns the frame number
     fn add_input_by_frame(&mut self, input: GameInput, frame_number: FrameNumber) {
         let previous_position: usize;
         match self.head {

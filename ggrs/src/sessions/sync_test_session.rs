@@ -111,18 +111,20 @@ impl GGRSSession for SyncTestSession {
 
         // get the correct inputs for all players from the sync layer
         let sync_inputs = self.sync_layer.synchronized_inputs();
-        assert_eq!(sync_inputs[0].frame, self.sync_layer.current_frame());
-        assert_eq!(sync_inputs[0].frame, self.current_frame);
+        for input in &sync_inputs {
+            assert_eq!(input.frame, self.sync_layer.current_frame());
+            assert_eq!(input.frame, self.current_frame);
+        }
 
         // advance the frame
-        interface.advance_frame(sync_inputs, 0);
+        interface.advance_frame(sync_inputs);
         self.sync_layer.advance_frame();
         self.current_frame += 1;
 
         // current input has been used, so we can delete the input bits
         self.current_input.erase_bits();
 
-        // manual simulated rollback section without using the sync_layer, but only if we have enough frames in the past
+        // manual simulated rollbacks without using the sync_layer, but only if we have enough frames in the past
         if self.current_frame > self.check_distance as i32 {
             // load the frame that lies `check_distance` frames in the past
             let frame_to_load = self.current_frame - self.check_distance as i32;
@@ -161,7 +163,7 @@ impl GGRSSession for SyncTestSession {
                 // advance the frame
                 let sync_inputs = self.sync_layer.synchronized_inputs();
                 self.sync_layer.advance_frame();
-                interface.advance_frame(sync_inputs, 0);
+                interface.advance_frame(sync_inputs);
             }
             // we should have arrived back at the current frame
             let gs_compare = interface.save_game_state();
@@ -185,8 +187,9 @@ impl GGRSSession for SyncTestSession {
         frame_delay: u32,
         player_handle: PlayerHandle,
     ) -> Result<(), GGRSError> {
-        if self.running {
-            return Err(GGRSError::InvalidRequest);
+        // player handle is invalid
+        if player_handle > self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
         }
         self.sync_layer.set_frame_delay(player_handle, frame_delay);
         Ok(())

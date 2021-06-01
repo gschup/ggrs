@@ -54,7 +54,7 @@ impl GGRSInterface for GameStub {
         self.gs = bincode::deserialize(&state.buffer).unwrap();
     }
 
-    fn advance_frame(&mut self, inputs: Vec<GameInput>, _disconnect_flags: u8) {
+    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
         self.gs.advance_frame(inputs);
     }
 }

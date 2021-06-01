@@ -53,7 +53,7 @@ pub trait GGRSInterface {
 
     /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
     /// GGRS will call it at least once after each `advance_frame()` call, but possible multiple times during rollbacks. Do not call this function yourself.
-    fn advance_frame(&mut self, inputs: Vec<GameInput>, disconnect_flags: u8);
+    fn advance_frame(&mut self, inputs: Vec<GameInput>);
 }
 
 /// All `GGRSSession` backends implement this trait. Some `GGRSSession` might not support a certain operation and will return an `UnsupportedError` in that case.
@@ -74,12 +74,14 @@ pub trait GGRSSession {
     /// ```
     fn add_player(&mut self, player: &player::Player) -> Result<(), GGRSError>;
 
-    /// After you are done defining and adding all players, you should start the session
+    /// After you are done defining and adding all players, you should start the session.
+    /// # Errors
+    /// Will return 'InvalidRequest' if the session has already been started.
     fn start_session(&mut self) -> Result<(), GGRSError>;
 
     /// Disconnects a remote player from a game.  
     /// # Errors
-    ///Will return a `PlayerDisconnectedError` if you try to disconnect a player who has already been disconnected.
+    ///Will return `PlayerDisconnected` if you try to disconnect a player who has already been disconnected.
     fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError>;
 
     /// Used to notify GGRS of inputs that should be transmitted to remote players. `add_local_input()` must be called once every frame for all player of type `PlayerType::Local`
@@ -96,7 +98,7 @@ pub trait GGRSSession {
     /// Used to fetch some statistics about the quality of the network connection.
     fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError>;
 
-    /// Change the amount of frames GGRS will delay your local inputs. Must be called before the first call to `advance_frame()`.
+    /// Change the amount of frames GGRS will delay your local inputs. You should only set the frame delay for local players.
     fn set_frame_delay(
         &mut self,
         frame_delay: u32,
@@ -110,7 +112,7 @@ pub trait GGRSSession {
     /// The time to wait before the first notification will be sent.
     fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGRSError>;
 
-    /// Should be called periodically by your application to give GGRS a chance to do internal work. Packet transmissions and rollbacks can occur here.
+    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions and rollbacks.
     fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError>;
 }
 

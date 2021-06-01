@@ -114,12 +114,13 @@ impl SyncLayer {
         state_to_load
     }
 
-    /// Adds local input to the corresponding input queue. Checks if the prediction threshold has been reached.
+    /// Adds local input to the corresponding input queue. Checks if the prediction threshold has been reached. Returns the frame number where the input is actually added to.
+    /// This number will only be different if the input delay was set to a number higher than 0.
     pub(crate) fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
         input: GameInput,
-    ) -> Result<(), GGRSError> {
+    ) -> Result<FrameNumber, GGRSError> {
         let frames_behind = self.current_frame - self.last_confirmed_frame;
         if frames_behind > MAX_PREDICTION_FRAMES as i32 {
             return Err(GGRSError::PredictionThreshold);
@@ -127,8 +128,7 @@ impl SyncLayer {
 
         // The input provided should match the current frame
         assert_eq!(input.frame, self.current_frame);
-        self.input_queues[player_handle].add_input(input);
-        Ok(())
+        Ok(self.input_queues[player_handle].add_input(input))
     }
 
     /// Adds remote input to the correspoinding input queue.
