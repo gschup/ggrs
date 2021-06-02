@@ -5,7 +5,7 @@ use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 const RECV_BUFFER_SIZE: usize = 4096;
 
 #[derive(Debug)]
-pub struct NonBlockingSocket {
+pub(crate) struct NonBlockingSocket {
     socket: UdpSocket,
     buffer: [u8; RECV_BUFFER_SIZE],
 }
