@@ -3,6 +3,8 @@ use std::io::ErrorKind;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 
 const RECV_BUFFER_SIZE: usize = 4096;
+
+#[derive(Debug)]
 pub struct NonBlockingSocket {
     socket: UdpSocket,
     buffer: [u8; RECV_BUFFER_SIZE],
