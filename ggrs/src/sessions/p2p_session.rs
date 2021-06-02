@@ -2,10 +2,13 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::network_stats::NetworkStats;
 use crate::network::udp_msg::ConnectionStatus;
+use crate::network::udp_socket::NonBlockingSocket;
 use crate::player::{Player, PlayerType};
 use crate::sync_layer::SyncLayer;
 use crate::{GGRSInterface, GGRSSession, PlayerHandle};
 use crate::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, NULL_FRAME};
+
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 #[derive(Debug, PartialEq, Eq)]
 enum SessionState {
@@ -27,15 +30,18 @@ pub struct P2PSession {
     disconnect_timeout: u32,
     disconnect_notify_start: u32,
     next_recommended_sleep: u32,
+    socket: NonBlockingSocket,
 }
 
 impl P2PSession {
-    pub fn new(num_players: u32, input_size: usize) -> Self {
+    pub fn new(num_players: u32, input_size: usize, port: u16) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {
             local_connect_status.push(ConnectionStatus::new());
         }
+        // socket address to bind to, very WIP
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port); //TODO: IpV6?
         Self {
             state: SessionState::Initializing,
             num_players,
@@ -45,6 +51,7 @@ impl P2PSession {
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             next_recommended_sleep: 0,
+            socket: NonBlockingSocket::new(addr),
         }
     }
 
