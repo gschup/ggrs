@@ -2,19 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{FrameNumber, NULL_FRAME};
 
-/*
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum MessageType {
-    SyncRequest,
-    SyncReply,
-    Input,
-    QualityReport,
-    QualityReply,
-    KeepAlive,
-    InputAck,
-}
-*/
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MessageHeader {
     pub magic: u16,
