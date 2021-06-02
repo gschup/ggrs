@@ -2,6 +2,7 @@ use adler::Adler32;
 use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use ggrs::frame_info::{GameInput, GameState};
 use ggrs::player::{Player, PlayerType};
@@ -77,6 +78,17 @@ fn test_add_player_invalid_handle() {
 
     // add a player incorrectly
     let incorrect_player = Player::new(PlayerType::Local, 3);
+
+    assert!(sess.add_player(&incorrect_player).is_err());
+}
+
+#[test]
+fn test_add_player_invalid_player_type_for_synctest() {
+    let mut sess = ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), 1).unwrap();
+
+    // add a player incorrectly
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+    let incorrect_player = Player::new(PlayerType::Remote(addr), 0);
 
     assert!(sess.add_player(&incorrect_player).is_err());
 }
