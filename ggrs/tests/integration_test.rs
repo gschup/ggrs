@@ -61,7 +61,7 @@ impl GGRSInterface for GameStub {
 
 #[test]
 fn test_add_player() {
-    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>()).unwrap();
+    let mut sess = ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), 1).unwrap();
 
     // add players correctly
     let dummy_player_0 = Player::new(PlayerType::Local, 0);
@@ -73,7 +73,7 @@ fn test_add_player() {
 
 #[test]
 fn test_add_player_invalid_handle() {
-    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>()).unwrap();
+    let mut sess = ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), 1).unwrap();
 
     // add a player incorrectly
     let incorrect_player = Player::new(PlayerType::Local, 3);
@@ -83,7 +83,7 @@ fn test_add_player_invalid_handle() {
 
 #[test]
 fn test_add_local_input_not_running() {
-    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>()).unwrap();
+    let mut sess = ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), 1).unwrap();
 
     // add 0 input for player 0
     let fake_inputs: u32 = 0;
@@ -94,7 +94,7 @@ fn test_add_local_input_not_running() {
 
 #[test]
 fn test_add_local_input_invalid_handle() {
-    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>()).unwrap();
+    let mut sess = ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), 1).unwrap();
     sess.start_session().unwrap();
 
     // add 0 input for player 3
@@ -106,7 +106,7 @@ fn test_add_local_input_invalid_handle() {
 
 #[test]
 fn test_start_synctest_session() {
-    let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>()).unwrap();
+    let mut sess = ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), 1).unwrap();
     let player = Player::new(PlayerType::Local, 1);
     sess.add_player(&player).unwrap();
     sess.start_session().unwrap();
@@ -115,8 +115,10 @@ fn test_start_synctest_session() {
 #[test]
 fn test_advance_frame() {
     let handle = 1;
+    let check_distance = 7;
     let mut stub = GameStub::new();
-    let mut sess = ggrs::start_synctest_session(7, 2, std::mem::size_of::<u32>()).unwrap();
+    let mut sess =
+        ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), check_distance).unwrap();
     let player = Player::new(PlayerType::Local, handle);
     sess.add_player(&player).unwrap();
     sess.start_session().unwrap();
@@ -133,8 +135,10 @@ fn test_advance_frame() {
 #[test]
 fn test_advance_frames_with_delayed_input() {
     let handle = 1;
+    let check_distance = 7;
     let mut stub = GameStub::new();
-    let mut sess = ggrs::start_synctest_session(7, 2, std::mem::size_of::<u32>()).unwrap();
+    let mut sess =
+        ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), check_distance).unwrap();
     let player = Player::new(PlayerType::Local, 1);
     sess.add_player(&player).unwrap();
     sess.set_frame_delay(2, handle).unwrap();

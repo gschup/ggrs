@@ -57,7 +57,7 @@ pub trait GGRSInterface {
     fn load_game_state(&mut self, state: &GameState);
 
     /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
-    /// GGRS will call it at least once after each `advance_frame()` call, but possible multiple times during rollbacks. Do not call this function yourself.
+    /// GGRS will call it at least once after each `advance_frame()` call, but possibly multiple times during rollbacks. Do not call this function yourself.
     fn advance_frame(&mut self, inputs: Vec<GameInput>);
 }
 
@@ -71,7 +71,9 @@ pub trait GGRSSession {
     /// # use ggrs::GGRSSession;
     /// # use ggrs::player::{Player, PlayerType};
     /// # fn main() -> Result<(), GGRSError> {
-    /// let mut sess = ggrs::start_synctest_session(1, 2, std::mem::size_of::<u32>())?;
+    /// let num_players = 2;
+    /// let check_distance = 1;
+    /// let mut sess = ggrs::start_synctest_session(num_players, std::mem::size_of::<u32>(), check_distance)?;
     /// let dummy_player = Player::new(PlayerType::Local, 0);
     /// sess.add_player(&dummy_player)?;
     /// # Ok(())
@@ -132,7 +134,7 @@ pub trait GGRSSession {
 /// let check_distance : u32 = 1;
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
-/// let mut sess = ggrs::start_synctest_session(check_distance, num_players, input_size)?;
+/// let mut sess = ggrs::start_synctest_session(num_players, input_size, check_distance)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -142,9 +144,9 @@ pub trait GGRSSession {
 /// Will return `InvalidRequestError` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
 /// Will return `InvalidRequestError` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
 pub fn start_synctest_session(
-    check_distance: u32,
     num_players: u32,
     input_size: usize,
+    check_distance: u32,
 ) -> Result<SyncTestSession, GGRSError> {
     if num_players > MAX_PLAYERS {
         return Err(GGRSError::InvalidRequest);
@@ -156,8 +158,8 @@ pub fn start_synctest_session(
         return Err(GGRSError::InvalidRequest);
     }
     Ok(SyncTestSession::new(
-        check_distance,
         num_players,
         input_size,
+        check_distance,
     ))
 }

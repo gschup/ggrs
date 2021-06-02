@@ -1,7 +1,7 @@
 use crate::error::GGRSError;
 use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
 use crate::network::network_stats::NetworkStats;
-use crate::player::Player;
+use crate::player::{Player, PlayerType};
 use crate::sync_layer::{SavedStates, SyncLayer};
 use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
@@ -22,7 +22,7 @@ pub struct SyncTestSession {
 
 impl SyncTestSession {
     /// Creates a new `SyncTestSession` instance with given values.
-    pub fn new(check_distance: u32, num_players: u32, input_size: usize) -> Self {
+    pub fn new(num_players: u32, input_size: usize, check_distance: u32) -> Self {
         Self {
             current_frame: NULL_FRAME,
             num_players,
@@ -44,6 +44,9 @@ impl GGRSSession for SyncTestSession {
     fn add_player(&mut self, player: &Player) -> Result<(), GGRSError> {
         if player.player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
+        }
+        if player.player_type != PlayerType::Local {
+            return Err(GGRSError::Unsupported);
         }
         Ok(())
     }
