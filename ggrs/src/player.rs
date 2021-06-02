@@ -2,7 +2,7 @@ use crate::PlayerHandle;
 /// Defines the three types of players that can exist: local player, who play on the local device,
 /// remote players, who play on other devices and spectators, who are remote players that do not contribute to the game input.
 /// Both Remote and Spectator have a socket address associated with them.
-#[derive(Debug, Copy, Clone, Hash)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum PlayerType {
     /// This player plays on the local device
     Local,
