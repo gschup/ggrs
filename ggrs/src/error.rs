@@ -41,7 +41,7 @@ impl Display for GGRSError {
             GGRSError::MismatchedChecksum => {
                 write!(f, "Detected checksum mismatch during rollback.")
             }
-            &GGRSError::SocketCreationFailed => {
+            GGRSError::SocketCreationFailed => {
                 write!(f, "UPD Socket creation failed.")
             }
         }
