@@ -7,27 +7,6 @@ use network::network_stats::NetworkStats;
 use sessions::p2p_session::P2PSession;
 use sessions::sync_test_session::SyncTestSession;
 
-/// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
-pub const MAX_PLAYERS: u32 = 2;
-/// The maximum number of spectators allowed. This number is arbitrarily chosen and could be higher in theory.
-pub const MAX_SPECTATORS: u32 = 8;
-/// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct if the players did not desync.
-pub const MAX_PREDICTION_FRAMES: u32 = 8;
-/// The maximum number of bytes the input of a single player can consist of. This corresponds to the size of `usize`.
-/// Higher values should be possible, but are not tested.
-pub const MAX_INPUT_BYTES: usize = 8;
-/// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
-/// It needs to be higher than `MAX_PREDICTION_FRAMES`. TODO CHECK HOW BIG ACTUALLY
-pub const INPUT_QUEUE_LENGTH: usize = 128;
-/// Internally, -1 represents no frame / invalid frame.
-pub const NULL_FRAME: i32 = -1;
-pub const RECOMMENDATION_INTERVAL: u32 = 240;
-pub const DEFAULT_DISCONNECT_TIMEOUT: u32 = 5000;
-pub const DEFAULT_DISCONNECT_NOTIFY_START: u32 = 750;
-
-pub type FrameNumber = i32;
-pub type PlayerHandle = usize;
-
 pub mod error;
 pub mod frame_info;
 pub mod input_queue;
@@ -44,11 +23,39 @@ pub mod network {
     pub mod udp_socket;
 }
 
-/// The `GGRSInterface` trait describes the functions that your application must provide. GGRS might call these functions after you called `advance_frame()` or
-/// `idle()`. All functions must be implemented.
+// #############
+// # CONSTANTS #
+// #############
+
+/// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
+pub const MAX_PLAYERS: u32 = 2;
+/// The maximum number of spectators allowed. This number is arbitrarily chosen and could be higher in theory.
+pub const MAX_SPECTATORS: u32 = 8;
+/// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct if the players did not desync.
+pub const MAX_PREDICTION_FRAMES: u32 = 8;
+/// The maximum number of bytes the input of a single player can consist of. This corresponds to the size of `usize`.
+/// Higher values should be possible, but are not tested.
+pub const MAX_INPUT_BYTES: usize = 8;
+/// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
+/// It needs to be higher than `MAX_PREDICTION_FRAMES`. TODO CHECK HOW BIG ACTUALLY
+pub const INPUT_QUEUE_LENGTH: usize = 128;
+/// Internally, -1 represents no frame / invalid frame.
+pub const NULL_FRAME: i32 = -1;
+/// The minimum amounts of frames between sleeps to compensate being ahead of other players
+pub const RECOMMENDATION_INTERVAL: u32 = 240;
+pub const DEFAULT_DISCONNECT_TIMEOUT: u32 = 5000;
+pub const DEFAULT_DISCONNECT_NOTIFY_START: u32 = 750;
+/// Number of ms after which an endpoint shuts down after disconnecting
+pub const UDP_SHUTDOWN_TIMER: u64 = 5000;
+
+pub type FrameNumber = i32;
+pub type PlayerHandle = usize;
+
+/// The `GGRSInterface` trait describes the functions that your application must provide.
+/// GGRS might call these functions after you called `advance_frame()` or `idle()` of a GGRSSession.
 pub trait GGRSInterface {
     /// The client should serialize the entire contents of the current game state, wrap it into a `GameState` instance and return it.
-    /// Optionally, the client can compute a checksum of the data and store it in the checksum field. The checksum will help detecting desyncs.
+    /// Additionally, the client can compute a checksum of the data and store it in the checksum field. The checksums will help detecting desyncs.
     fn save_game_state(&self) -> GameState;
 
     /// GGRS will call this function at the beginning of a rollback. The buffer contains a previously saved state returned from the `save_game_state()` function.
@@ -104,7 +111,10 @@ pub trait GGRSSession {
     /// Used to fetch some statistics about the quality of the network connection.
     fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError>;
 
-    /// Change the amount of frames GGRS will delay your local inputs. You should only set the frame delay for local players.
+    /// Change the amount of frames GGRS will delay the inputs for a player. You should only set the frame delay for local players.
+    /// #Errors
+    /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// Returns `InvalidRequest` if the provided player handle refers to a remote player.
     fn set_frame_delay(
         &mut self,
         frame_delay: u32,
@@ -138,9 +148,9 @@ pub trait GGRSSession {
 /// ```
 ///
 /// # Errors
-/// Will return `InvalidRequestError` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
-/// Will return `InvalidRequestError` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
-/// Will return `InvalidRequestError` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
+/// Will return a `InvalidRequestError` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+/// Will return a `InvalidRequestError` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
+/// Will return a `InvalidRequestError` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
 pub fn start_synctest_session(
     num_players: u32,
     input_size: usize,
@@ -162,6 +172,25 @@ pub fn start_synctest_session(
     ))
 }
 
+/// Used to create a new `P2PSession`. After creating the session, add local and remote players, set input delay for local players
+/// # Example
+///
+/// ```
+/// # use ggrs::error::GGRSError;
+/// # fn main() -> Result<(), GGRSError> {
+/// let port: u16 = 7777;
+/// let num_players : u32 = 2;
+/// let input_size : usize = std::mem::size_of::<u32>();
+/// let mut sess = ggrs::start_p2p_session(num_players, input_size, port)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Errors
+/// Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+/// Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
+/// Will return a `InvalidRequest` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
+/// Will return `SocketCreationFailed` if the UPD socket could not be created.
 pub fn start_p2p_session(
     num_players: u32,
     input_size: usize,
