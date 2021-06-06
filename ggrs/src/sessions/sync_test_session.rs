@@ -40,7 +40,6 @@ impl SyncTestSession {
 }
 
 impl GGRSSession for SyncTestSession {
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times). Returns a playerhandle to identify the player in future method calls.
     fn add_player(&mut self, player: &Player) -> Result<(), GGRSError> {
         if player.player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
@@ -65,8 +64,6 @@ impl GGRSSession for SyncTestSession {
         Ok(())
     }
 
-    /// Used to notify GGRS of inputs that should be transmitted to remote players. `add_local_input()` must be called once every frame for all player of type `PlayerType::Local`
-    /// before calling `advance_frame()`.
     fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
