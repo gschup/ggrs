@@ -1,5 +1,4 @@
 use crate::network::udp_msg::ConnectionStatus;
-use crate::player::Player;
 use crate::PlayerHandle;
 use crate::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, UDP_SHUTDOWN_TIMER};
 
