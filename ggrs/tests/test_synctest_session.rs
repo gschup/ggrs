@@ -1,63 +1,14 @@
-use adler::Adler32;
 use bincode;
-use serde::{Deserialize, Serialize};
-use std::hash::Hash;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use ggrs::frame_info::{GameInput, GameState};
 use ggrs::player::{Player, PlayerType};
-use ggrs::{GGRSInterface, GGRSSession};
+use ggrs::GGRSSession;
 
-struct GameStub {
-    gs: GameStateStub,
-}
+mod stubs;
 
-impl GameStub {
-    fn new() -> GameStub {
-        GameStub {
-            gs: GameStateStub { frame: 0, state: 0 },
-        }
-    }
-}
-
-#[derive(Hash, Default, Serialize, Deserialize)]
-struct GameStateStub {
-    pub frame: i32,
-    pub state: u32,
-}
-
-impl GameStateStub {
-    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
-        let player0_inputs: u32 = bincode::deserialize(&inputs[1].bits).unwrap();
-        if player0_inputs % 2 == 0 {
-            self.state += 2;
-        } else {
-            self.state += 1;
-        }
-        self.frame += 1;
-    }
-}
-
-impl GGRSInterface for GameStub {
-    fn save_game_state(&self) -> GameState {
-        let buffer = bincode::serialize(&self.gs).unwrap();
-        let mut adler = Adler32::new();
-        self.gs.hash(&mut adler);
-        let checksum = adler.checksum();
-        GameState {
-            frame: self.gs.frame,
-            buffer,
-            checksum: Some(checksum),
-        }
-    }
-
-    fn load_game_state(&mut self, state: &GameState) {
-        self.gs = bincode::deserialize(&state.buffer).unwrap();
-    }
-
-    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
-        self.gs.advance_frame(inputs);
-    }
+#[test]
+fn test_create_session() {
+    ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), 1).unwrap();
 }
 
 #[test]
@@ -128,7 +79,7 @@ fn test_start_synctest_session() {
 fn test_advance_frame() {
     let handle = 1;
     let check_distance = 7;
-    let mut stub = GameStub::new();
+    let mut stub = stubs::GameStub::new();
     let mut sess =
         ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), check_distance).unwrap();
     let player = Player::new(PlayerType::Local, handle);
@@ -148,7 +99,7 @@ fn test_advance_frame() {
 fn test_advance_frames_with_delayed_input() {
     let handle = 1;
     let check_distance = 7;
-    let mut stub = GameStub::new();
+    let mut stub = stubs::GameStub::new();
     let mut sess =
         ggrs::start_synctest_session(2, std::mem::size_of::<u32>(), check_distance).unwrap();
     let player = Player::new(PlayerType::Local, 1);
