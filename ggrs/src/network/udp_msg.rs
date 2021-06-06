@@ -10,8 +10,8 @@ pub struct MessageHeader {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConnectionStatus {
-    disconnected: bool,
-    last_frame: FrameNumber,
+    pub disconnected: bool,
+    pub last_frame: FrameNumber,
 }
 
 impl ConnectionStatus {
