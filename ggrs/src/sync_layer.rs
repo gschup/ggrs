@@ -2,7 +2,7 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::frame_info::{GameState, BLANK_STATE};
 use crate::input_queue::InputQueue;
-use crate::{FrameNumber, PlayerHandle, MAX_INPUT_DELAY, MAX_PREDICTION_FRAMES, NULL_FRAME};
+use crate::{FrameNumber, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
 #[derive(Debug, Clone)]
 pub(crate) struct SavedStates<T> {
     pub states: [T; MAX_PREDICTION_FRAMES as usize],
@@ -82,8 +82,6 @@ impl SyncLayer {
 
     pub(crate) fn set_frame_delay(&mut self, player_handle: PlayerHandle, delay: u32) {
         assert!(player_handle < self.num_players as PlayerHandle);
-        assert!(delay <= MAX_INPUT_DELAY);
-
         self.input_queues[player_handle as usize].set_frame_delay(delay);
     }
 
