@@ -11,13 +11,13 @@ pub enum GGRSError {
     InvalidHandle,
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
     PredictionThreshold,
-    /// The function you called is unsupported with given session type you are using
-    Unsupported,
     /// You made an invalid request, usually by using wrong parameters for function calls or starting a session that is already started.
     InvalidRequest,
-    NotSynchronized,
     /// In a `SyncTestSession`, this error is returned if checksums of resimulated frames do not match up with the original checksum.
     MismatchedChecksum,
+    /// During Socket creation, some problem occurred.
+    SocketCreationFailed,
+    NotSynchronized,
 }
 
 impl Display for GGRSError {
@@ -33,10 +33,6 @@ impl Display for GGRSError {
                 f,
                 "Prediction threshold is reached, cannot proceed without catching up."
             ),
-            GGRSError::Unsupported => write!(
-                f,
-                "The function you called is not supported by this session type"
-            ),
             GGRSError::InvalidRequest => write!(
                 f,
                 "You called the function with invalid/unexpected parameters."
@@ -44,6 +40,9 @@ impl Display for GGRSError {
             GGRSError::NotSynchronized => write!(f, "Not all players are synchronized."),
             GGRSError::MismatchedChecksum => {
                 write!(f, "Detected checksum mismatch during rollback.")
+            }
+            &GGRSError::SocketCreationFailed => {
+                write!(f, "UPD Socket creation failed.")
             }
         }
     }
