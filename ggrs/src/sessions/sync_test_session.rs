@@ -46,7 +46,7 @@ impl GGRSSession for SyncTestSession {
             return Err(GGRSError::InvalidHandle);
         }
         if player.player_type != PlayerType::Local {
-            return Err(GGRSError::Unsupported);
+            return Err(GGRSError::InvalidRequest);
         }
         Ok(())
     }
@@ -184,7 +184,6 @@ impl GGRSSession for SyncTestSession {
         Ok(())
     }
 
-    /// Sets the input delay for a given player to a given number.
     fn set_frame_delay(
         &mut self,
         frame_delay: u32,
@@ -205,21 +204,21 @@ impl GGRSSession for SyncTestSession {
 
     /// Not supported in `SyncTestSession`.
     fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGRSError> {
-        Err(GGRSError::Unsupported)
+        unimplemented!()
     }
 
     /// Not supported in `SyncTestSession`.
     fn network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
-        Err(GGRSError::Unsupported)
+        unimplemented!()
     }
 
     /// Not supported in `SyncTestSession`.
-    fn set_disconnect_timeout(&self, _timeout: u32) -> Result<(), GGRSError> {
-        Err(GGRSError::Unsupported)
+    fn set_disconnect_timeout(&mut self, _timeout: u32) {
+        unimplemented!()
     }
 
     /// Not supported in `SyncTestSession`.
-    fn set_disconnect_notify_delay(&self, _notify_delay: u32) -> Result<(), GGRSError> {
-        Err(GGRSError::Unsupported)
+    fn set_disconnect_notify_delay(&mut self, _notify_delay: u32) {
+        unimplemented!()
     }
 }
