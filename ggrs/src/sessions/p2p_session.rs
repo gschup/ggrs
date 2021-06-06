@@ -78,10 +78,6 @@ impl P2PSession {
     }
 
     fn add_local_player(&mut self, player: &Player) -> Result<(), GGRSError> {
-        // check if valid player
-        if player.player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
         // check if player handle already exists as a remote player
         if self.endpoints.contains_key(&player.player_handle) {
             return Err(GGRSError::InvalidRequest);
@@ -97,10 +93,6 @@ impl P2PSession {
     }
 
     fn add_remote_player(&mut self, player: &Player, addr: SocketAddr) -> Result<(), GGRSError> {
-        // check if valid player
-        if player.player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
         // check if player handle already exists as a remote player
         if self.endpoints.contains_key(&player.player_handle) {
             return Err(GGRSError::InvalidRequest);
@@ -166,6 +158,11 @@ impl P2PSession {
 
 impl GGRSSession for P2PSession {
     fn add_player(&mut self, player: &Player) -> Result<(), GGRSError> {
+        // check if valid player
+        if player.player_handle >= self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+        // add the player depending on type
         match player.player_type {
             PlayerType::Local => return self.add_local_player(player),
             PlayerType::Remote(addr) => return self.add_remote_player(player, addr),
