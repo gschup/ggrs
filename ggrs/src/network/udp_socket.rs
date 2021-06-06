@@ -11,13 +11,13 @@ pub(crate) struct NonBlockingSocket {
 }
 
 impl NonBlockingSocket {
-    pub(crate) fn new<A: ToSocketAddrs>(addr: A) -> Self {
-        let socket = UdpSocket::bind(addr).unwrap();
-        socket.set_nonblocking(true).unwrap();
-        Self {
+    pub(crate) fn new<A: ToSocketAddrs>(addr: A) -> Result<Self, std::io::Error> {
+        let socket = UdpSocket::bind(addr)?;
+        socket.set_nonblocking(true)?;
+        Ok(Self {
             socket,
             buffer: [0; RECV_BUFFER_SIZE],
-        }
+        })
     }
 
     pub(crate) fn send_to<A: ToSocketAddrs>(&self, msg: UdpMessage, addr: A) {

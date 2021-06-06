@@ -1,10 +1,11 @@
 #![forbid(unsafe_code)] // let us try
 #![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
-use crate::error::GGRSError;
-use crate::frame_info::{GameInput, GameState};
-use crate::network::network_stats::NetworkStats;
-use crate::sessions::sync_test_session::SyncTestSession;
+use error::GGRSError;
+use frame_info::{GameInput, GameState};
+use network::network_stats::NetworkStats;
+use sessions::p2p_session::P2PSession;
+use sessions::sync_test_session::SyncTestSession;
 
 /// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
 pub const MAX_PLAYERS: u32 = 2;
@@ -12,8 +13,6 @@ pub const MAX_PLAYERS: u32 = 2;
 pub const MAX_SPECTATORS: u32 = 8;
 /// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct if the players did not desync.
 pub const MAX_PREDICTION_FRAMES: u32 = 8;
-/// The maximum input delay that can be set. This number is arbirarily chosen, but 10 frames of input delay is already rather unlayable.
-pub const MAX_INPUT_DELAY: u32 = 10;
 /// The maximum number of bytes the input of a single player can consist of. This corresponds to the size of `usize`.
 /// Higher values should be possible, but are not tested.
 pub const MAX_INPUT_BYTES: usize = 8;
@@ -112,12 +111,11 @@ pub trait GGRSSession {
         player_handle: PlayerHandle,
     ) -> Result<(), GGRSError>;
 
-    /// Sets the disconnect timeout.  The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
-    /// You will be notified of the disconnect.
-    fn set_disconnect_timeout(&self, timeout: u32) -> Result<(), GGRSError>;
+    /// Sets the disconnect timeout. The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
+    fn set_disconnect_timeout(&mut self, timeout: u32);
 
-    /// The time to wait before the first notification will be sent.
-    fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGRSError>;
+    /// Sets the time to wait before the first notification will be sent.
+    fn set_disconnect_notify_delay(&mut self, notify_delay: u32);
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions and rollbacks.
     fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError>;
@@ -162,4 +160,18 @@ pub fn start_synctest_session(
         input_size,
         check_distance,
     ))
+}
+
+pub fn start_p2p_session(
+    num_players: u32,
+    input_size: usize,
+    port: u16,
+) -> Result<P2PSession, GGRSError> {
+    if num_players > MAX_PLAYERS {
+        return Err(GGRSError::InvalidRequest);
+    }
+    if input_size > MAX_INPUT_BYTES {
+        return Err(GGRSError::InvalidRequest);
+    }
+    P2PSession::new(num_players, input_size, port).map_err(|_| GGRSError::SocketCreationFailed)
 }

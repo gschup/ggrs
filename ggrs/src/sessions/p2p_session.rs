@@ -2,12 +2,14 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::network_stats::NetworkStats;
 use crate::network::udp_msg::ConnectionStatus;
+use crate::network::udp_protocol::UdpProtocol;
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::player::{Player, PlayerType};
 use crate::sync_layer::SyncLayer;
 use crate::{GGRSInterface, GGRSSession, PlayerHandle};
 use crate::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, NULL_FRAME};
 
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -30,29 +32,36 @@ pub struct P2PSession {
     disconnect_timeout: u32,
     disconnect_notify_start: u32,
     next_recommended_sleep: u32,
+
+    /// The UDP socket we will use to send and receive all messages
     socket: NonBlockingSocket,
+    endpoints: HashMap<PlayerHandle, UdpProtocol>,
 }
 
 impl P2PSession {
-    pub fn new(num_players: u32, input_size: usize, port: u16) -> Self {
+    pub fn new(num_players: u32, input_size: usize, port: u16) -> Result<Self, std::io::Error> {
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {
             local_connect_status.push(ConnectionStatus::new());
         }
+
         // socket address to bind to, very WIP
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port); //TODO: IpV6?
-        Self {
+        let socket = NonBlockingSocket::new(addr)?;
+
+        Ok(Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
-            sync_layer: SyncLayer::new(num_players, input_size),
+            socket,
             local_connect_status,
+            sync_layer: SyncLayer::new(num_players, input_size),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             next_recommended_sleep: 0,
-            socket: NonBlockingSocket::new(addr),
-        }
+            endpoints: HashMap::new(),
+        })
     }
 
     fn add_spectator(&mut self, player: &Player) -> Result<(), GGRSError> {
@@ -66,27 +75,30 @@ impl P2PSession {
         Ok(())
     }
 
-    fn add_remote_player(&mut self, player: &Player) -> Result<(), GGRSError> {
+    fn add_remote_player(&mut self, player: &Player, addr: SocketAddr) -> Result<(), GGRSError> {
         if player.player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
         }
-        todo!()
+        if self.endpoints.contains_key(&player.player_handle) {
+            return Err(GGRSError::InvalidHandle);
+        }
+        let mut endpoint = UdpProtocol::new(player.player_handle, addr);
+        endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
+        endpoint.set_disconnect_timeout(self.disconnect_timeout);
+        self.endpoints.insert(player.player_handle, endpoint);
+        Ok(())
     }
 }
 
 impl GGRSSession for P2PSession {
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
     fn add_player(&mut self, player: &Player) -> Result<(), GGRSError> {
         match player.player_type {
             PlayerType::Local => return self.add_local_player(player),
-            PlayerType::Remote(_) => return self.add_remote_player(player),
+            PlayerType::Remote(addr) => return self.add_remote_player(player, addr),
             PlayerType::Spectator(_) => return self.add_spectator(player),
         }
     }
 
-    /// After you are done defining and adding all players, you should start the session.
-    /// # Errors
-    /// Will return 'InvalidRequest' if the session has already been started before.
     fn start_session(&mut self) -> Result<(), GGRSError> {
         if self.state != SessionState::Initializing {
             return Err(GGRSError::InvalidRequest);
@@ -95,15 +107,10 @@ impl GGRSSession for P2PSession {
         todo!()
     }
 
-    /// Disconnects a remote player from a game.  
-    /// # Errors
-    ///Will return `PlayerDisconnected` if you try to disconnect a player who has already been disconnected.
     fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
         todo!()
     }
 
-    /// Used to notify GGRS of inputs that should be transmitted to remote players. `add_local_input()` must be called once every frame for all player of type `PlayerType::Local`
-    /// before calling `advance_frame()`.
     fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
@@ -113,7 +120,7 @@ impl GGRSSession for P2PSession {
         if player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
         }
-        // session is not running
+        // session is not running and synchronzied
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
         }
@@ -134,7 +141,6 @@ impl GGRSSession for P2PSession {
         Ok(())
     }
 
-    /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
     fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
         // save the current frame in the syncronization layer
         self.sync_layer
@@ -152,12 +158,10 @@ impl GGRSSession for P2PSession {
         todo!()
     }
 
-    /// Used to fetch some statistics about the quality of the network connection.
     fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
         todo!()
     }
 
-    /// Change the amount of frames GGRS will delay your local inputs. Must be called before the first call to `advance_frame()`.
     fn set_frame_delay(
         &mut self,
         frame_delay: u32,
@@ -171,17 +175,18 @@ impl GGRSSession for P2PSession {
         Ok(())
     }
 
-    /// Sets the disconnect timeout.  The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
-    /// You will be notified of the disconnect.
-    fn set_disconnect_timeout(&self, timeout: u32) -> Result<(), GGRSError> {
-        todo!()
-    }
-    /// The time to wait before the first notification will be sent.
-    fn set_disconnect_notify_delay(&self, notify_delay: u32) -> Result<(), GGRSError> {
-        todo!()
+    fn set_disconnect_timeout(&mut self, timeout: u32) {
+        for endpoint in self.endpoints.values_mut() {
+            endpoint.set_disconnect_timeout(timeout);
+        }
     }
 
-    /// Should be called periodically by your application to give GGRS a chance to do internal work. Packet transmissions and rollbacks can occur here.
+    fn set_disconnect_notify_delay(&mut self, notify_delay: u32) {
+        for endpoint in self.endpoints.values_mut() {
+            endpoint.set_disconnect_notify_start(notify_delay);
+        }
+    }
+
     fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
         // do poll
         todo!()
