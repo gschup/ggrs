@@ -18,7 +18,7 @@ enum ProtocolState {
     Shutdown,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct UdpProtocol {
     handle: PlayerHandle,
     state: ProtocolState,

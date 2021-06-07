@@ -1,9 +1,8 @@
 use crate::error::GGRSError;
 use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
 use crate::network::network_stats::NetworkStats;
-use crate::player::{Player, PlayerType};
 use crate::sync_layer::{SavedStates, SyncLayer};
-use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle};
+use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
@@ -40,11 +39,20 @@ impl SyncTestSession {
 }
 
 impl GGRSSession for SyncTestSession {
-    fn add_player(&mut self, player: &Player) -> Result<(), GGRSError> {
-        if player.player_handle > self.num_players as PlayerHandle {
+    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
+    /// #Errors
+    /// Will return `InvalidHandle` when the provided player handle is too big for the number of players.
+    /// Will return `InvalidRequest` if a player with that handle has been added before.
+    /// Will return `InvalidRequest` for any player type other than `Local`. SyncTestSession does not support remote players.
+    fn add_player(
+        &mut self,
+        player_type: PlayerType,
+        player_handle: PlayerHandle,
+    ) -> Result<(), GGRSError> {
+        if player_handle >= self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
         }
-        if player.player_type != PlayerType::Local {
+        if player_type != PlayerType::Local {
             return Err(GGRSError::InvalidRequest);
         }
         Ok(())

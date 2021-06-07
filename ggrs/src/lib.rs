@@ -10,7 +10,6 @@ use sessions::sync_test_session::SyncTestSession;
 pub mod error;
 pub mod frame_info;
 pub mod input_queue;
-pub mod player;
 pub mod sync_layer;
 pub mod sessions {
     pub mod p2p_session;
@@ -51,6 +50,25 @@ pub const UDP_SHUTDOWN_TIMER: u64 = 5000;
 pub type FrameNumber = i32;
 pub type PlayerHandle = usize;
 
+/// Defines the three types of players that can exist: local player, who play on the local device,
+/// remote players, who play on other devices and spectators, who are remote players that do not contribute to the game input.
+/// Both Remote and Spectator have a socket address associated with them.
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum PlayerType {
+    /// This player plays on the local device
+    Local,
+    /// This player plays on a remote device identified by the socket address
+    Remote(std::net::SocketAddr),
+    /// This player spectates on a remote device identified by the socket address. They do not contribute to the game input.
+    Spectator(std::net::SocketAddr),
+}
+
+impl Default for PlayerType {
+    fn default() -> Self {
+        Self::Local
+    }
+}
+
 /// The `GGRSInterface` trait describes the functions that your application must provide.
 /// GGRS might call these functions after you called `advance_frame()` or `idle()` of a GGRSSession.
 pub trait GGRSInterface {
@@ -70,22 +88,14 @@ pub trait GGRSInterface {
 /// All `GGRSSession` backends implement this trait. Some `GGRSSession` might not support a certain operation and will return an `UnsupportedError` in that case.
 pub trait GGRSSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
-    ///
-    /// # Example
-    /// ```
-    /// # use ggrs::error::GGRSError;
-    /// # use ggrs::GGRSSession;
-    /// # use ggrs::player::{Player, PlayerType};
-    /// # fn main() -> Result<(), GGRSError> {
-    /// let num_players = 2;
-    /// let check_distance = 1;
-    /// let mut sess = ggrs::start_synctest_session(num_players, std::mem::size_of::<u32>(), check_distance)?;
-    /// let dummy_player = Player::new(PlayerType::Local, 0);
-    /// sess.add_player(&dummy_player)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    fn add_player(&mut self, player: &player::Player) -> Result<(), GGRSError>;
+    /// #Errors
+    /// Will return `InvalidHandle` when the provided player handle is too big for the number of players
+    /// Will return `InvalidRequest` if a player with that handle has been added before
+    fn add_player(
+        &mut self,
+        player_type: PlayerType,
+        player_handle: PlayerHandle,
+    ) -> Result<(), GGRSError>;
 
     /// After you are done defining and adding all players, you should start the session.
     /// # Errors
@@ -94,7 +104,7 @@ pub trait GGRSSession {
 
     /// Disconnects a remote player from a game.  
     /// # Errors
-    ///Will return `PlayerDisconnected` if you try to disconnect a player who has already been disconnected.
+    /// Will return `PlayerDisconnected` if you try to disconnect a player who has already been disconnected.
     fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError>;
 
     /// Used to notify GGRS of inputs that should be transmitted to remote players. `add_local_input()` must be called once every frame for all player of type `PlayerType::Local`
