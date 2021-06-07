@@ -138,7 +138,7 @@ pub trait GGRSSession {
     fn set_disconnect_notify_delay(&mut self, notify_delay: u32);
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions and rollbacks.
-    fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError>;
+    fn idle(&mut self, interface: &mut impl GGRSInterface);
 }
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.

@@ -1,4 +1,6 @@
+use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
+use crate::network::udp_socket::NonBlockingSocket;
 use crate::PlayerHandle;
 use crate::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, UDP_SHUTDOWN_TIMER};
 
@@ -80,5 +82,9 @@ impl UdpProtocol {
 
     pub(crate) fn player_handle(&self) -> PlayerHandle {
         self.handle
+    }
+
+    pub(crate) fn send_input(&mut self, socket: &mut NonBlockingSocket, input: GameInput) {
+        todo!()
     }
 }

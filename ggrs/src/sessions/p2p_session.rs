@@ -26,8 +26,6 @@ enum Player {
 
 #[derive(Debug)]
 pub struct P2PSession {
-    /// Internal State of the Session.
-    state: SessionState,
     /// The number of players of the session.
     num_players: u32,
     /// The number of bytes an input uses.
@@ -36,9 +34,13 @@ pub struct P2PSession {
     sync_layer: SyncLayer,
     /// The time until a remote player gets disconnected.
     disconnect_timeout: u32,
+    /// The time until the client will get a notification that a remote player is about to be disconnected.
     disconnect_notify_start: u32,
     /// The next frame on which the session will stop advancing frames to compensate for being before other players.
     next_recommended_sleep: u32,
+
+    /// Internal State of the Session.
+    state: SessionState,
 
     /// The `P2PSession` uses this UDP socket to send and receive all messages for remote players.
     socket: NonBlockingSocket,
@@ -115,7 +117,7 @@ impl P2PSession {
         if self.sync_layer.current_frame() > disconnect_frame {
             // TODO: pond3r/ggpo adjusts simulation to account for the fact that the player disconnected a few frames ago,
             // resimulating with correct disconnect flags (to account for user having some AI kick in).
-            // For now, we the game will have some frames with incorrect predictions instead.
+            // For now, the game will have some frames with incorrect predictions instead.
         }
 
         // check if all remotes are synchronized now
@@ -144,6 +146,11 @@ impl P2PSession {
 
         // everyone is synchronized, so we can change state and accept input
         self.state = SessionState::Running;
+    }
+
+    // TODO: come up with a better name
+    fn do_poll(&mut self, interface: &mut impl GGRSInterface) {
+        todo!();
     }
 }
 
@@ -194,15 +201,16 @@ impl GGRSSession for P2PSession {
             return Err(GGRSError::InvalidRequest);
         }
 
-        // player handle is not registered
-        if !self.players.contains_key(&player_handle) {
-            return Err(GGRSError::InvalidRequest);
+        // check if the player exists
+        match self.players.get(&player_handle) {
+            None => return Err(GGRSError::InvalidRequest),
+            Some(Player::Local) => return Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
+            Some(Player::Remote(_)) => {
+                let last_frame = self.local_connect_status[player_handle].last_frame;
+                self.disconnect_player_by_handle(player_handle, last_frame);
+                Ok(())
+            }
         }
-
-        // disconnect the player
-        let frame_to = self.local_connect_status[player_handle].last_frame;
-        self.disconnect_player_by_handle(player_handle, frame_to);
-        Ok(())
     }
 
     fn add_local_input(
@@ -213,6 +221,12 @@ impl GGRSSession for P2PSession {
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
+        }
+
+        // player is not a local player
+        match self.players.get(&player_handle) {
+            Some(Player::Local) => (),
+            _ => return Err(GGRSError::InvalidRequest),
         }
 
         // session is not running and synchronzied
@@ -232,9 +246,15 @@ impl GGRSSession for P2PSession {
         if actual_frame != NULL_FRAME {
             // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
             game_input.frame = actual_frame;
-            todo!();
-        }
+            self.local_connect_status[player_handle].last_frame = actual_frame;
 
+            for player in self.players.values_mut() {
+                match player {
+                    Player::Remote(endpoint) => endpoint.send_input(&mut self.socket, game_input),
+                    Player::Local => (),
+                }
+            }
+        }
         Ok(())
     }
 
@@ -251,8 +271,9 @@ impl GGRSSession for P2PSession {
         self.sync_layer.advance_frame();
         interface.advance_frame(sync_inputs);
 
-        // do poll
-        todo!()
+        // receive info from remote players, rollback if necessary
+        self.do_poll(interface);
+        Ok(())
     }
 
     fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
@@ -312,8 +333,8 @@ impl GGRSSession for P2PSession {
         }
     }
 
-    fn idle(&self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
-        // do poll
-        todo!()
+    fn idle(&mut self, interface: &mut impl GGRSInterface) {
+        // receive info from remote players, rollback if necessary
+        self.do_poll(interface);
     }
 }
