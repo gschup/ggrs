@@ -7,9 +7,9 @@ use std::cmp;
 pub(crate) struct InputQueue {
     /// Identifies the player this InputQueue belongs to
     id: PlayerHandle,
-    /// The head of the queue. The newest [GameInput] is here      
+    /// The head of the queue. The newest `GameInput` is saved here      
     head: usize,
-    /// The tail of the queue. The oldest [GameInput] still valid is here.
+    /// The tail of the queue. The oldest `GameInput` still valid is saved here.
     tail: usize,
     /// The current length of the queue.
     length: usize,
