@@ -49,7 +49,7 @@ impl GameState {
 }
 
 /// All input data for all players for a single frame is saved in this struct.
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct GameInput {
     /// The frame to which this info belongs to. -1 represents an invalid frame
     pub frame: FrameNumber,
