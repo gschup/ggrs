@@ -9,6 +9,7 @@ use crate::{FrameNumber, PlayerHandle, NULL_FRAME};
 
 use rand::prelude::ThreadRng;
 use rand::Rng;
+use std::collections::vec_deque::Drain;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::ops::Add;
@@ -33,7 +34,6 @@ enum ProtocolState {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Event {
-    Connected,
     Synchronizing { total: u32, count: u32 },
     Synchronized,
     Input(GameInput),
@@ -124,16 +124,14 @@ impl UdpProtocol {
         }
     }
 
+    pub(crate) fn player_handle(&self) -> PlayerHandle {
+        self.handle
+    }
+
     pub(crate) fn next_sequence_number(&mut self) -> u16 {
         let ret = self.send_seq;
         self.send_seq += 1;
         ret
-    }
-
-    pub(crate) fn disconnect(&mut self) {
-        self.state = ProtocolState::Disconnected;
-        // schedule the timeout which will lead to shutdown
-        self.shutdown_timeout = Instant::now().add(Duration::from_millis(UDP_SHUTDOWN_TIMER))
     }
 
     pub(crate) fn set_disconnect_timeout(&mut self, timeout: u32) {
@@ -158,6 +156,12 @@ impl UdpProtocol {
         self.peer_addr == *addr
     }
 
+    pub(crate) fn disconnect(&mut self) {
+        self.state = ProtocolState::Disconnected;
+        // schedule the timeout which will lead to shutdown
+        self.shutdown_timeout = Instant::now().add(Duration::from_millis(UDP_SHUTDOWN_TIMER))
+    }
+
     pub(crate) fn synchronize(&mut self) {
         assert!(self.state == ProtocolState::Initializing);
         self.state = ProtocolState::Synchronizing;
@@ -169,7 +173,7 @@ impl UdpProtocol {
         &mut self,
         connect_status: &Vec<ConnectionStatus>,
         socket: &mut NonBlockingSocket,
-    ) -> VecDeque<Event> {
+    ) -> Drain<Event> {
         match self.state {
             ProtocolState::Synchronizing => {
                 // some time has passed, let us send another sync request
@@ -186,10 +190,7 @@ impl UdpProtocol {
             ProtocolState::Initializing => (),
             ProtocolState::Shutdown => (),
         }
-        // TODO: make this less ugly
-        let events = self.event_queue.clone();
-        self.event_queue.drain(0..self.event_queue.len());
-        events
+        self.event_queue.drain(..)
     }
 
     /*
