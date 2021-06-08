@@ -40,12 +40,6 @@ pub const MAX_INPUT_BYTES: usize = 8;
 pub const INPUT_QUEUE_LENGTH: usize = 128;
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;
-/// The minimum amounts of frames between sleeps to compensate being ahead of other players
-pub const RECOMMENDATION_INTERVAL: u32 = 240;
-pub const DEFAULT_DISCONNECT_TIMEOUT: u32 = 5000;
-pub const DEFAULT_DISCONNECT_NOTIFY_START: u32 = 750;
-/// Number of ms after which an endpoint shuts down after disconnecting
-pub const UDP_SHUTDOWN_TIMER: u64 = 5000;
 
 pub type FrameNumber = i32;
 pub type PlayerHandle = usize;

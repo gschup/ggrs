@@ -22,6 +22,7 @@ impl NonBlockingSocket {
 
     pub(crate) fn send_to<A: ToSocketAddrs>(&self, msg: UdpMessage, addr: A) {
         let buf = bincode::serialize(&msg).unwrap();
+        println!("Sending UDP packet with {} bytes!", buf.len());
         self.socket.send_to(&buf, addr).unwrap();
     }
 
