@@ -20,8 +20,6 @@ impl Default for ConnectionStatus {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct SyncRequest {
     pub random_request: u32, // please reply back with this random data
-    pub remote_magic: u16,
-    pub remote_endpoint: u8,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
