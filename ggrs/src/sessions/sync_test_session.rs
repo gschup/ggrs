@@ -2,7 +2,7 @@ use crate::error::GGRSError;
 use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
 use crate::network::network_stats::NetworkStats;
 use crate::sync_layer::{SavedStates, SyncLayer};
-use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType};
+use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
@@ -223,5 +223,13 @@ impl GGRSSession for SyncTestSession {
     /// Not supported in `SyncTestSession`.
     fn set_disconnect_notify_delay(&mut self, _notify_delay: u32) {
         unimplemented!()
+    }
+
+    fn current_state(&self) -> SessionState {
+        if self.running {
+            return SessionState::Running;
+        } else {
+            return SessionState::Initializing;
+        }
     }
 }

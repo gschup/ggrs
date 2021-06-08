@@ -63,6 +63,17 @@ impl Default for PlayerType {
     }
 }
 
+/// A GGRSSession is always in one of these states.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum SessionState {
+    /// When the session is in this state, you must add all necessary players and start the session to continue.
+    Initializing,
+    /// When in this state, the session tries to establish a connection to the remote clients.
+    Synchronizing,
+    /// When in this state, the session has synchronized and is ready to take and transmit player input.
+    Running,
+}
+
 /// The `GGRSInterface` trait describes the functions that your application must provide.
 /// GGRS might call these functions after you called `advance_frame()` or `idle()` of a GGRSSession.
 pub trait GGRSInterface {
@@ -133,6 +144,8 @@ pub trait GGRSSession {
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions and rollbacks.
     fn idle(&mut self, interface: &mut impl GGRSInterface);
+
+    fn current_state(&self) -> SessionState;
 }
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
