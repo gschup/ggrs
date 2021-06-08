@@ -20,6 +20,8 @@ fn test_add_player() {
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_err()); // handle already registered
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 2).is_err()); // invalid handle
+    assert!(sess.start_session().is_ok());
+    assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_err()); // cannot add player after starting
 }
 
 #[test]
