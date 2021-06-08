@@ -99,7 +99,7 @@ impl P2PSession {
         self.sync_layer.set_frame_delay(player_handle, 0);
     }
 
-    fn add_spectator(&mut self, player_handle: PlayerHandle, addr: SocketAddr) {
+    fn add_spectator(&mut self, _player_handle: PlayerHandle, _addr: SocketAddr) {
         todo!()
     }
 
@@ -167,8 +167,14 @@ impl P2PSession {
         for player in self.players.values_mut() {
             if let Player::Remote(endpoint) = player {
                 let events = endpoint.poll(&self.local_connect_status, &mut self.socket);
-                // handle events
-                todo!();
+                // TODO: handle events
+            }
+        }
+
+        // send all queued messages
+        for player in self.players.values_mut() {
+            if let Player::Remote(endpoint) = player {
+                endpoint.send_all_messages(&self.socket);
             }
         }
     }
@@ -219,7 +225,7 @@ impl GGRSSession for P2PSession {
         self.state = SessionState::Synchronizing;
         for player in self.players.values_mut() {
             if let Player::Remote(endpoint) = player {
-                endpoint.synchronize(&mut self.socket);
+                endpoint.synchronize();
             }
         }
         Ok(())
@@ -280,7 +286,9 @@ impl GGRSSession for P2PSession {
 
             for player in self.players.values_mut() {
                 if let Player::Remote(endpoint) = player {
-                    endpoint.send_input(game_input, &self.local_connect_status, &mut self.socket);
+                    endpoint.send_input(game_input, &self.local_connect_status);
+                    // send the input directly
+                    endpoint.send_all_messages(&self.socket);
                 }
             }
         }
