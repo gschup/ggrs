@@ -84,13 +84,13 @@ pub(crate) struct QualityReport {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct QualityReply {
-    header: MessageHeader,
-    pong: u128,
+    pub header: MessageHeader,
+    pub pong: u128,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct KeepAlive {
-    header: MessageHeader,
+    pub header: MessageHeader,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
