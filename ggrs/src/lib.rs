@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)] // let us try
-//#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+                        //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
 use error::GGRSError;
 use frame_info::{GameInput, GameState};
@@ -13,6 +13,7 @@ pub mod error;
 pub mod frame_info;
 pub mod input_queue;
 pub mod sync_layer;
+pub mod time_sync;
 pub mod sessions {
     pub mod p2p_session;
     pub mod sync_test_session;
@@ -29,7 +30,7 @@ pub mod network {
 // #############
 
 /// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
-pub const MAX_PLAYERS: u32 = 2;
+pub const MAX_PLAYERS: u32 = 4;
 /// The maximum number of spectators allowed. This number is arbitrarily chosen and could be higher in theory.
 pub const MAX_SPECTATORS: u32 = 8;
 /// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct if the players did not desync.
@@ -38,7 +39,6 @@ pub const MAX_PREDICTION_FRAMES: u32 = 8;
 /// Higher values should be possible, but are not tested.
 pub const MAX_INPUT_BYTES: usize = 8;
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
-/// It needs to be higher than `MAX_PREDICTION_FRAMES`. TODO CHECK HOW BIG ACTUALLY
 pub const INPUT_QUEUE_LENGTH: usize = 128;
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;

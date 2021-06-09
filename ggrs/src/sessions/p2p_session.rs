@@ -15,7 +15,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
-pub const RECOMMENDATION_INTERVAL: u64 = 240;
+pub const SLEEP_RECOMMENDATION_INTERVAL: FrameNumber = 240;
 pub const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
 pub const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(750);
 
@@ -55,7 +55,9 @@ pub struct P2PSession {
     /// The time until the client will get a notification that a remote player is about to be disconnected.
     disconnect_notify_start: Duration,
     /// The next frame on which the session will stop advancing frames to compensate for being before other players.
-    next_recommended_sleep: u64,
+    next_recommended_sleep: FrameNumber,
+    /// The amount of frames which the session will skip advancing the state in order to wait for the other clients.
+    wait_frames: u32,
 
     /// Internal State of the Session.
     state: SessionState,
@@ -94,6 +96,7 @@ impl P2PSession {
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             next_recommended_sleep: 0,
+            wait_frames: 0,
             players: HashMap::new(),
         })
     }
@@ -209,12 +212,21 @@ impl P2PSession {
         }
 
         // find the total minimum confirmed frame and propagate disconnects
+        // TODO: send the inputs from this frame to spectators
         let min_confirmed_frame = self.min_confirmed_frame();
         self.sync_layer
             .set_last_confirmed_frame(min_confirmed_frame);
-        // TODO: send the inputs from this frame to spectators
 
-        // TODO: TIME RIFT STUFF
+        // check time sync
+        if self.sync_layer.current_frame() > self.next_recommended_sleep {
+            let rec_interval = self.max_delay_recommendation(false);
+            // only wait ever so often
+            if rec_interval > 0 {
+                self.next_recommended_sleep =
+                    self.sync_layer.current_frame() + SLEEP_RECOMMENDATION_INTERVAL;
+            }
+            self.wait_frames = rec_interval;
+        }
 
         // send all queued UDP packets
         for endpoint in self
@@ -299,6 +311,14 @@ impl P2PSession {
 
         assert!(total_min_confirmed < i32::MAX);
         total_min_confirmed
+    }
+
+    fn max_delay_recommendation(&self, require_idle_input: bool) -> u32 {
+        let mut interval = 0;
+        for endpoint in self.players.values().filter_map(Player::as_endpoint) {
+            interval = std::cmp::max(interval, endpoint.recommend_frame_delay(require_idle_input));
+        }
+        interval
     }
 
     fn handle_event(&mut self, event: Event, handle: PlayerHandle) {
@@ -452,6 +472,12 @@ impl GGRSSession for P2PSession {
 
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
+        }
+
+        // skip advancing to wait for other clients
+        if self.wait_frames > 0 {
+            self.wait_frames -= 1;
+            return Ok(());
         }
 
         // save the current frame in the syncronization layer

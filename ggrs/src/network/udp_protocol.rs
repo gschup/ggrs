@@ -5,6 +5,7 @@ use crate::network::udp_msg::{
 };
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sessions::p2p_session::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT};
+use crate::time_sync::TimeSync;
 use crate::{FrameNumber, PlayerHandle, NULL_FRAME};
 
 use rand::prelude::ThreadRng;
@@ -88,6 +89,7 @@ pub(crate) struct UdpProtocol {
     input_size: usize,
 
     // time sync
+    time_sync_layer: TimeSync,
     local_frame_advantage: i8,
     remote_frame_advantage: i8,
 
@@ -158,6 +160,7 @@ impl UdpProtocol {
             input_size,
 
             // time sync
+            time_sync_layer: TimeSync::new(),
             local_frame_advantage: 0,
             remote_frame_advantage: 0,
 
@@ -253,6 +256,11 @@ impl UdpProtocol {
         self.send_sync_request();
     }
 
+    pub(crate) fn recommend_frame_delay(&self, require_idle_input: bool) -> u32 {
+        self.time_sync_layer
+            .recommend_frame_delay(require_idle_input)
+    }
+
     pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event> {
         let now = Instant::now();
 
@@ -341,6 +349,17 @@ impl UdpProtocol {
     }
 
     pub(crate) fn send_input(&mut self, input: GameInput, connect_status: &[ConnectionStatus]) {
+        if self.state != ProtocolState::Running {
+            return;
+        }
+
+        // register the input and advantages in the time sync layer
+        self.time_sync_layer.advance_frame(
+            input,
+            self.local_frame_advantage,
+            self.remote_frame_advantage,
+        );
+
         self.pending_output.push_back(input);
         if self.pending_output.len() > PENDING_OUTPUT_SIZE {
             // TODO: do something when the output queue overflows
