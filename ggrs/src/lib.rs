@@ -144,8 +144,8 @@ pub trait GGRSSession {
     /// Sets the time to wait before the first notification will be sent.
     fn set_disconnect_notify_delay(&mut self, notify_delay: Duration);
 
-    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions and rollbacks.
-    fn idle(&mut self, interface: &mut impl GGRSInterface);
+    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
+    fn idle(&mut self);
 
     fn current_state(&self) -> SessionState;
 }

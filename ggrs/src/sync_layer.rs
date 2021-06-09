@@ -163,8 +163,23 @@ impl SyncLayer {
         }
     }
 
+    pub(crate) fn check_simulation_consistency(&self) -> Option<FrameNumber> {
+        let mut first_incorrect: FrameNumber = NULL_FRAME;
+        for handle in 0..self.num_players as usize {
+            first_incorrect = std::cmp::max(
+                first_incorrect,
+                self.input_queues[handle].first_incorrect_frame(),
+            );
+        }
+        match first_incorrect {
+            NULL_FRAME => None,
+            _ => Some(first_incorrect),
+        }
+    }
+
     /// Searches the saved states and returns the index of the state that matches the given frame number.
     fn find_saved_frame_index(&self, frame: FrameNumber) -> usize {
+        println!("SAVED STATES {:?}", self.saved_states.states);
         for i in 0..MAX_PREDICTION_FRAMES as usize {
             if self.saved_states.states[i].frame == frame {
                 return i;

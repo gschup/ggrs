@@ -204,8 +204,8 @@ impl GGRSSession for SyncTestSession {
         Ok(())
     }
 
-    /// Nothing happens here in `SyncTestSession`. There are no packets to be received or sent and no rollbacks can occur other than the manually induced ones.
-    fn idle(&mut self, _interface: &mut impl GGRSInterface) {}
+    /// Nothing happens here in `SyncTestSession`. There are no packets to be received or sent.
+    fn idle(&mut self) {}
 
     /// Not supported in `SyncTestSession`.
     fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGRSError> {

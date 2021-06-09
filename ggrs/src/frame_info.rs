@@ -48,7 +48,7 @@ impl GameState {
     }
 }
 
-/// This struct holds a byte buffer `[u8; MAX_INPUT_BYTES]` where the first `size` bytes represent the encoded input of a single player.
+/// This struct holds a byte buffer where the first `size` bytes represent the encoded input of a single player.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct GameInput {
     /// The frame to which this info belongs to. -1 represents an invalid frame

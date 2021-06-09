@@ -5,7 +5,9 @@ use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::{Event, UdpProtocol};
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
-use crate::{GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
+use crate::{
+    FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
+};
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -21,6 +23,22 @@ pub const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(750)
 enum Player {
     Local,
     Remote(UdpProtocol),
+}
+
+impl Player {
+    fn as_endpoint(&self) -> Option<&UdpProtocol> {
+        match self {
+            Player::Remote(endpoint) => Some(endpoint),
+            _ => None,
+        }
+    }
+
+    fn as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
+        match self {
+            Player::Remote(endpoint) => Some(endpoint),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -98,8 +116,11 @@ impl P2PSession {
         todo!()
     }
 
-    fn disconnect_player_by_handle(&mut self, player_handle: PlayerHandle) {
-        let last_frame = self.local_connect_status[player_handle].last_frame;
+    fn disconnect_player_by_handle(
+        &mut self,
+        player_handle: PlayerHandle,
+        last_frame: FrameNumber,
+    ) {
         assert!(self.sync_layer.current_frame() >= last_frame);
         // disconnect the remote player, unwrapping is okay because the player handle was checked in disconnect_player()
         match self
@@ -131,11 +152,9 @@ impl P2PSession {
         }
 
         // if any remote player is not synchronized, we continue synchronizing
-        for player in self.players.values() {
-            if let Player::Remote(endpoint) = player {
-                if !endpoint.is_synchronized() {
-                    return;
-                }
+        for endpoint in self.players.values().filter_map(Player::as_endpoint) {
+            if !endpoint.is_synchronized() {
+                return;
             }
         }
 
@@ -145,48 +164,140 @@ impl P2PSession {
         self.state = SessionState::Running;
     }
 
-    fn poll_endpoints(&mut self, interface: &mut impl GGRSInterface) {
-        // get all udp packets and distribute them to associated endpoints
+    fn poll_endpoints(&mut self) {
+        // Get all udp packets and distribute them to associated endpoints.
+        // The endpoints will handle their packets, which will trigger both events and UPD replies.
         for (from, msg) in self.socket.receive_all_messages().iter() {
-            for player in self.players.values_mut() {
-                if let Player::Remote(endpoint) = player {
-                    if endpoint.is_handling_message(from) {
-                        endpoint.handle_message(msg);
-                        break;
-                    }
+            for endpoint in self
+                .players
+                .values_mut()
+                .filter_map(Player::as_endpoint_mut)
+            {
+                if endpoint.is_handling_message(from) {
+                    endpoint.handle_message(msg);
+                    break;
                 }
             }
         }
 
-        // update frame discrepancy between clients
-        for player in self.players.values_mut() {
-            if let Player::Remote(endpoint) = player {
-                endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
-            }
+        // update frame information between clients
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
         }
 
-        // run enpoint poll and get events from endpoints
+        // run enpoint poll and get events from endpoints. This will trigger additional UDP packets to be sent.
         let mut events = VecDeque::new();
-        for player in self.players.values_mut() {
-            if let Player::Remote(endpoint) = player {
-                let player_handle = endpoint.player_handle();
-                for event in endpoint.poll(&self.local_connect_status) {
-                    events.push_back((event, player_handle))
-                }
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            let player_handle = endpoint.player_handle();
+            for event in endpoint.poll(&self.local_connect_status) {
+                events.push_back((event, player_handle))
             }
         }
 
-        //handle all events
+        // handle all events locally
         for (event, handle) in events.iter() {
             self.handle_event(*event, *handle);
         }
 
-        // send all queued messages
-        for player in self.players.values_mut() {
-            if let Player::Remote(endpoint) = player {
-                endpoint.send_all_messages(&self.socket);
+        // find the total minimum confirmed frame and propagate disconnects
+        let min_confirmed_frame = self.min_confirmed_frame();
+        self.sync_layer
+            .set_last_confirmed_frame(min_confirmed_frame);
+        // TODO: send the inputs from this frame to spectators
+
+        // TODO: TIME RIFT STUFF
+
+        // send all queued UDP packets
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.send_all_messages(&self.socket);
+        }
+    }
+
+    fn adjust_gamestate(
+        &mut self,
+        first_incorrect: FrameNumber,
+        interface: &mut impl GGRSInterface,
+    ) {
+        let current_frame = self.sync_layer.current_frame();
+        let count = current_frame - first_incorrect;
+
+        // rollback to the first incorrect state
+        let state_to_load = self.sync_layer.load_frame(first_incorrect);
+        interface.load_game_state(state_to_load);
+        self.sync_layer.reset_prediction(first_incorrect);
+        assert!(self.sync_layer.current_frame() == first_incorrect);
+
+        // step forward to the previous current state
+        for _ in 0..count {
+            let inputs = self.sync_layer.synchronized_inputs();
+            self.sync_layer.advance_frame();
+            interface.advance_frame(inputs);
+            self.sync_layer
+                .save_current_state(interface.save_game_state());
+        }
+        assert!(self.sync_layer.current_frame() == current_frame);
+    }
+
+    /// For each player, find out if they are still connected and what their minimum confirmed frame is.
+    /// Disconnects players if the remote clients have disconnected them already.
+    fn min_confirmed_frame(&mut self) -> FrameNumber {
+        let mut total_min_confirmed = i32::MAX;
+
+        for handle in 0..self.num_players as usize {
+            let mut queue_connected = true;
+            let mut queue_min_confirmed = i32::MAX;
+
+            // check all remotes for that player
+            for endpoint in self
+                .players
+                .values_mut()
+                .filter_map(Player::as_endpoint_mut)
+            {
+                if !endpoint.is_running() {
+                    continue;
+                }
+                let con_status = endpoint.peer_connect_status(handle);
+                let connected = !con_status.disconnected;
+                let min_confirmed = con_status.last_frame;
+
+                queue_connected = queue_connected && connected;
+                queue_min_confirmed = std::cmp::min(queue_min_confirmed, min_confirmed);
+            }
+
+            // check the local status for that player
+            let local_connected = !self.local_connect_status[handle].disconnected;
+            let local_min_confirmed = self.local_connect_status[handle].last_frame;
+
+            if local_connected {
+                queue_min_confirmed = std::cmp::min(queue_min_confirmed, local_min_confirmed);
+            }
+
+            if queue_connected {
+                total_min_confirmed = std::cmp::min(queue_min_confirmed, total_min_confirmed);
+            } else {
+                // check to see if the remote disconnect is further back than we have disconnected that player.
+                // If so, we need to re-adjust. This can happen when we e.g. detect our own disconnect at frame n
+                // and later receive a disconnect notification for frame n-1.
+                if local_connected || local_min_confirmed > queue_min_confirmed {
+                    self.disconnect_player_by_handle(handle as PlayerHandle, queue_min_confirmed);
+                }
             }
         }
+
+        assert!(total_min_confirmed < i32::MAX);
+        total_min_confirmed
     }
 
     fn handle_event(&mut self, event: Event, handle: PlayerHandle) {
@@ -195,7 +306,11 @@ impl P2PSession {
             Event::NetworkInterrupted { .. } => (),
             Event::NetworkResumed => (),
             Event::Synchronized => self.check_initial_sync(),
-            Event::Disconnected => self.disconnect_player_by_handle(handle),
+            Event::Disconnected => {
+                let last_frame = self.local_connect_status[handle].last_frame;
+                self.disconnect_player_by_handle(handle, last_frame);
+            }
+
             Event::Input(input) => {
                 if !self.local_connect_status[handle].disconnected {
                     // check if the input comes in the correct sequence
@@ -254,10 +369,12 @@ impl GGRSSession for P2PSession {
 
         // start the synchronisation
         self.state = SessionState::Synchronizing;
-        for player in self.players.values_mut() {
-            if let Player::Remote(endpoint) = player {
-                endpoint.synchronize();
-            }
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.synchronize();
         }
         Ok(())
     }
@@ -268,12 +385,14 @@ impl GGRSSession for P2PSession {
             return Err(GGRSError::InvalidRequest);
         }
 
+        let last_frame = self.local_connect_status[player_handle].last_frame;
+
         // check if the player exists
         match self.players.get(&player_handle) {
             None => return Err(GGRSError::InvalidRequest),
             Some(Player::Local) => return Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
             Some(Player::Remote(_)) => {
-                self.disconnect_player_by_handle(player_handle);
+                self.disconnect_player_by_handle(player_handle, last_frame);
                 Ok(())
             }
         }
@@ -314,12 +433,14 @@ impl GGRSSession for P2PSession {
             game_input.frame = actual_frame;
             self.local_connect_status[player_handle].last_frame = actual_frame;
 
-            for player in self.players.values_mut() {
-                if let Player::Remote(endpoint) = player {
-                    endpoint.send_input(game_input, &self.local_connect_status);
-                    // send the input directly
-                    endpoint.send_all_messages(&self.socket);
-                }
+            for endpoint in self
+                .players
+                .values_mut()
+                .filter_map(Player::as_endpoint_mut)
+            {
+                // send the input directly
+                endpoint.send_input(game_input, &self.local_connect_status);
+                endpoint.send_all_messages(&self.socket);
             }
         }
         Ok(())
@@ -338,8 +459,13 @@ impl GGRSSession for P2PSession {
         self.sync_layer.advance_frame();
         interface.advance_frame(sync_inputs);
 
-        // receive info from remote players, rollback if necessary
-        self.poll_endpoints(interface);
+        // receive info from remote players, trigger events and send messages
+        self.poll_endpoints();
+
+        // check game consistency and rollback, if necessary
+        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
+            self.adjust_gamestate(first_incorrect, interface);
+        }
         Ok(())
     }
 
@@ -386,23 +512,27 @@ impl GGRSSession for P2PSession {
     }
 
     fn set_disconnect_timeout(&mut self, timeout: Duration) {
-        for player in self.players.values_mut() {
-            if let Player::Remote(endpoint) = player {
-                endpoint.set_disconnect_timeout(timeout);
-            }
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.set_disconnect_timeout(timeout);
         }
     }
 
     fn set_disconnect_notify_delay(&mut self, notify_delay: Duration) {
-        for player in self.players.values_mut() {
-            if let Player::Remote(endpoint) = player {
-                endpoint.set_disconnect_notify_start(notify_delay);
-            }
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.set_disconnect_notify_start(notify_delay);
         }
     }
 
-    fn idle(&mut self, interface: &mut impl GGRSInterface) {
-        self.poll_endpoints(interface);
+    fn idle(&mut self) {
+        self.poll_endpoints();
     }
 
     fn current_state(&self) -> SessionState {

@@ -177,12 +177,6 @@ impl UdpProtocol {
         self.handle
     }
 
-    fn next_sequence_number(&mut self) -> u16 {
-        let ret = self.send_seq;
-        self.send_seq += 1;
-        ret
-    }
-
     pub(crate) fn update_local_frame_advantage(&mut self, local_frame: FrameNumber) {
         if local_frame == NULL_FRAME {
             return;
@@ -233,8 +227,16 @@ impl UdpProtocol {
             || self.state == ProtocolState::Shutdown
     }
 
+    pub(crate) fn is_running(&self) -> bool {
+        self.state == ProtocolState::Running
+    }
+
     pub(crate) fn is_handling_message(&self, addr: &SocketAddr) -> bool {
         self.peer_addr == *addr
+    }
+
+    pub(crate) fn peer_connect_status(&self, handle: PlayerHandle) -> ConnectionStatus {
+        self.peer_connect_status[handle]
     }
 
     pub(crate) fn disconnect(&mut self) {
@@ -321,6 +323,12 @@ impl UdpProtocol {
                 None => break,
             }
         }
+    }
+
+    fn next_sequence_number(&mut self) -> u16 {
+        let ret = self.send_seq;
+        self.send_seq += 1;
+        ret
     }
 
     /*

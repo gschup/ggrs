@@ -50,10 +50,6 @@ impl InputQueue {
         }
     }
 
-    pub(crate) const fn last_confirmed_frame(&self) -> FrameNumber {
-        self.last_added_frame
-    }
-
     pub(crate) const fn first_incorrect_frame(&self) -> FrameNumber {
         self.first_incorrect_frame
     }
@@ -82,7 +78,7 @@ impl InputQueue {
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
         if self.inputs[offset].frame == requested_frame as i32 {
-            return self.inputs[offset]; // GameInput has copy semantics
+            return self.inputs[offset];
         }
         panic!("SyncLayer::confirmed_input(): There is no confirmed input for the requested frame");
     }
@@ -181,7 +177,7 @@ impl InputQueue {
         assert!(frame_number == 0 || self.inputs[previous_position].frame == frame_number - 1);
 
         // Add the frame to the back of the queue
-        self.inputs[self.head] = input; // copy semantics
+        self.inputs[self.head] = input;
         self.inputs[self.head].frame = frame_number;
         self.head = (self.head + 1) % INPUT_QUEUE_LENGTH;
         self.length += 1;
