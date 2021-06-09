@@ -5,6 +5,8 @@ use crate::sync_layer::{SavedStates, SyncLayer};
 use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
 
+use std::time::Duration;
+
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
 /// in your `save_game_state()` function, the `SyncTestSession` will compare the resimulated checksums with the original checksums and report if there was a mismatch.
 #[derive(Debug)]
@@ -216,12 +218,12 @@ impl GGRSSession for SyncTestSession {
     }
 
     /// Not supported in `SyncTestSession`.
-    fn set_disconnect_timeout(&mut self, _timeout: u32) {
+    fn set_disconnect_timeout(&mut self, _timeout: Duration) {
         unimplemented!()
     }
 
     /// Not supported in `SyncTestSession`.
-    fn set_disconnect_notify_delay(&mut self, _notify_delay: u32) {
+    fn set_disconnect_notify_delay(&mut self, _notify_delay: Duration) {
         unimplemented!()
     }
 

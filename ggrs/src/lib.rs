@@ -7,6 +7,8 @@ use network::network_stats::NetworkStats;
 use sessions::p2p_session::P2PSession;
 use sessions::sync_test_session::SyncTestSession;
 
+use std::time::Duration;
+
 pub mod error;
 pub mod frame_info;
 pub mod input_queue;
@@ -137,10 +139,10 @@ pub trait GGRSSession {
     ) -> Result<(), GGRSError>;
 
     /// Sets the disconnect timeout. The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
-    fn set_disconnect_timeout(&mut self, timeout: u32);
+    fn set_disconnect_timeout(&mut self, timeout: Duration);
 
     /// Sets the time to wait before the first notification will be sent.
-    fn set_disconnect_notify_delay(&mut self, notify_delay: u32);
+    fn set_disconnect_notify_delay(&mut self, notify_delay: Duration);
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions and rollbacks.
     fn idle(&mut self, interface: &mut impl GGRSInterface);

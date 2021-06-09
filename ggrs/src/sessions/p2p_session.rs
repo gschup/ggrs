@@ -5,18 +5,17 @@ use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::{Event, UdpProtocol};
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
-use crate::{
-    FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
-};
+use crate::{GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
-pub const RECOMMENDATION_INTERVAL: u32 = 240;
-pub const DEFAULT_DISCONNECT_TIMEOUT: u32 = 5000;
-pub const DEFAULT_DISCONNECT_NOTIFY_START: u32 = 750;
+pub const RECOMMENDATION_INTERVAL: u64 = 240;
+pub const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
+pub const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(750);
 
 #[derive(Debug, PartialEq, Eq)]
 enum Player {
@@ -34,11 +33,11 @@ pub struct P2PSession {
     sync_layer: SyncLayer,
 
     /// The time until a remote player gets disconnected.
-    disconnect_timeout: u32,
+    disconnect_timeout: Duration,
     /// The time until the client will get a notification that a remote player is about to be disconnected.
-    disconnect_notify_start: u32,
+    disconnect_notify_start: Duration,
     /// The next frame on which the session will stop advancing frames to compensate for being before other players.
-    next_recommended_sleep: u32,
+    next_recommended_sleep: u64,
 
     /// Internal State of the Session.
     state: SessionState,
@@ -99,23 +98,23 @@ impl P2PSession {
         todo!()
     }
 
-    fn disconnect_player_by_handle(
-        &mut self,
-        player_handle: PlayerHandle,
-        disconnect_frame: FrameNumber,
-    ) {
-        assert!(self.sync_layer.current_frame() >= disconnect_frame);
+    fn disconnect_player_by_handle(&mut self, player_handle: PlayerHandle) {
+        let last_frame = self.local_connect_status[player_handle].last_frame;
+        assert!(self.sync_layer.current_frame() >= last_frame);
         // disconnect the remote player, unwrapping is okay because the player handle was checked in disconnect_player()
-        match self.players.get_mut(&player_handle).unwrap() {
+        match self
+            .players
+            .get_mut(&player_handle)
+            .expect("Invalid player handle")
+        {
             Player::Remote(endpoint) => endpoint.disconnect(),
             Player::Local => (),
         }
 
         // mark the player as disconnected
         self.local_connect_status[player_handle].disconnected = true;
-        self.local_connect_status[player_handle].last_frame = disconnect_frame;
 
-        if self.sync_layer.current_frame() > disconnect_frame {
+        if self.sync_layer.current_frame() > last_frame {
             // TODO: pond3r/ggpo adjusts simulation to account for the fact that the player disconnected a few frames ago,
             // resimulating with correct disconnect flags (to account for user having some AI kick in).
             // For now, the game will have some frames with incorrect predictions instead.
@@ -159,12 +158,19 @@ impl P2PSession {
             }
         }
 
-        // get events from endpoints
+        // update frame discrepancy between clients
+        for player in self.players.values_mut() {
+            if let Player::Remote(endpoint) = player {
+                endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
+            }
+        }
+
+        // run enpoint poll and get events from endpoints
         let mut events = VecDeque::new();
         for player in self.players.values_mut() {
             if let Player::Remote(endpoint) = player {
                 let player_handle = endpoint.player_handle();
-                for event in endpoint.poll(&self.local_connect_status, &mut self.socket) {
+                for event in endpoint.poll(&self.local_connect_status) {
                     events.push_back((event, player_handle))
                 }
             }
@@ -188,14 +194,8 @@ impl P2PSession {
             Event::Synchronizing { .. } => (),
             Event::NetworkInterrupted { .. } => (),
             Event::NetworkResumed => (),
-            Event::Synchronized => {
-                self.check_initial_sync();
-            }
-            Event::Disconnected => {
-                if let Some(Player::Remote(endpoint)) = self.players.get_mut(&handle) {
-                    endpoint.disconnect();
-                }
-            }
+            Event::Synchronized => self.check_initial_sync(),
+            Event::Disconnected => self.disconnect_player_by_handle(handle),
             Event::Input(input) => {
                 if !self.local_connect_status[handle].disconnected {
                     // check if the input comes in the correct sequence
@@ -273,8 +273,7 @@ impl GGRSSession for P2PSession {
             None => return Err(GGRSError::InvalidRequest),
             Some(Player::Local) => return Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
             Some(Player::Remote(_)) => {
-                let last_frame = self.local_connect_status[player_handle].last_frame;
-                self.disconnect_player_by_handle(player_handle, last_frame);
+                self.disconnect_player_by_handle(player_handle);
                 Ok(())
             }
         }
@@ -349,14 +348,17 @@ impl GGRSSession for P2PSession {
         if player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
         }
-        // returns the network stats. If the player does not exists, return an error.
+
         match self
             .players
             .get(&player_handle)
             .ok_or(GGRSError::InvalidRequest)?
         {
             Player::Local => return Err(GGRSError::InvalidRequest),
-            Player::Remote(endpoint) => return Ok(endpoint.network_stats()),
+            Player::Remote(endpoint) => match endpoint.network_stats() {
+                Some(stats) => return Ok(stats),
+                _ => return Err(GGRSError::InvalidRequest),
+            },
         }
     }
 
@@ -383,7 +385,7 @@ impl GGRSSession for P2PSession {
         }
     }
 
-    fn set_disconnect_timeout(&mut self, timeout: u32) {
+    fn set_disconnect_timeout(&mut self, timeout: Duration) {
         for player in self.players.values_mut() {
             if let Player::Remote(endpoint) = player {
                 endpoint.set_disconnect_timeout(timeout);
@@ -391,7 +393,7 @@ impl GGRSSession for P2PSession {
         }
     }
 
-    fn set_disconnect_notify_delay(&mut self, notify_delay: u32) {
+    fn set_disconnect_notify_delay(&mut self, notify_delay: Duration) {
         for player in self.players.values_mut() {
             if let Player::Remote(endpoint) = player {
                 endpoint.set_disconnect_notify_start(notify_delay);

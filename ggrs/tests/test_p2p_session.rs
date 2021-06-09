@@ -8,13 +8,13 @@ mod stubs;
 #[test]
 #[serial]
 fn test_create_session() {
-    assert!(ggrs::start_p2p_session(2, std::mem::size_of::<u32>(), 7777).is_ok());
+    assert!(ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).is_ok());
 }
 
 #[test]
 #[serial]
 fn test_add_player() {
-    let mut sess = ggrs::start_p2p_session(2, std::mem::size_of::<u32>(), 7777).unwrap();
+    let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
@@ -27,7 +27,7 @@ fn test_add_player() {
 #[test]
 #[serial]
 fn test_start_session() {
-    let mut sess = ggrs::start_p2p_session(2, std::mem::size_of::<u32>(), 7777).unwrap();
+    let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
     assert!(sess.start_session().is_err()); // not enough players
@@ -39,7 +39,7 @@ fn test_start_session() {
 #[test]
 #[serial]
 fn test_disconnect_player() {
-    let mut sess = ggrs::start_p2p_session(2, std::mem::size_of::<u32>(), 7777).unwrap();
+    let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
@@ -54,8 +54,8 @@ fn test_disconnect_player() {
 fn test_synchronize_p2p_sessions() {
     let mut stub1 = stubs::GameStub::new();
     let mut stub2 = stubs::GameStub::new();
-    let mut sess1 = ggrs::start_p2p_session(2, std::mem::size_of::<u32>(), 7777).unwrap();
-    let mut sess2 = ggrs::start_p2p_session(2, std::mem::size_of::<u32>(), 8888).unwrap();
+    let mut sess1 = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
+    let mut sess2 = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 8888).unwrap();
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
 

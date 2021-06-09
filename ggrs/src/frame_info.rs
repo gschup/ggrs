@@ -48,7 +48,7 @@ impl GameState {
     }
 }
 
-/// All input data for all players for a single frame is saved in this struct.
+/// This struct holds a byte buffer `[u8; MAX_INPUT_BYTES]` where the first `size` bytes represent the encoded input of a single player.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct GameInput {
     /// The frame to which this info belongs to. -1 represents an invalid frame
@@ -60,7 +60,7 @@ pub struct GameInput {
 }
 
 impl GameInput {
-    pub fn new(frame: FrameNumber, bits: Option<&InputBuffer>, size: usize) -> Self {
+    pub(crate) fn new(frame: FrameNumber, bits: Option<&InputBuffer>, size: usize) -> Self {
         assert!(size <= crate::MAX_INPUT_BYTES);
         match bits {
             Some(i_bits) => Self {
@@ -76,19 +76,23 @@ impl GameInput {
         }
     }
 
-    pub fn copy_input(&mut self, bits: &[u8]) {
+    pub(crate) fn copy_input(&mut self, bits: &[u8]) {
         assert!(bits.len() <= crate::MAX_INPUT_BYTES);
         self.bits[0..self.size].copy_from_slice(bits);
     }
 
-    pub fn erase_bits(&mut self) {
+    pub(crate) fn erase_bits(&mut self) {
         self.bits.iter_mut().for_each(|m| *m = 0)
     }
 
-    pub fn equal(&self, other: &Self, bitsonly: bool) -> bool {
+    pub(crate) fn equal(&self, other: &Self, bitsonly: bool) -> bool {
         (bitsonly || self.frame == other.frame)
             && self.size == other.size
             && self.bits == other.bits
+    }
+
+    pub fn input(&self) -> &[u8] {
+        &self.bits[0..self.size]
     }
 }
 

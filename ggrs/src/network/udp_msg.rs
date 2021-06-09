@@ -33,7 +33,7 @@ pub(crate) struct Input {
     pub disconnect_requested: bool,
     pub start_frame: FrameNumber,
     pub ack_frame: FrameNumber,
-    pub bits: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 impl Default for Input {
@@ -43,7 +43,7 @@ impl Default for Input {
             disconnect_requested: false,
             start_frame: NULL_FRAME,
             ack_frame: NULL_FRAME,
-            bits: Vec::new(),
+            bytes: Vec::new(),
         }
     }
 }

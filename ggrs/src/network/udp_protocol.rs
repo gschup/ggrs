@@ -1,4 +1,4 @@
-use crate::frame_info::GameInput;
+use crate::frame_info::{GameInput, BLANK_INPUT};
 use crate::network::udp_msg::{
     ConnectionStatus, Input, InputAck, MessageBody, MessageHeader, QualityReply, QualityReport,
     SyncReply, SyncRequest, UdpMessage,
@@ -11,17 +11,29 @@ use rand::prelude::ThreadRng;
 use rand::Rng;
 use std::collections::vec_deque::Drain;
 use std::collections::VecDeque;
+use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::ops::Add;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use super::network_stats::NetworkStats;
 
+const UDP_HEADER_SIZE: usize = 28; // Size of IP + UDP headers
 const NUM_SYNC_PACKETS: u32 = 5;
 const UDP_SHUTDOWN_TIMER: u64 = 5000;
 const PENDING_OUTPUT_SIZE: usize = 64;
-const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(1000);
+const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(500);
+const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
+const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_SEQ_DISTANCE: u16 = 1 << 15;
+
+fn millis_since_epoch() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
+}
 
 #[derive(Debug, PartialEq, Eq)]
 enum ProtocolState {
@@ -44,36 +56,50 @@ pub(crate) enum Event {
 
 #[derive(Debug)]
 pub(crate) struct UdpProtocol {
+    handle: PlayerHandle,
     rng: ThreadRng,
-    state: ProtocolState,
     magic: u16,
-    send_seq: u16,
-    recv_seq: u16,
     send_queue: VecDeque<UdpMessage>,
-    pending_output: VecDeque<GameInput>,
     event_queue: VecDeque<Event>,
 
+    // state
+    state: ProtocolState,
+    sync_remaining_roundtrips: u32,
+    sync_random_request: u32,
+    running_last_quality_report: Instant,
+    running_last_input_recv: Instant,
+    disconnect_notify_sent: bool,
+    disconnect_event_sent: bool,
+
     // constants
-    disconnect_timeout: u32,
-    disconnect_notify_start: u32,
+    disconnect_timeout: Duration,
+    disconnect_notify_start: Duration,
     shutdown_timeout: Instant,
 
-    // variables to communicate with the other client
-    handle: PlayerHandle,
+    // the other client
     peer_addr: SocketAddr,
     remote_magic: u16,
-
     peer_connect_status: Vec<ConnectionStatus>,
-    sync_remaining_roundtrips: u32,
-    sync_random: u32,
 
-    last_received_input_frame: FrameNumber,
+    // input compression
+    pending_output: VecDeque<GameInput>,
+    last_received_input: GameInput,
+    last_sent_input: GameInput,
+    last_acked_input: GameInput,
 
-    // network stats
-    packets_sent: u32,
+    // time sync
+    local_frame_advantage: i8,
+    remote_frame_advantage: i8,
+
+    // network
+    stats_start_time: u128,
+    packets_sent: usize,
     bytes_sent: usize,
+    round_trip_time: u128,
     last_send_time: Instant,
     last_recv_time: Instant,
+    send_seq: u16,
+    recv_seq: u16,
 }
 
 impl PartialEq for UdpProtocol {
@@ -96,31 +122,50 @@ impl UdpProtocol {
             peer_connect_status.push(ConnectionStatus::default());
         }
         Self {
+            handle,
             rng: rand::thread_rng(),
-            state: ProtocolState::Initializing,
             magic,
-            send_seq: 0,
-            recv_seq: 0,
             send_queue: VecDeque::new(),
-            pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
             event_queue: VecDeque::new(),
 
+            // state
+            state: ProtocolState::Initializing,
+            sync_remaining_roundtrips: NUM_SYNC_PACKETS,
+            sync_random_request: rng.gen(),
+            running_last_quality_report: Instant::now(),
+            running_last_input_recv: Instant::now(),
+            disconnect_notify_sent: false,
+            disconnect_event_sent: false,
+
+            // constants
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             shutdown_timeout: Instant::now(),
 
-            handle,
+            // the other client
             peer_addr,
-            peer_connect_status,
             remote_magic: 0,
-            sync_remaining_roundtrips: NUM_SYNC_PACKETS,
-            sync_random: rng.gen(),
-            last_received_input_frame: NULL_FRAME,
+            peer_connect_status,
 
+            // input compression
+            pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
+            last_received_input: BLANK_INPUT,
+            last_sent_input: BLANK_INPUT,
+            last_acked_input: BLANK_INPUT,
+
+            // time sync
+            local_frame_advantage: 0,
+            remote_frame_advantage: 0,
+
+            // network
+            stats_start_time: 0,
             packets_sent: 0,
             bytes_sent: 0,
+            round_trip_time: 0,
             last_send_time: Instant::now(),
             last_recv_time: Instant::now(),
+            send_seq: 0,
+            recv_seq: 0,
         }
     }
 
@@ -134,16 +179,48 @@ impl UdpProtocol {
         ret
     }
 
-    pub(crate) fn set_disconnect_timeout(&mut self, timeout: u32) {
+    pub(crate) fn update_local_frame_advantage(&mut self, local_frame: FrameNumber) {
+        if local_frame == NULL_FRAME {
+            return;
+        }
+        if self.last_received_input.frame == NULL_FRAME {
+            return;
+        }
+        // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
+        let remote_frame = self.last_received_input.frame
+            + (i32::try_from(self.round_trip_time).expect("Ping is higher than i32::MAX") * 60
+                / 1000);
+
+        self.local_frame_advantage = i8::try_from(remote_frame - local_frame)
+            .expect("Frame discrepancy is higher than i8::MAX");
+    }
+
+    pub(crate) fn set_disconnect_timeout(&mut self, timeout: Duration) {
         self.disconnect_timeout = timeout;
     }
 
-    pub(crate) fn set_disconnect_notify_start(&mut self, notify_start: u32) {
+    pub(crate) fn set_disconnect_notify_start(&mut self, notify_start: Duration) {
         self.disconnect_notify_start = notify_start;
     }
 
-    pub(crate) fn network_stats(&self) -> NetworkStats {
-        todo!();
+    pub(crate) fn network_stats(&self) -> Option<NetworkStats> {
+        if self.state != ProtocolState::Synchronizing && self.state != ProtocolState::Running {
+            return None;
+        }
+
+        let now = millis_since_epoch();
+        let total_bytes_sent = self.bytes_sent + (self.packets_sent * UDP_HEADER_SIZE);
+        let seconds = (now - self.stats_start_time) / 1000;
+        let bps = total_bytes_sent / seconds as usize;
+        //let upd_overhead = (self.packets_sent * UDP_HEADER_SIZE) / self.bytes_sent;
+
+        Some(NetworkStats {
+            ping: self.round_trip_time,
+            send_queue_len: self.pending_output.len(),
+            kbps_sent: bps / 1024,
+            local_frames_behind: self.local_frame_advantage,
+            remote_frames_behind: self.remote_frame_advantage,
+        })
     }
 
     pub(crate) fn is_synchronized(&self) -> bool {
@@ -166,22 +243,56 @@ impl UdpProtocol {
         assert!(self.state == ProtocolState::Initializing);
         self.state = ProtocolState::Synchronizing;
         self.sync_remaining_roundtrips = NUM_SYNC_PACKETS;
+        self.stats_start_time = millis_since_epoch();
         self.send_sync_request();
     }
 
-    pub(crate) fn poll(
-        &mut self,
-        connect_status: &Vec<ConnectionStatus>,
-        socket: &mut NonBlockingSocket,
-    ) -> Drain<Event> {
+    pub(crate) fn poll(&mut self, connect_status: &Vec<ConnectionStatus>) -> Drain<Event> {
+        let now = Instant::now();
+
         match self.state {
             ProtocolState::Synchronizing => {
                 // some time has passed, let us send another sync request
-                if self.last_send_time + SYNC_RETRY_INTERVAL < Instant::now() {
+                if self.last_send_time + SYNC_RETRY_INTERVAL < now {
                     self.send_sync_request();
                 }
             }
-            ProtocolState::Running => (),
+            ProtocolState::Running => {
+                // resend pending inputs, if some time has passed without sending or receiving inputs
+                if self.running_last_input_recv + RUNNING_RETRY_INTERVAL < now {
+                    self.send_pending_output(connect_status);
+                    self.running_last_input_recv = Instant::now();
+                }
+
+                // periodically send a quality report
+                if self.running_last_quality_report + QUALITY_REPORT_INTERVAL < now {
+                    self.send_quality_report();
+                }
+
+                // send keep alive packet if we didn't send a packet for some time
+                if self.last_send_time + KEEP_ALIVE_INTERVAL < now {
+                    self.send_keep_alive();
+                }
+
+                // trigger a NetworkInterrupted event if we didn't receive a packet for some time
+                if !self.disconnect_notify_sent
+                    && self.last_recv_time + self.disconnect_notify_start < now
+                {
+                    let duration: Duration = self.disconnect_timeout - self.disconnect_notify_start;
+                    self.event_queue.push_back(Event::NetworkInterrupted {
+                        disconnect_timeout: Duration::as_millis(&duration),
+                    });
+                    self.disconnect_notify_sent = true;
+                }
+
+                // if we pass the disconnect_timeout threshold, send an event to disconnect
+                if !self.disconnect_event_sent
+                    && self.last_recv_time + self.disconnect_timeout < now
+                {
+                    self.event_queue.push_back(Event::Disconnected);
+                    self.disconnect_event_sent = true;
+                }
+            }
             ProtocolState::Disconnected => {
                 if self.shutdown_timeout < Instant::now() {
                     self.state = ProtocolState::Shutdown;
@@ -196,31 +307,36 @@ impl UdpProtocol {
     /*
      *  SENDING MESSAGES
      */
+
     pub(crate) fn send_input(&mut self, input: GameInput, connect_status: &Vec<ConnectionStatus>) {
         self.pending_output.push_back(input);
         if self.pending_output.len() > PENDING_OUTPUT_SIZE {
             // TODO: do something when the output queue overflows
             assert!(self.pending_output.len() <= PENDING_OUTPUT_SIZE);
         }
-        self.send_pending_input(connect_status);
+        self.send_pending_output(connect_status);
     }
 
-    pub(crate) fn send_pending_input(&mut self, connect_status: &Vec<ConnectionStatus>) {
+    pub(crate) fn send_pending_output(&mut self, connect_status: &Vec<ConnectionStatus>) {
         let mut body = Input::default();
+
+        // TODO: correctly compress the pending inputs
+        /*
         if let Some(input) = self.pending_output.front() {
             body.start_frame = input.frame;
-            body.bits = input.bits.to_vec();
-        }
-        body.ack_frame = self.last_received_input_frame;
+            body.bits = todo!();
+        }*/
+
+        body.ack_frame = self.last_received_input.frame;
         body.disconnect_requested = self.state == ProtocolState::Disconnected;
-        body.peer_connect_status = connect_status.clone();
+        body.peer_connect_status = connect_status.to_vec();
 
         self.queue_message(MessageBody::Input(body));
     }
 
     pub(crate) fn send_input_ack(&mut self) {
         let mut body = InputAck::default();
-        body.ack_frame = self.last_received_input_frame;
+        body.ack_frame = self.last_received_input.frame;
 
         self.queue_message(MessageBody::InputAck(body));
     }
@@ -230,12 +346,22 @@ impl UdpProtocol {
     }
 
     pub(crate) fn send_sync_request(&mut self) {
-        self.sync_random = self.rng.gen();
+        self.sync_random_request = self.rng.gen();
         let body = SyncRequest {
-            random_request: self.sync_random,
+            random_request: self.sync_random_request,
         };
 
         self.queue_message(MessageBody::SyncRequest(body));
+    }
+
+    pub(crate) fn send_quality_report(&mut self) {
+        self.running_last_quality_report = Instant::now();
+        let body = QualityReport {
+            frame_advantage: self.local_frame_advantage,
+            ping: self.round_trip_time,
+        };
+
+        self.queue_message(MessageBody::QualityReport(body));
     }
 
     pub(crate) fn queue_message(&mut self, body: MessageBody) {
@@ -256,16 +382,15 @@ impl UdpProtocol {
     }
 
     pub(crate) fn send_all_messages(&mut self, socket: &NonBlockingSocket) {
-        while !self.send_queue.is_empty() {
-            if let Some(msg) = self.send_queue.pop_front() {
-                socket.send_to(msg, self.peer_addr);
-            }
+        for msg in self.send_queue.drain(..) {
+            socket.send_to(msg, self.peer_addr);
         }
     }
 
     /*
      *  RECEIVING MESSAGES
      */
+
     pub(crate) fn handle_message(&mut self, msg: &UdpMessage) {
         // filter messages that don't match what we expect
         match &msg.body {
@@ -288,37 +413,41 @@ impl UdpProtocol {
         }
         // update sequence number of received packages
         self.recv_seq = msg.header.sequence_number;
-        let handled: bool;
-        match &msg.body {
-            MessageBody::SyncRequest(body) => handled = self.on_sync_request(body),
-            MessageBody::SyncReply(body) => handled = self.on_sync_reply(&msg.header, body),
-            MessageBody::Input(body) => handled = self.on_input(body),
-            MessageBody::InputAck(body) => handled = self.on_input_ack(body),
-            MessageBody::QualityReport(body) => handled = self.on_quality_report(body),
-            MessageBody::QualityReply(body) => handled = self.on_quality_reply(body),
-            MessageBody::KeepAlive => handled = self.on_keep_alive(),
+        self.last_recv_time = Instant::now();
+
+        // if the connection has been marked as interrupted, send an event to signal we are receiving again
+        if self.disconnect_notify_sent && self.state == ProtocolState::Running {
+            self.disconnect_notify_sent = false;
+            self.event_queue.push_back(Event::NetworkResumed);
         }
 
-        if handled {
-            self.last_recv_time = Instant::now();
+        match &msg.body {
+            MessageBody::SyncRequest(body) => self.on_sync_request(body),
+            MessageBody::SyncReply(body) => self.on_sync_reply(&msg.header, body),
+            MessageBody::Input(body) => self.on_input(body),
+            MessageBody::InputAck(body) => self.on_input_ack(body),
+            MessageBody::QualityReport(body) => self.on_quality_report(body),
+            MessageBody::QualityReply(body) => self.on_quality_reply(body),
+            MessageBody::KeepAlive => self.on_keep_alive(),
         }
     }
 
-    pub(crate) fn on_sync_request(&mut self, body: &SyncRequest) -> bool {
+    /// Upon receiving a `SyncReply`, answer with a `SyncReply` with the proper data
+    pub(crate) fn on_sync_request(&mut self, body: &SyncRequest) {
         let mut reply_body = SyncReply::default();
         reply_body.random_reply = body.random_request;
         self.queue_message(MessageBody::SyncReply(reply_body));
-        true
     }
 
-    pub(crate) fn on_sync_reply(&mut self, header: &MessageHeader, body: &SyncReply) -> bool {
+    /// Upon receiving a `SyncReply`, check validity and either continue the synchronization process or conclude synchronization.
+    pub(crate) fn on_sync_reply(&mut self, header: &MessageHeader, body: &SyncReply) {
         // ignore sync replies when not syncing
         if self.state != ProtocolState::Synchronizing {
-            return true;
+            return;
         }
         // this is not the correct reply
-        if self.sync_random != body.random_reply {
-            return false;
+        if self.sync_random_request != body.random_reply {
+            return;
         }
         // the sync reply is good, so we send a sync request again until we have finished the required roundtrips. Then, we can conclude the syncing process.
         self.sync_remaining_roundtrips -= 1;
@@ -334,32 +463,49 @@ impl UdpProtocol {
         } else {
             // switch to running state
             self.state = ProtocolState::Running;
-            self.last_received_input_frame = NULL_FRAME;
             // register an event
             self.event_queue.push_back(Event::Synchronized);
             // the remote endpoint is now "authorized"
             self.remote_magic = header.magic;
         }
-        true
     }
 
-    pub(crate) fn on_input(&mut self, body: &Input) -> bool {
+    pub(crate) fn on_input(&mut self, body: &Input) {
         todo!();
     }
 
-    pub(crate) fn on_input_ack(&mut self, body: &InputAck) -> bool {
-        todo!();
+    /// Upon receiving a `InputAck`, discard the oldest buffered input including the acked input.
+    pub(crate) fn on_input_ack(&mut self, body: &InputAck) {
+        loop {
+            match self.pending_output.front() {
+                Some(input) => {
+                    if input.frame < body.ack_frame {
+                        self.last_acked_input = *input;
+                        self.pending_output.pop_front();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
     }
 
-    pub(crate) fn on_quality_report(&mut self, body: &QualityReport) -> bool {
-        todo!();
+    /// Upon receiving a `QualityReport`, update network stats and reply with a `QualityReply`.
+    pub(crate) fn on_quality_report(&mut self, body: &QualityReport) {
+        self.remote_frame_advantage = body.frame_advantage;
+        let mut reply_body = QualityReply::default();
+        reply_body.pong = body.ping;
+        self.queue_message(MessageBody::QualityReply(reply_body));
     }
 
-    pub(crate) fn on_quality_reply(&mut self, body: &QualityReply) -> bool {
-        todo!();
+    /// Upon receiving a `QualityReply`, update network stats.
+    pub(crate) fn on_quality_reply(&mut self, body: &QualityReply) {
+        let millis = millis_since_epoch();
+        assert!(millis > body.pong);
+        self.round_trip_time = millis - body.pong;
     }
 
-    pub(crate) fn on_keep_alive(&mut self) -> bool {
-        true
-    }
+    /// Nothing to do when receiving a keep alive packet.
+    pub(crate) fn on_keep_alive(&mut self) {}
 }
