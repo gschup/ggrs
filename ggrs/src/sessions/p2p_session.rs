@@ -447,6 +447,9 @@ impl GGRSSession for P2PSession {
     }
 
     fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
+        // receive info from remote players, trigger events and send messages
+        self.poll_endpoints();
+
         // save the current frame in the syncronization layer
         self.sync_layer
             .save_current_state(interface.save_game_state());
@@ -458,9 +461,6 @@ impl GGRSSession for P2PSession {
         // advance the frame
         self.sync_layer.advance_frame();
         interface.advance_frame(sync_inputs);
-
-        // receive info from remote players, trigger events and send messages
-        self.poll_endpoints();
 
         // check game consistency and rollback, if necessary
         if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {

@@ -179,7 +179,6 @@ impl SyncLayer {
 
     /// Searches the saved states and returns the index of the state that matches the given frame number.
     fn find_saved_frame_index(&self, frame: FrameNumber) -> usize {
-        println!("SAVED STATES {:?}", self.saved_states.states);
         for i in 0..MAX_PREDICTION_FRAMES as usize {
             if self.saved_states.states[i].frame == frame {
                 return i;
