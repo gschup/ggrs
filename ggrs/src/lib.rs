@@ -94,10 +94,10 @@ pub trait GGRSInterface {
 
 /// All `GGRSSession` backends implement this trait. Some `GGRSSession` might not support a certain operation and will return an `UnsupportedError` in that case.
 pub trait GGRSSession {
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
-    /// #Errors
+    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session.
+    /// # Errors
     /// Will return `InvalidHandle` when the provided player handle is too big for the number of players
-    /// Will return `InvalidRequest` if a player with that handle has been added before
+    /// Will return `InvalidRequest` if a player with that handle has been added before or if the session has already been started.
     fn add_player(
         &mut self,
         player_type: PlayerType,
@@ -106,7 +106,7 @@ pub trait GGRSSession {
 
     /// After you are done defining and adding all players, you should start the session.
     /// # Errors
-    /// Will return 'InvalidRequest' if the session has already been started.
+    /// Will return `InvalidRequest` if the session has already been started or if insufficient players have been registered.
     fn start_session(&mut self) -> Result<(), GGRSError>;
 
     /// Disconnects a remote player from a game.  
@@ -116,6 +116,10 @@ pub trait GGRSSession {
 
     /// Used to notify GGRS of inputs that should be transmitted to remote players. `add_local_input()` must be called once every frame for all player of type `PlayerType::Local`
     /// before calling `advance_frame()`.
+    /// # Errors
+    /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// Returns `InvalidRequest` if the provided player handle refers to a remote player.
+    /// Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
     fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
@@ -123,13 +127,18 @@ pub trait GGRSSession {
     ) -> Result<(), GGRSError>;
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
+    /// # Errors
+    /// Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
     fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError>;
 
     /// Used to fetch some statistics about the quality of the network connection.
+    /// # Errors
+    /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// Returns `InvalidRequest` if the provided player handle does not refer to an existing remote player.
     fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError>;
 
     /// Change the amount of frames GGRS will delay the inputs for a player. You should only set the frame delay for local players.
-    /// #Errors
+    /// # Errors
     /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
     /// Returns `InvalidRequest` if the provided player handle refers to a remote player.
     fn set_frame_delay(

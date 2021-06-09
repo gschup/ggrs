@@ -450,6 +450,10 @@ impl GGRSSession for P2PSession {
         // receive info from remote players, trigger events and send messages
         self.poll_endpoints();
 
+        if self.state != SessionState::Running {
+            return Err(GGRSError::NotSynchronized);
+        }
+
         // save the current frame in the syncronization layer
         self.sync_layer
             .save_current_state(interface.save_game_state());

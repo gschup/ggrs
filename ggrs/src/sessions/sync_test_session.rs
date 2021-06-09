@@ -104,6 +104,10 @@ impl GGRSSession for SyncTestSession {
     /// # Errors
     /// If checksums don't match, this will return a `MismatchedChecksumError`.
     fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
+        if !self.running {
+            return Err(GGRSError::NotSynchronized);
+        }
+
         // save the current frame in the syncronization layer
         self.sync_layer
             .save_current_state(interface.save_game_state());
