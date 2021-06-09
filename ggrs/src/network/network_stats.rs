@@ -1,4 +1,4 @@
-/// The NetworkStats struct contains statistics about the current session.
+/// The `NetworkStats` struct contains statistics about the current session.
 #[derive(Debug, Default, Clone, Copy, Hash)]
 pub struct NetworkStats {
     /// The length of the queue containing UDP packets which have not yet been acknowledged by the end client.  

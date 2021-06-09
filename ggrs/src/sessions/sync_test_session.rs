@@ -45,7 +45,7 @@ impl GGRSSession for SyncTestSession {
     /// #Errors
     /// Will return `InvalidHandle` when the provided player handle is too big for the number of players.
     /// Will return `InvalidRequest` if a player with that handle has been added before.
-    /// Will return `InvalidRequest` for any player type other than `Local`. SyncTestSession does not support remote players.
+    /// Will return `InvalidRequest` for any player type other than `Local`. `SyncTestSession` does not support remote players.
     fn add_player(
         &mut self,
         player_type: PlayerType,
@@ -233,9 +233,9 @@ impl GGRSSession for SyncTestSession {
 
     fn current_state(&self) -> SessionState {
         if self.running {
-            return SessionState::Running;
+            SessionState::Running
         } else {
-            return SessionState::Initializing;
+            SessionState::Initializing
         }
     }
 }

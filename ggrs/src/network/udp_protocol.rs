@@ -173,7 +173,7 @@ impl UdpProtocol {
         }
     }
 
-    pub(crate) fn player_handle(&self) -> PlayerHandle {
+    pub(crate) const fn player_handle(&self) -> PlayerHandle {
         self.handle
     }
 
@@ -253,7 +253,7 @@ impl UdpProtocol {
         self.send_sync_request();
     }
 
-    pub(crate) fn poll(&mut self, connect_status: &Vec<ConnectionStatus>) -> Drain<Event> {
+    pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event> {
         let now = Instant::now();
 
         match self.state {
@@ -304,23 +304,17 @@ impl UdpProtocol {
                     self.state = ProtocolState::Shutdown;
                 }
             }
-            ProtocolState::Initializing => (),
-            ProtocolState::Shutdown => (),
+            ProtocolState::Initializing | ProtocolState::Shutdown => (),
         }
         self.event_queue.drain(..)
     }
 
     fn pop_pending_output(&mut self, ack_frame: FrameNumber) {
-        loop {
-            match self.pending_output.front() {
-                Some(input) => {
-                    if input.frame < ack_frame {
-                        self.pending_output.pop_front();
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
+        while let Some(input) = self.pending_output.front() {
+            if input.frame < ack_frame {
+                self.pending_output.pop_front();
+            } else {
+                break;
             }
         }
     }
@@ -342,11 +336,11 @@ impl UdpProtocol {
         }
 
         for msg in self.send_queue.drain(..) {
-            socket.send_to(msg, self.peer_addr);
+            socket.send_to(&msg, self.peer_addr);
         }
     }
 
-    pub(crate) fn send_input(&mut self, input: GameInput, connect_status: &Vec<ConnectionStatus>) {
+    pub(crate) fn send_input(&mut self, input: GameInput, connect_status: &[ConnectionStatus]) {
         self.pending_output.push_back(input);
         if self.pending_output.len() > PENDING_OUTPUT_SIZE {
             // TODO: do something when the output queue overflows
@@ -355,7 +349,7 @@ impl UdpProtocol {
         self.send_pending_output(connect_status);
     }
 
-    fn send_pending_output(&mut self, connect_status: &Vec<ConnectionStatus>) {
+    fn send_pending_output(&mut self, connect_status: &[ConnectionStatus]) {
         let mut body = Input::default();
 
         // concatenate all pending inputs to the byte buffer
@@ -363,7 +357,7 @@ impl UdpProtocol {
         if let Some(input) = self.pending_output.front() {
             body.start_frame = input.frame;
         }
-        for input in self.pending_output.iter() {
+        for input in &self.pending_output {
             assert!(input.size == self.input_size);
             body.bytes
                 .extend_from_slice(&input.bytes[0..self.input_size]);
@@ -378,14 +372,15 @@ impl UdpProtocol {
 
         body.ack_frame = self.last_received_input.frame;
         body.disconnect_requested = self.state == ProtocolState::Disconnected;
-        body.peer_connect_status = connect_status.to_vec();
+        body.peer_connect_status = connect_status.to_owned();
 
         self.queue_message(MessageBody::Input(body));
     }
 
     fn send_input_ack(&mut self) {
-        let mut body = InputAck::default();
-        body.ack_frame = self.last_received_input.frame;
+        let body = InputAck {
+            ack_frame: self.last_received_input.frame,
+        };
 
         self.queue_message(MessageBody::InputAck(body));
     }
@@ -469,25 +464,26 @@ impl UdpProtocol {
         }
 
         match &msg.body {
-            MessageBody::SyncRequest(body) => self.on_sync_request(body),
-            MessageBody::SyncReply(body) => self.on_sync_reply(&msg.header, body),
+            MessageBody::SyncRequest(body) => self.on_sync_request(*body),
+            MessageBody::SyncReply(body) => self.on_sync_reply(msg.header, *body),
             MessageBody::Input(body) => self.on_input(body),
-            MessageBody::InputAck(body) => self.on_input_ack(body),
+            MessageBody::InputAck(body) => self.on_input_ack(*body),
             MessageBody::QualityReport(body) => self.on_quality_report(body),
             MessageBody::QualityReply(body) => self.on_quality_reply(body),
-            MessageBody::KeepAlive => self.on_keep_alive(),
+            MessageBody::KeepAlive => (),
         }
     }
 
     /// Upon receiving a `SyncReply`, answer with a `SyncReply` with the proper data
-    fn on_sync_request(&mut self, body: &SyncRequest) {
-        let mut reply_body = SyncReply::default();
-        reply_body.random_reply = body.random_request;
+    fn on_sync_request(&mut self, body: SyncRequest) {
+        let reply_body = SyncReply {
+            random_reply: body.random_request,
+        };
         self.queue_message(MessageBody::SyncReply(reply_body));
     }
 
     /// Upon receiving a `SyncReply`, check validity and either continue the synchronization process or conclude synchronization.
-    fn on_sync_reply(&mut self, header: &MessageHeader, body: &SyncReply) {
+    fn on_sync_reply(&mut self, header: MessageHeader, body: SyncReply) {
         // ignore sync replies when not syncing
         if self.state != ProtocolState::Synchronizing {
             return;
@@ -568,15 +564,14 @@ impl UdpProtocol {
     }
 
     /// Upon receiving a `InputAck`, discard the oldest buffered input including the acked input.
-    fn on_input_ack(&mut self, body: &InputAck) {
+    fn on_input_ack(&mut self, body: InputAck) {
         self.pop_pending_output(body.ack_frame);
     }
 
     /// Upon receiving a `QualityReport`, update network stats and reply with a `QualityReply`.
     fn on_quality_report(&mut self, body: &QualityReport) {
         self.remote_frame_advantage = body.frame_advantage;
-        let mut reply_body = QualityReply::default();
-        reply_body.pong = body.ping;
+        let reply_body = QualityReply { pong: body.ping };
         self.queue_message(MessageBody::QualityReply(reply_body));
     }
 
@@ -586,7 +581,4 @@ impl UdpProtocol {
         assert!(millis > body.pong);
         self.round_trip_time = millis - body.pong;
     }
-
-    /// Nothing to do when receiving a keep alive packet.
-    fn on_keep_alive(&mut self) {}
 }

@@ -26,7 +26,7 @@ enum Player {
 }
 
 impl Player {
-    fn as_endpoint(&self) -> Option<&UdpProtocol> {
+    const fn as_endpoint(&self) -> Option<&UdpProtocol> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             _ => None,
@@ -112,7 +112,7 @@ impl P2PSession {
         self.sync_layer.set_frame_delay(player_handle, 0);
     }
 
-    fn add_spectator(&mut self, _player_handle: PlayerHandle, _addr: SocketAddr) {
+    fn add_spectator(&mut self, player_handle: PlayerHandle, addr: SocketAddr) {
         todo!()
     }
 
@@ -167,7 +167,7 @@ impl P2PSession {
     fn poll_endpoints(&mut self) {
         // Get all udp packets and distribute them to associated endpoints.
         // The endpoints will handle their packets, which will trigger both events and UPD replies.
-        for (from, msg) in self.socket.receive_all_messages().iter() {
+        for (from, msg) in &self.socket.receive_all_messages() {
             for endpoint in self
                 .players
                 .values_mut()
@@ -302,9 +302,9 @@ impl P2PSession {
 
     fn handle_event(&mut self, event: Event, handle: PlayerHandle) {
         match event {
-            Event::Synchronizing { .. } => (),
-            Event::NetworkInterrupted { .. } => (),
-            Event::NetworkResumed => (),
+            Event::Synchronizing { .. }
+            | Event::NetworkInterrupted { .. }
+            | Event::NetworkResumed => (),
             Event::Synchronized => self.check_initial_sync(),
             Event::Disconnected => {
                 let last_frame = self.local_connect_status[handle].last_frame;
@@ -389,8 +389,7 @@ impl GGRSSession for P2PSession {
 
         // check if the player exists
         match self.players.get(&player_handle) {
-            None => return Err(GGRSError::InvalidRequest),
-            Some(Player::Local) => return Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
+            None | Some(Player::Local) => Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
             Some(Player::Remote(_)) => {
                 self.disconnect_player_by_handle(player_handle, last_frame);
                 Ok(())
@@ -484,10 +483,10 @@ impl GGRSSession for P2PSession {
             .get(&player_handle)
             .ok_or(GGRSError::InvalidRequest)?
         {
-            Player::Local => return Err(GGRSError::InvalidRequest),
+            Player::Local => Err(GGRSError::InvalidRequest),
             Player::Remote(endpoint) => match endpoint.network_stats() {
-                Some(stats) => return Ok(stats),
-                _ => return Err(GGRSError::InvalidRequest),
+                Some(stats) => Ok(stats),
+                None => Err(GGRSError::InvalidRequest),
             },
         }
     }
@@ -507,7 +506,7 @@ impl GGRSSession for P2PSession {
             .get(&player_handle)
             .ok_or(GGRSError::InvalidRequest)?
         {
-            Player::Remote(_) => return Err(GGRSError::InvalidRequest),
+            Player::Remote(_) => Err(GGRSError::InvalidRequest),
             Player::Local => {
                 self.sync_layer.set_frame_delay(player_handle, frame_delay);
                 Ok(())

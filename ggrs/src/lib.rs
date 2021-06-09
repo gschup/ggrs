@@ -65,19 +65,19 @@ impl Default for PlayerType {
     }
 }
 
-/// A GGRSSession is always in one of these states.
+/// A `GGRSSession` is always in one of these states.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SessionState {
-    /// When the session is in this state, you must add all necessary players and start the session to continue.
+    /// When initializing, you must add all necessary players and start the session to continue.
     Initializing,
-    /// When in this state, the session tries to establish a connection to the remote clients.
+    /// When synchronizing, the session attempts to establish a connection to the remote clients.
     Synchronizing,
-    /// When in this state, the session has synchronized and is ready to take and transmit player input.
+    /// When running, the session has synchronized and is ready to take and transmit player input.
     Running,
 }
 
 /// The `GGRSInterface` trait describes the functions that your application must provide.
-/// GGRS might call these functions after you called `advance_frame()` or `idle()` of a GGRSSession.
+/// GGRS might call these functions after you called `advance_frame()` or `idle()` of a `GGRSSession`.
 pub trait GGRSInterface {
     /// The client should serialize the entire contents of the current game state, wrap it into a `GameState` instance and return it.
     /// Additionally, the client can compute a checksum of the data and store it in the checksum field. The checksums will help detecting desyncs.
