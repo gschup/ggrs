@@ -86,7 +86,7 @@ impl P2PSession {
 
     fn add_remote_player(&mut self, player_handle: PlayerHandle, addr: SocketAddr) {
         // create a udp protocol endpoint that handles all the messaging to that remote player
-        let mut endpoint = UdpProtocol::new(player_handle, addr, self.num_players);
+        let mut endpoint = UdpProtocol::new(player_handle, addr, self.num_players, self.input_size);
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
         endpoint.set_disconnect_timeout(self.disconnect_timeout);
         self.players.insert(player_handle, Player::Remote(endpoint));

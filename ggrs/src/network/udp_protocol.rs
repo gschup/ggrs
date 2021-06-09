@@ -27,6 +27,7 @@ const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_SEQ_DISTANCE: u16 = 1 << 15;
+const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
 
 fn millis_since_epoch() -> u128 {
     SystemTime::now()
@@ -84,8 +85,7 @@ pub(crate) struct UdpProtocol {
     // input compression
     pending_output: VecDeque<GameInput>,
     last_received_input: GameInput,
-    last_sent_input: GameInput,
-    last_acked_input: GameInput,
+    input_size: usize,
 
     // time sync
     local_frame_advantage: i8,
@@ -110,7 +110,12 @@ impl PartialEq for UdpProtocol {
 impl Eq for UdpProtocol {}
 
 impl UdpProtocol {
-    pub(crate) fn new(handle: PlayerHandle, peer_addr: SocketAddr, num_players: u32) -> Self {
+    pub(crate) fn new(
+        handle: PlayerHandle,
+        peer_addr: SocketAddr,
+        num_players: u32,
+        input_size: usize,
+    ) -> Self {
         let mut rng = rand::thread_rng();
         let mut magic = rng.gen();
         while magic == 0 {
@@ -150,8 +155,7 @@ impl UdpProtocol {
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
             last_received_input: BLANK_INPUT,
-            last_sent_input: BLANK_INPUT,
-            last_acked_input: BLANK_INPUT,
+            input_size,
 
             // time sync
             local_frame_advantage: 0,
@@ -173,7 +177,7 @@ impl UdpProtocol {
         self.handle
     }
 
-    pub(crate) fn next_sequence_number(&mut self) -> u16 {
+    fn next_sequence_number(&mut self) -> u16 {
         let ret = self.send_seq;
         self.send_seq += 1;
         ret
@@ -304,9 +308,35 @@ impl UdpProtocol {
         self.event_queue.drain(..)
     }
 
+    fn pop_pending_output(&mut self, ack_frame: FrameNumber) {
+        loop {
+            match self.pending_output.front() {
+                Some(input) => {
+                    if input.frame < ack_frame {
+                        self.pending_output.pop_front();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+    }
+
     /*
      *  SENDING MESSAGES
      */
+
+    pub(crate) fn send_all_messages(&mut self, socket: &NonBlockingSocket) {
+        if self.state == ProtocolState::Shutdown {
+            self.send_queue.drain(..);
+            return;
+        }
+
+        for msg in self.send_queue.drain(..) {
+            socket.send_to(msg, self.peer_addr);
+        }
+    }
 
     pub(crate) fn send_input(&mut self, input: GameInput, connect_status: &Vec<ConnectionStatus>) {
         self.pending_output.push_back(input);
@@ -317,15 +347,26 @@ impl UdpProtocol {
         self.send_pending_output(connect_status);
     }
 
-    pub(crate) fn send_pending_output(&mut self, connect_status: &Vec<ConnectionStatus>) {
+    fn send_pending_output(&mut self, connect_status: &Vec<ConnectionStatus>) {
         let mut body = Input::default();
 
-        // TODO: correctly compress the pending inputs
-        /*
+        // concatenate all pending inputs to the byte buffer
+        // TODO: pond3r/ggpo encodes the inputs
         if let Some(input) = self.pending_output.front() {
             body.start_frame = input.frame;
-            body.bits = todo!();
-        }*/
+        }
+        for input in self.pending_output.iter() {
+            assert!(input.size == self.input_size);
+            body.bytes
+                .extend_from_slice(&input.bytes[0..self.input_size]);
+        }
+
+        // the byte buffer should hold exactly as many same-sized inputs as `pending_output` contains
+        assert!(body.bytes.len() % self.input_size == 0);
+        assert!(body.bytes.len() / self.input_size == self.pending_output.len());
+
+        // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
+        assert!(body.bytes.len() <= MAX_PAYLOAD);
 
         body.ack_frame = self.last_received_input.frame;
         body.disconnect_requested = self.state == ProtocolState::Disconnected;
@@ -334,18 +375,18 @@ impl UdpProtocol {
         self.queue_message(MessageBody::Input(body));
     }
 
-    pub(crate) fn send_input_ack(&mut self) {
+    fn send_input_ack(&mut self) {
         let mut body = InputAck::default();
         body.ack_frame = self.last_received_input.frame;
 
         self.queue_message(MessageBody::InputAck(body));
     }
 
-    pub(crate) fn send_keep_alive(&mut self) {
+    fn send_keep_alive(&mut self) {
         self.queue_message(MessageBody::KeepAlive);
     }
 
-    pub(crate) fn send_sync_request(&mut self) {
+    fn send_sync_request(&mut self) {
         self.sync_random_request = self.rng.gen();
         let body = SyncRequest {
             random_request: self.sync_random_request,
@@ -354,7 +395,7 @@ impl UdpProtocol {
         self.queue_message(MessageBody::SyncRequest(body));
     }
 
-    pub(crate) fn send_quality_report(&mut self) {
+    fn send_quality_report(&mut self) {
         self.running_last_quality_report = Instant::now();
         let body = QualityReport {
             frame_advantage: self.local_frame_advantage,
@@ -364,7 +405,7 @@ impl UdpProtocol {
         self.queue_message(MessageBody::QualityReport(body));
     }
 
-    pub(crate) fn queue_message(&mut self, body: MessageBody) {
+    fn queue_message(&mut self, body: MessageBody) {
         // set the header
         let header = MessageHeader {
             magic: self.magic,
@@ -381,17 +422,15 @@ impl UdpProtocol {
         self.send_queue.push_back(msg);
     }
 
-    pub(crate) fn send_all_messages(&mut self, socket: &NonBlockingSocket) {
-        for msg in self.send_queue.drain(..) {
-            socket.send_to(msg, self.peer_addr);
-        }
-    }
-
     /*
      *  RECEIVING MESSAGES
      */
 
     pub(crate) fn handle_message(&mut self, msg: &UdpMessage) {
+        if self.state == ProtocolState::Shutdown {
+            return;
+        }
+
         // filter messages that don't match what we expect
         match &msg.body {
             MessageBody::SyncRequest(_) | MessageBody::SyncReply(_) => {
@@ -433,14 +472,14 @@ impl UdpProtocol {
     }
 
     /// Upon receiving a `SyncReply`, answer with a `SyncReply` with the proper data
-    pub(crate) fn on_sync_request(&mut self, body: &SyncRequest) {
+    fn on_sync_request(&mut self, body: &SyncRequest) {
         let mut reply_body = SyncReply::default();
         reply_body.random_reply = body.random_request;
         self.queue_message(MessageBody::SyncReply(reply_body));
     }
 
     /// Upon receiving a `SyncReply`, check validity and either continue the synchronization process or conclude synchronization.
-    pub(crate) fn on_sync_reply(&mut self, header: &MessageHeader, body: &SyncReply) {
+    fn on_sync_reply(&mut self, header: &MessageHeader, body: &SyncReply) {
         // ignore sync replies when not syncing
         if self.state != ProtocolState::Synchronizing {
             return;
@@ -470,29 +509,63 @@ impl UdpProtocol {
         }
     }
 
-    pub(crate) fn on_input(&mut self, body: &Input) {
-        todo!();
+    fn on_input(&mut self, body: &Input) {
+        if body.disconnect_requested {
+            // if a disconnect is requested, disconnect now
+            if self.state != ProtocolState::Disconnected && !self.disconnect_event_sent {
+                self.event_queue.push_back(Event::Disconnected);
+                self.disconnect_event_sent = true;
+            }
+        } else {
+            // update the peer connection status
+            for i in 0..self.peer_connect_status.len() {
+                assert!(
+                    body.peer_connect_status[i].last_frame
+                        >= self.peer_connect_status[i].last_frame
+                );
+                self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected
+                    || self.peer_connect_status[i].disconnected;
+                self.peer_connect_status[i].last_frame = body.peer_connect_status[i].last_frame;
+            }
+        }
+
+        // process the inputs
+        assert!(body.bytes.len() % self.input_size == 0);
+        let num_inputs = body.bytes.len() / self.input_size;
+
+        for i in 0..num_inputs {
+            // skip forward to the first relevant input
+            let current_frame = body.start_frame + i as i32;
+            if current_frame <= self.last_received_input.frame {
+                continue;
+            }
+
+            // recreate the game input
+            let mut game_input = GameInput::new(current_frame, None, self.input_size);
+            let index_start = i * self.input_size;
+            let index_stop = index_start + self.input_size;
+            game_input.copy_input(&body.bytes[index_start..index_stop]);
+
+            // send the input to the session
+            self.last_received_input = game_input;
+            self.running_last_input_recv = Instant::now();
+            self.event_queue.push_back(Event::Input(game_input));
+        }
+
+        // send an input ack
+        self.send_input_ack();
+
+        // drop pending outputs until the ack frame
+        self.pop_pending_output(body.ack_frame);
     }
 
     /// Upon receiving a `InputAck`, discard the oldest buffered input including the acked input.
-    pub(crate) fn on_input_ack(&mut self, body: &InputAck) {
-        loop {
-            match self.pending_output.front() {
-                Some(input) => {
-                    if input.frame < body.ack_frame {
-                        self.last_acked_input = *input;
-                        self.pending_output.pop_front();
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
-            }
-        }
+    fn on_input_ack(&mut self, body: &InputAck) {
+        self.pop_pending_output(body.ack_frame);
     }
 
     /// Upon receiving a `QualityReport`, update network stats and reply with a `QualityReply`.
-    pub(crate) fn on_quality_report(&mut self, body: &QualityReport) {
+    fn on_quality_report(&mut self, body: &QualityReport) {
         self.remote_frame_advantage = body.frame_advantage;
         let mut reply_body = QualityReply::default();
         reply_body.pong = body.ping;
@@ -500,12 +573,12 @@ impl UdpProtocol {
     }
 
     /// Upon receiving a `QualityReply`, update network stats.
-    pub(crate) fn on_quality_reply(&mut self, body: &QualityReply) {
+    fn on_quality_reply(&mut self, body: &QualityReply) {
         let millis = millis_since_epoch();
         assert!(millis > body.pong);
         self.round_trip_time = millis - body.pong;
     }
 
     /// Nothing to do when receiving a keep alive packet.
-    pub(crate) fn on_keep_alive(&mut self) {}
+    fn on_keep_alive(&mut self) {}
 }

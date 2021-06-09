@@ -213,8 +213,8 @@ mod sync_layer_tests {
 
             if i >= 3 {
                 let sync_inputs = sync_layer.synchronized_inputs();
-                let player0_inputs: u32 = bincode::deserialize(&sync_inputs[0].bits).unwrap();
-                let player1_inputs: u32 = bincode::deserialize(&sync_inputs[1].bits).unwrap();
+                let player0_inputs: u32 = bincode::deserialize(&sync_inputs[0].bytes).unwrap();
+                let player1_inputs: u32 = bincode::deserialize(&sync_inputs[1].bytes).unwrap();
                 assert_eq!(player0_inputs, i as u32 - p1_delay);
                 assert_eq!(player1_inputs, i as u32 - p2_delay);
             }

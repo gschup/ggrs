@@ -16,7 +16,7 @@ pub const BLANK_STATE: GameState = GameState {
 
 pub const BLANK_INPUT: GameInput = GameInput {
     frame: NULL_FRAME,
-    bits: [0; crate::MAX_INPUT_BYTES],
+    bytes: [0; crate::MAX_INPUT_BYTES],
     size: 0,
 };
 
@@ -56,43 +56,43 @@ pub struct GameInput {
     // The input size per player
     pub size: usize,
     /// The game input for a player in a single frame
-    pub bits: InputBuffer,
+    pub bytes: InputBuffer,
 }
 
 impl GameInput {
-    pub(crate) fn new(frame: FrameNumber, bits: Option<&InputBuffer>, size: usize) -> Self {
-        assert!(size <= crate::MAX_INPUT_BYTES);
-        match bits {
-            Some(i_bits) => Self {
+    pub(crate) fn new(frame: FrameNumber, bytes: Option<&InputBuffer>, size: usize) -> Self {
+        assert!(size <= MAX_INPUT_BYTES);
+        match bytes {
+            Some(i_bytes) => Self {
                 frame,
                 size,
-                bits: *i_bits,
+                bytes: *i_bytes,
             },
             None => Self {
                 frame,
                 size,
-                bits: [0; crate::MAX_INPUT_BYTES],
+                bytes: [0; crate::MAX_INPUT_BYTES],
             },
         }
     }
 
-    pub(crate) fn copy_input(&mut self, bits: &[u8]) {
-        assert!(bits.len() <= crate::MAX_INPUT_BYTES);
-        self.bits[0..self.size].copy_from_slice(bits);
+    pub(crate) fn copy_input(&mut self, bytes: &[u8]) {
+        assert!(bytes.len() == self.size);
+        self.bytes[0..self.size].copy_from_slice(bytes);
     }
 
     pub(crate) fn erase_bits(&mut self) {
-        self.bits.iter_mut().for_each(|m| *m = 0)
+        self.bytes.iter_mut().for_each(|m| *m = 0)
     }
 
     pub(crate) fn equal(&self, other: &Self, bitsonly: bool) -> bool {
         (bitsonly || self.frame == other.frame)
             && self.size == other.size
-            && self.bits == other.bits
+            && self.bytes == other.bytes
     }
 
     pub fn input(&self) -> &[u8] {
-        &self.bits[0..self.size]
+        &self.bytes[0..self.size]
     }
 }
 
