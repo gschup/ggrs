@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)] // let us try
-#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+//#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
 use error::GGRSError;
 use frame_info::{GameInput, GameState};

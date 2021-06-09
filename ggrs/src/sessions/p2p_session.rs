@@ -22,7 +22,7 @@ pub const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(750)
 #[derive(Debug, PartialEq, Eq)]
 enum Player {
     Local,
-    Remote(UdpProtocol),
+    Remote(Box<UdpProtocol>),
 }
 
 impl Player {
@@ -107,7 +107,8 @@ impl P2PSession {
         let mut endpoint = UdpProtocol::new(player_handle, addr, self.num_players, self.input_size);
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
         endpoint.set_disconnect_timeout(self.disconnect_timeout);
-        self.players.insert(player_handle, Player::Remote(endpoint));
+        self.players
+            .insert(player_handle, Player::Remote(Box::new(endpoint)));
         // if the input delay has been set previously, erase it (remote players handle input delay at their end)
         self.sync_layer.set_frame_delay(player_handle, 0);
     }
