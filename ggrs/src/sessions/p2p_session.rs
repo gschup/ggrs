@@ -531,7 +531,7 @@ impl P2PSession {
         let state_to_load = self.sync_layer.load_frame(first_incorrect);
         interface.load_game_state(state_to_load);
         self.sync_layer.reset_prediction(first_incorrect);
-        assert!(self.sync_layer.current_frame() == first_incorrect);
+        assert_eq!(self.sync_layer.current_frame(), first_incorrect);
 
         // step forward to the previous current state
         for _ in 0..count {
@@ -541,7 +541,7 @@ impl P2PSession {
             self.sync_layer
                 .save_current_state(interface.save_game_state());
         }
-        assert!(self.sync_layer.current_frame() == current_frame);
+        assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
 
     /// For each player, find out if they are still connected and what their minimum confirmed frame is.
@@ -636,7 +636,7 @@ impl P2PSession {
                 if !self.local_connect_status[player_handle].disconnected {
                     // check if the input comes in the correct sequence
                     let current_remote_frame = self.local_connect_status[player_handle].last_frame;
-                    assert!(current_remote_frame + 1 == input.frame);
+                    assert_eq!(current_remote_frame + 1, input.frame);
                     // update our info
                     self.local_connect_status[player_handle].last_frame = input.frame;
                     // add the remote input

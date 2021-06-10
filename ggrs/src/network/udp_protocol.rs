@@ -250,7 +250,7 @@ impl UdpProtocol {
     }
 
     pub(crate) fn synchronize(&mut self) {
-        assert!(self.state == ProtocolState::Initializing);
+        assert_eq!(self.state, ProtocolState::Initializing);
         self.state = ProtocolState::Synchronizing;
         self.sync_remaining_roundtrips = NUM_SYNC_PACKETS;
         self.stats_start_time = millis_since_epoch();
@@ -374,7 +374,7 @@ impl UdpProtocol {
         let mut body = Input::default();
 
         if let Some(input) = self.pending_output.front() {
-            assert!(self.last_acked_input.frame + 1 == input.frame);
+            assert_eq!(self.last_acked_input.frame + 1, input.frame);
             body.start_frame = input.frame;
         } else {
             body.start_frame = 0;
@@ -530,7 +530,7 @@ impl UdpProtocol {
     }
 
     fn on_input(&mut self, body: &Input) {
-        assert!(self.last_received_input.frame + 1 == body.start_frame);
+        assert_eq!(self.last_received_input.frame + 1, body.start_frame);
         if body.disconnect_requested {
             // if a disconnect is requested, disconnect now
             if self.state != ProtocolState::Disconnected && !self.disconnect_event_sent {
