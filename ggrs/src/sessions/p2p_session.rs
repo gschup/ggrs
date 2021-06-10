@@ -2,10 +2,12 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::network_stats::NetworkStats;
 use crate::network::udp_msg::ConnectionStatus;
-use crate::network::udp_protocol::{Event, UdpProtocol};
+use crate::network::udp_protocol::UdpProtocol;
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
-use crate::{FrameNumber, GGRSInterface, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
+use crate::{
+    Event, FrameNumber, GGRSInterface, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
+};
 
 use std::collections::HashMap;
 use std::collections::VecDeque;

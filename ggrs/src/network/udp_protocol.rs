@@ -7,7 +7,7 @@ use crate::network::udp_msg::{
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sessions::p2p_session::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT};
 use crate::time_sync::TimeSync;
-use crate::{FrameNumber, PlayerHandle, NULL_FRAME};
+use crate::{Event, FrameNumber, PlayerHandle, NULL_FRAME};
 
 use rand::prelude::ThreadRng;
 use rand::Rng;
@@ -45,16 +45,6 @@ enum ProtocolState {
     Running,
     Disconnected,
     Shutdown,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) enum Event {
-    Synchronizing { total: u32, count: u32 },
-    Synchronized,
-    Input(GameInput),
-    Disconnected,
-    NetworkInterrupted { disconnect_timeout: u128 },
-    NetworkResumed,
 }
 
 #[derive(Debug)]
