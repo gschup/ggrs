@@ -6,18 +6,20 @@ use crate::network::udp_protocol::UdpProtocol;
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
 use crate::{
-    Event, FrameNumber, GGRSInterface, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
+    FrameNumber, GGRSEvent, GGRSInterface, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
 };
 
+use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
-pub const SLEEP_RECOMMENDATION_INTERVAL: FrameNumber = 240;
-pub const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
-pub const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(750);
+const SLEEP_RECOMMENDATION_INTERVAL: FrameNumber = 240;
+const MAX_EVENT_QUEUE_SIZE: usize = 100;
+pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
+pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(750);
 
 #[derive(Debug, PartialEq, Eq)]
 enum Player {
@@ -39,6 +41,22 @@ impl Player {
             _ => None,
         }
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum Event {
+    /// The session is currently synchronizing with the remote client. It will continue until `count` reaches `total`.
+    Synchronizing { total: u32, count: u32 },
+    /// The session is now synchronized with the remote client.
+    Synchronized,
+    /// The session has received an input from the remote client. This event will not be forwarded to the user.
+    Input(GameInput),
+    /// The remote client has disconnected.
+    Disconnected,
+    /// The session has not received packets from the remote client since `disconnect_timeout` ms.
+    NetworkInterrupted { disconnect_timeout: u128 },
+    /// Sent only after a `NetworkInterrupted` event, if communication has resumed.
+    NetworkResumed,
 }
 
 /// A `P2PSession` provides a UDP protocol to connect to remote clients in a peer-to-peer fashion.
@@ -69,6 +87,9 @@ pub struct P2PSession {
     players: HashMap<PlayerHandle, Player>,
     /// This struct contains information about remote players, like connection status and the frame of last received input.
     local_connect_status: Vec<ConnectionStatus>,
+
+    ///Contains all events to be forwarded to the user.
+    event_queue: VecDeque<GGRSEvent>,
 }
 
 impl P2PSession {
@@ -99,6 +120,7 @@ impl P2PSession {
             next_recommended_sleep: 0,
             wait_frames: 0,
             players: HashMap::new(),
+            event_queue: VecDeque::new(),
         })
     }
 
@@ -355,6 +377,11 @@ impl P2PSession {
         self.state
     }
 
+    /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
+    pub fn events(&mut self) -> Drain<GGRSEvent> {
+        self.event_queue.drain(..)
+    }
+
     fn add_local_player(&mut self, player_handle: PlayerHandle) {
         self.players.insert(player_handle, Player::Local);
     }
@@ -575,28 +602,52 @@ impl P2PSession {
         interval
     }
 
-    fn handle_event(&mut self, event: Event, handle: PlayerHandle) {
+    fn handle_event(&mut self, event: Event, player_handle: PlayerHandle) {
         match event {
-            Event::Synchronizing { .. }
-            | Event::NetworkInterrupted { .. }
-            | Event::NetworkResumed => (),
-            Event::Synchronized => self.check_initial_sync(),
-            Event::Disconnected => {
-                let last_frame = self.local_connect_status[handle].last_frame;
-                self.disconnect_player_by_handle(handle, last_frame);
+            // do nothing for this event (yet)
+            Event::Synchronizing { .. } => (),
+            // forward to user
+            Event::NetworkInterrupted { disconnect_timeout } => {
+                self.event_queue.push_back(GGRSEvent::NetworkInterrupted {
+                    player_handle,
+                    disconnect_timeout,
+                });
             }
-
+            // forward to user
+            Event::NetworkResumed => {
+                self.event_queue
+                    .push_back(GGRSEvent::NetworkResumed { player_handle });
+            }
+            // check if all remotes are synced, then forward to user
+            Event::Synchronized => {
+                self.check_initial_sync();
+                self.event_queue
+                    .push_back(GGRSEvent::Synchronized { player_handle });
+            }
+            // disconnect the player, then forward to user
+            Event::Disconnected => {
+                let last_frame = self.local_connect_status[player_handle].last_frame;
+                self.disconnect_player_by_handle(player_handle, last_frame);
+                self.event_queue
+                    .push_back(GGRSEvent::Disconnected { player_handle });
+            }
+            // add the input and all associated information
             Event::Input(input) => {
-                if !self.local_connect_status[handle].disconnected {
+                if !self.local_connect_status[player_handle].disconnected {
                     // check if the input comes in the correct sequence
-                    let current_remote_frame = self.local_connect_status[handle].last_frame;
+                    let current_remote_frame = self.local_connect_status[player_handle].last_frame;
                     assert!(current_remote_frame + 1 == input.frame);
                     // update our info
-                    self.local_connect_status[handle].last_frame = input.frame;
+                    self.local_connect_status[player_handle].last_frame = input.frame;
                     // add the remote input
-                    self.sync_layer.add_remote_input(handle, input);
+                    self.sync_layer.add_remote_input(player_handle, input);
                 }
             }
+        }
+
+        // check event queue size and discard oldest events if too big
+        while self.event_queue.len() > MAX_EVENT_QUEUE_SIZE {
+            self.event_queue.pop_front();
         }
     }
 }

@@ -5,9 +5,11 @@ use crate::network::udp_msg::{
     SyncReply, SyncRequest, UdpMessage,
 };
 use crate::network::udp_socket::NonBlockingSocket;
-use crate::sessions::p2p_session::{DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT};
+use crate::sessions::p2p_session::{
+    Event, DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT,
+};
 use crate::time_sync::TimeSync;
-use crate::{Event, FrameNumber, PlayerHandle, NULL_FRAME};
+use crate::{FrameNumber, PlayerHandle, NULL_FRAME};
 
 use rand::prelude::ThreadRng;
 use rand::Rng;

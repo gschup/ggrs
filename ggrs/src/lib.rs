@@ -81,19 +81,18 @@ pub enum SessionState {
 
 /// These are the notifications that you can receive from the session.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Event {
-    /// The session is currently synchronizing with the remote client. It will continue until `count` reaches `total`.
-    Synchronizing { total: u32, count: u32 },
+pub enum GGRSEvent {
     /// The session is now synchronized with the remote client.
-    Synchronized,
-    /// The session has received an input from the remote client. This event will not be forwarded to the user.
-    Input(GameInput),
+    Synchronized { player_handle: PlayerHandle },
     /// The remote client has disconnected.
-    Disconnected,
+    Disconnected { player_handle: PlayerHandle },
     /// The session has not received packets from the remote client since `disconnect_timeout` ms.
-    NetworkInterrupted { disconnect_timeout: u128 },
+    NetworkInterrupted {
+        player_handle: PlayerHandle,
+        disconnect_timeout: u128,
+    },
     /// Sent only after a `NetworkInterrupted` event, if communication has resumed.
-    NetworkResumed,
+    NetworkResumed { player_handle: PlayerHandle },
 }
 
 /// The `GGRSInterface` trait describes the functions that your application interface must provide.
