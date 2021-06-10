@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 
-/// This enum contains all error messages this library can return. Most API functions will generally return a `Result<(),GGRS>`.
+/// This enum contains all error messages this library can return. Most API functions will generally return a `Result<(),GGRSError>`.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGRSError {
     /// A catch-all error if something breaks internally. You should normally never get this error.
