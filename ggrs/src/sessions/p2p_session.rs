@@ -5,9 +5,7 @@ use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::{Event, UdpProtocol};
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
-use crate::{
-    FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
-};
+use crate::{FrameNumber, GGRSInterface, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -100,6 +98,259 @@ impl P2PSession {
             wait_frames: 0,
             players: HashMap::new(),
         })
+    }
+
+    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session.
+    /// # Errors
+    /// - Returns `InvalidHandle` when the provided player handle is too big for the number of players
+    /// - Returns `InvalidRequest` if a player with that handle has been added before or if the session has already been started.
+    pub fn add_player(
+        &mut self,
+        player_type: PlayerType,
+        player_handle: PlayerHandle,
+    ) -> Result<(), GGRSError> {
+        // currently, you can only add players in the init phase
+        if self.state != SessionState::Initializing {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        // check if valid player
+        if player_handle >= self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+
+        // check if player handle already exists
+        if self.players.contains_key(&player_handle) {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        // add the player depending on type
+        match player_type {
+            PlayerType::Local => self.add_local_player(player_handle),
+            PlayerType::Remote(addr) => self.add_remote_player(player_handle, addr),
+            PlayerType::Spectator(addr) => self.add_spectator(player_handle, addr),
+        }
+        Ok(())
+    }
+
+    /// After you are done defining and adding all players, you should start the session. Then, the synchronization process will begin.
+    /// # Errors
+    /// - Returns `InvalidRequest` if the session has already been started or if insufficient players have been registered.
+    pub fn start_session(&mut self) -> Result<(), GGRSError> {
+        // if we are not in the initialization state, we already started the session at some point
+        if self.state != SessionState::Initializing {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        // check if the amount of players is correct
+        if self.players.len() != self.num_players as usize {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        // start the synchronisation
+        self.state = SessionState::Synchronizing;
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.synchronize();
+        }
+        Ok(())
+    }
+
+    /// Disconnects a remote player from a game.  
+    /// # Errors
+    /// - Returns `InvalidRequest` if you try to disconnect a player who has already been disconnected or if you try to disconnect a local player.
+    pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
+        // player already disconnected
+        if self.local_connect_status[player_handle].disconnected {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        let last_frame = self.local_connect_status[player_handle].last_frame;
+
+        // check if the player exists
+        match self.players.get(&player_handle) {
+            None | Some(Player::Local) => Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
+            Some(Player::Remote(_)) => {
+                self.disconnect_player_by_handle(player_handle, last_frame);
+                Ok(())
+            }
+        }
+    }
+
+    /// Used to notify GGRS of inputs that should be transmitted to remote players. `add_local_input()` must be called once every frame for all player of type `PlayerType::Local`
+    /// before calling `advance_frame()`.
+    /// # Errors
+    /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// - Returns `InvalidRequest` if the provided player handle refers to a remote player.
+    /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
+    pub fn add_local_input(
+        &mut self,
+        player_handle: PlayerHandle,
+        input: &[u8],
+    ) -> Result<(), GGRSError> {
+        // player handle is invalid
+        if player_handle > self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+
+        // player is not a local player
+        match self.players.get(&player_handle) {
+            Some(Player::Local) => (),
+            _ => return Err(GGRSError::InvalidRequest),
+        }
+
+        // session is not running and synchronzied
+        if self.state != SessionState::Running {
+            return Err(GGRSError::NotSynchronized);
+        }
+
+        //create an input struct for current frame
+        let mut game_input: GameInput =
+            GameInput::new(self.sync_layer.current_frame(), None, self.input_size);
+        game_input.copy_input(input);
+
+        // send the input into the sync layer
+        let actual_frame = self.sync_layer.add_local_input(player_handle, game_input)?;
+
+        // if the actual frame is the null frame, the frame has been dropped by the input queues (for example due to changed input delay)
+        if actual_frame != NULL_FRAME {
+            // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
+            game_input.frame = actual_frame;
+            self.local_connect_status[player_handle].last_frame = actual_frame;
+
+            for endpoint in self
+                .players
+                .values_mut()
+                .filter_map(Player::as_endpoint_mut)
+            {
+                // send the input directly
+                endpoint.send_input(game_input, &self.local_connect_status);
+                endpoint.send_all_messages(&self.socket);
+            }
+        }
+        Ok(())
+    }
+
+    /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
+    /// # Errors
+    /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
+    pub fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
+        // receive info from remote players, trigger events and send messages
+        self.poll_endpoints();
+
+        if self.state != SessionState::Running {
+            return Err(GGRSError::NotSynchronized);
+        }
+
+        // skip advancing to wait for other clients
+        if self.wait_frames > 0 {
+            self.wait_frames -= 1;
+            return Ok(());
+        }
+
+        // save the current frame in the syncronization layer
+        self.sync_layer
+            .save_current_state(interface.save_game_state());
+        // get correct inputs for the current frame
+        let sync_inputs = self.sync_layer.synchronized_inputs();
+        for input in &sync_inputs {
+            assert_eq!(input.frame, self.sync_layer.current_frame());
+        }
+        // advance the frame
+        self.sync_layer.advance_frame();
+        interface.advance_frame(sync_inputs);
+
+        // check game consistency and rollback, if necessary
+        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
+            self.adjust_gamestate(first_incorrect, interface);
+        }
+        Ok(())
+    }
+
+    /// Used to fetch some statistics about the quality of the network connection.
+    /// # Errors
+    /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// - Returns `InvalidRequest` if the provided player handle does not refer to an existing remote player.
+    /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
+    pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
+        // player handle is invalid
+        if player_handle > self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+
+        match self
+            .players
+            .get(&player_handle)
+            .ok_or(GGRSError::InvalidRequest)?
+        {
+            Player::Local => Err(GGRSError::InvalidRequest),
+            Player::Remote(endpoint) => match endpoint.network_stats() {
+                Some(stats) => Ok(stats),
+                None => Err(GGRSError::NotSynchronized),
+            },
+        }
+    }
+
+    /// Change the amount of frames GGRS will delay the inputs for a player. You should only set the frame delay for local players.
+    /// # Errors
+    /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// Returns `InvalidRequest` if the provided player handle refers to a remote player.
+    pub fn set_frame_delay(
+        &mut self,
+        frame_delay: u32,
+        player_handle: PlayerHandle,
+    ) -> Result<(), GGRSError> {
+        // player handle is invalid
+        if player_handle > self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+
+        match self
+            .players
+            .get(&player_handle)
+            .ok_or(GGRSError::InvalidRequest)?
+        {
+            Player::Remote(_) => Err(GGRSError::InvalidRequest),
+            Player::Local => {
+                self.sync_layer.set_frame_delay(player_handle, frame_delay);
+                Ok(())
+            }
+        }
+    }
+
+    /// Sets the disconnect timeout. The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
+    pub fn set_disconnect_timeout(&mut self, timeout: Duration) {
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.set_disconnect_timeout(timeout);
+        }
+    }
+
+    /// Sets the time before the first notification will be sent in case of a prolonged period of no received packages.
+    pub fn set_disconnect_notify_delay(&mut self, notify_delay: Duration) {
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.set_disconnect_notify_start(notify_delay);
+        }
+    }
+
+    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
+    pub fn idle(&mut self) {
+        self.poll_endpoints();
+    }
+
+    /// Returns the current `SessionState` of a session.
+    pub fn current_state(&self) -> SessionState {
+        self.state
     }
 
     fn add_local_player(&mut self, player_handle: PlayerHandle) {
@@ -345,228 +596,5 @@ impl P2PSession {
                 }
             }
         }
-    }
-}
-
-impl GGRSSession for P2PSession {
-    fn add_player(
-        &mut self,
-        player_type: PlayerType,
-        player_handle: PlayerHandle,
-    ) -> Result<(), GGRSError> {
-        // currently, you can only add players in the init phase
-        if self.state != SessionState::Initializing {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        // check if valid player
-        if player_handle >= self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
-
-        // check if player handle already exists
-        if self.players.contains_key(&player_handle) {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        // add the player depending on type
-        match player_type {
-            PlayerType::Local => self.add_local_player(player_handle),
-            PlayerType::Remote(addr) => self.add_remote_player(player_handle, addr),
-            PlayerType::Spectator(addr) => self.add_spectator(player_handle, addr),
-        }
-        Ok(())
-    }
-
-    fn start_session(&mut self) -> Result<(), GGRSError> {
-        // if we are not in the initialization state, we already started the session at some point
-        if self.state != SessionState::Initializing {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        // check if the amount of players is correct
-        if self.players.len() != self.num_players as usize {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        // start the synchronisation
-        self.state = SessionState::Synchronizing;
-        for endpoint in self
-            .players
-            .values_mut()
-            .filter_map(Player::as_endpoint_mut)
-        {
-            endpoint.synchronize();
-        }
-        Ok(())
-    }
-
-    fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
-        // player already disconnected
-        if self.local_connect_status[player_handle].disconnected {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        let last_frame = self.local_connect_status[player_handle].last_frame;
-
-        // check if the player exists
-        match self.players.get(&player_handle) {
-            None | Some(Player::Local) => Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
-            Some(Player::Remote(_)) => {
-                self.disconnect_player_by_handle(player_handle, last_frame);
-                Ok(())
-            }
-        }
-    }
-
-    fn add_local_input(
-        &mut self,
-        player_handle: PlayerHandle,
-        input: &[u8],
-    ) -> Result<(), GGRSError> {
-        // player handle is invalid
-        if player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
-
-        // player is not a local player
-        match self.players.get(&player_handle) {
-            Some(Player::Local) => (),
-            _ => return Err(GGRSError::InvalidRequest),
-        }
-
-        // session is not running and synchronzied
-        if self.state != SessionState::Running {
-            return Err(GGRSError::NotSynchronized);
-        }
-
-        //create an input struct for current frame
-        let mut game_input: GameInput =
-            GameInput::new(self.sync_layer.current_frame(), None, self.input_size);
-        game_input.copy_input(input);
-
-        // send the input into the sync layer
-        let actual_frame = self.sync_layer.add_local_input(player_handle, game_input)?;
-
-        // if the actual frame is the null frame, the frame has been dropped by the input queues (for example due to changed input delay)
-        if actual_frame != NULL_FRAME {
-            // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
-            game_input.frame = actual_frame;
-            self.local_connect_status[player_handle].last_frame = actual_frame;
-
-            for endpoint in self
-                .players
-                .values_mut()
-                .filter_map(Player::as_endpoint_mut)
-            {
-                // send the input directly
-                endpoint.send_input(game_input, &self.local_connect_status);
-                endpoint.send_all_messages(&self.socket);
-            }
-        }
-        Ok(())
-    }
-
-    fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
-        // receive info from remote players, trigger events and send messages
-        self.poll_endpoints();
-
-        if self.state != SessionState::Running {
-            return Err(GGRSError::NotSynchronized);
-        }
-
-        // skip advancing to wait for other clients
-        if self.wait_frames > 0 {
-            self.wait_frames -= 1;
-            return Ok(());
-        }
-
-        // save the current frame in the syncronization layer
-        self.sync_layer
-            .save_current_state(interface.save_game_state());
-        // get correct inputs for the current frame
-        let sync_inputs = self.sync_layer.synchronized_inputs();
-        for input in &sync_inputs {
-            assert_eq!(input.frame, self.sync_layer.current_frame());
-        }
-        // advance the frame
-        self.sync_layer.advance_frame();
-        interface.advance_frame(sync_inputs);
-
-        // check game consistency and rollback, if necessary
-        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
-            self.adjust_gamestate(first_incorrect, interface);
-        }
-        Ok(())
-    }
-
-    fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
-        // player handle is invalid
-        if player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
-
-        match self
-            .players
-            .get(&player_handle)
-            .ok_or(GGRSError::InvalidRequest)?
-        {
-            Player::Local => Err(GGRSError::InvalidRequest),
-            Player::Remote(endpoint) => match endpoint.network_stats() {
-                Some(stats) => Ok(stats),
-                None => Err(GGRSError::InvalidRequest),
-            },
-        }
-    }
-
-    fn set_frame_delay(
-        &mut self,
-        frame_delay: u32,
-        player_handle: PlayerHandle,
-    ) -> Result<(), GGRSError> {
-        // player handle is invalid
-        if player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
-
-        match self
-            .players
-            .get(&player_handle)
-            .ok_or(GGRSError::InvalidRequest)?
-        {
-            Player::Remote(_) => Err(GGRSError::InvalidRequest),
-            Player::Local => {
-                self.sync_layer.set_frame_delay(player_handle, frame_delay);
-                Ok(())
-            }
-        }
-    }
-
-    fn set_disconnect_timeout(&mut self, timeout: Duration) {
-        for endpoint in self
-            .players
-            .values_mut()
-            .filter_map(Player::as_endpoint_mut)
-        {
-            endpoint.set_disconnect_timeout(timeout);
-        }
-    }
-
-    fn set_disconnect_notify_delay(&mut self, notify_delay: Duration) {
-        for endpoint in self
-            .players
-            .values_mut()
-            .filter_map(Player::as_endpoint_mut)
-        {
-            endpoint.set_disconnect_notify_start(notify_delay);
-        }
-    }
-
-    fn idle(&mut self) {
-        self.poll_endpoints();
-    }
-
-    fn current_state(&self) -> SessionState {
-        self.state
     }
 }

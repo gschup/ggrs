@@ -1,11 +1,8 @@
 use crate::error::GGRSError;
 use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
-use crate::network::network_stats::NetworkStats;
 use crate::sync_layer::{SavedStates, SyncLayer};
-use crate::{FrameNumber, GGRSInterface, GGRSSession, PlayerHandle, PlayerType, SessionState};
+use crate::{FrameNumber, GGRSInterface, PlayerHandle, PlayerType, SessionState};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
-
-use std::time::Duration;
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
 /// in your `save_game_state()` function, the `SyncTestSession` will compare the resimulated checksums with the original checksums and report if there was a mismatch.
@@ -38,15 +35,13 @@ impl SyncTestSession {
             sync_layer: SyncLayer::new(num_players, input_size),
         }
     }
-}
 
-impl GGRSSession for SyncTestSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
     /// #Errors
     /// Will return `InvalidHandle` when the provided player handle is too big for the number of players.
     /// Will return `InvalidRequest` if a player with that handle has been added before.
     /// Will return `InvalidRequest` for any player type other than `Local`. `SyncTestSession` does not support remote players.
-    fn add_player(
+    pub fn add_player(
         &mut self,
         player_type: PlayerType,
         player_handle: PlayerHandle,
@@ -64,7 +59,7 @@ impl GGRSSession for SyncTestSession {
     ///
     /// # Errors
     /// Return a `InvalidRequestError`, if the session is already running.
-    fn start_session(&mut self) -> Result<(), GGRSError> {
+    pub fn start_session(&mut self) -> Result<(), GGRSError> {
         if self.running {
             return Err(GGRSError::InvalidRequest);
         }
@@ -74,7 +69,7 @@ impl GGRSSession for SyncTestSession {
         Ok(())
     }
 
-    fn add_local_input(
+    pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
         input: &[u8],
@@ -103,7 +98,7 @@ impl GGRSSession for SyncTestSession {
     ///
     /// # Errors
     /// If checksums don't match, this will return a `MismatchedChecksumError`.
-    fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
+    pub fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
         if !self.running {
             return Err(GGRSError::NotSynchronized);
         }
@@ -195,7 +190,7 @@ impl GGRSSession for SyncTestSession {
         Ok(())
     }
 
-    fn set_frame_delay(
+    pub fn set_frame_delay(
         &mut self,
         frame_delay: u32,
         player_handle: PlayerHandle,
@@ -209,29 +204,9 @@ impl GGRSSession for SyncTestSession {
     }
 
     /// Nothing happens here in `SyncTestSession`. There are no packets to be received or sent.
-    fn idle(&mut self) {}
+    pub fn idle(&mut self) {}
 
-    /// Not supported in `SyncTestSession`.
-    fn disconnect_player(&mut self, _player_handle: PlayerHandle) -> Result<(), GGRSError> {
-        unimplemented!()
-    }
-
-    /// Not supported in `SyncTestSession`.
-    fn network_stats(&self, _player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
-        unimplemented!()
-    }
-
-    /// Not supported in `SyncTestSession`.
-    fn set_disconnect_timeout(&mut self, _timeout: Duration) {
-        unimplemented!()
-    }
-
-    /// Not supported in `SyncTestSession`.
-    fn set_disconnect_notify_delay(&mut self, _notify_delay: Duration) {
-        unimplemented!()
-    }
-
-    fn current_state(&self) -> SessionState {
+    pub fn current_state(&self) -> SessionState {
         if self.running {
             SessionState::Running
         } else {

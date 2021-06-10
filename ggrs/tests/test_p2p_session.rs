@@ -1,4 +1,4 @@
-use ggrs::{GGRSSession, SessionState};
+use ggrs::SessionState;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use serial_test::serial;

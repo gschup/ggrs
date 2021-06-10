@@ -1,7 +1,7 @@
 use bincode;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use ggrs::{GGRSSession, PlayerType};
+use ggrs::PlayerType;
 
 mod stubs;
 
