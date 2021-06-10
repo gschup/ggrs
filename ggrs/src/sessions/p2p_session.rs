@@ -41,7 +41,7 @@ impl Player {
     }
 }
 
-/// A `P2PSession`
+/// A `P2PSession` provides a UDP protocol to connect to remote clients in a peer-to-peer fashion.
 #[derive(Debug)]
 pub struct P2PSession {
     /// The number of players of the session.
