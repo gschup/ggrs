@@ -23,7 +23,7 @@ GGRS is still in a very early stage. Basic unit and integration tests hint towar
 - more Tests
 - improved documentation
 
-## Other rust-based rollback implementations
+## Other Rollback Implementations in Rust
 Take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)! 
 
 ## Licensing
