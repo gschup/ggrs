@@ -3,8 +3,7 @@ use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-use ggrs::frame_info::{GameInput, GameState};
-use ggrs::GGRSInterface;
+use ggrs::{GGRSInterface, GameInput, GameState};
 
 pub const INPUT_SIZE: usize = std::mem::size_of::<u32>();
 

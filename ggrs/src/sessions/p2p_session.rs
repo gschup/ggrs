@@ -41,6 +41,7 @@ impl Player {
     }
 }
 
+/// A `P2PSession`
 #[derive(Debug)]
 pub struct P2PSession {
     /// The number of players of the session.

@@ -23,7 +23,7 @@ pub struct SyncTestSession {
 
 impl SyncTestSession {
     /// Creates a new `SyncTestSession` instance with given values.
-    pub fn new(num_players: u32, input_size: usize, check_distance: u32) -> Self {
+    pub(crate) fn new(num_players: u32, input_size: usize, check_distance: u32) -> Self {
         Self {
             current_frame: NULL_FRAME,
             num_players,

@@ -1,6 +1,9 @@
 use crate::frame_info::GameInput;
-use crate::{FrameNumber, PlayerHandle, INPUT_QUEUE_LENGTH, NULL_FRAME};
+use crate::{FrameNumber, PlayerHandle, NULL_FRAME};
 use std::cmp;
+
+/// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
+const INPUT_QUEUE_LENGTH: usize = 128;
 
 /// `InputQueue` handles inputs for a single player and saves them in a circular array. Valid Inputs are between `head` and `tail`.
 #[derive(Debug, Clone)]

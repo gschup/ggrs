@@ -379,7 +379,7 @@ impl UdpProtocol {
         for input in &self.pending_output {
             assert!(input.size == self.input_size);
             body.bytes
-                .extend_from_slice(&input.bytes[0..self.input_size]);
+                .extend_from_slice(&input.buffer[0..self.input_size]);
         }
 
         // the byte buffer should hold exactly as many same-sized inputs as `pending_output` contains
