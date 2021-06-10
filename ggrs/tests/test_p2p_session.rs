@@ -112,16 +112,21 @@ fn test_advance_frame_p2p_sessions() {
     assert!(sess1.current_state() == SessionState::Running);
     assert!(sess2.current_state() == SessionState::Running);
 
-    for i in 0..10 {
+    let reps = 10;
+    for i in 0..reps {
         let input: u32 = i;
         let serialized_input = bincode::serialize(&input).unwrap();
         assert!(sess1.add_local_input(0, &serialized_input).is_ok());
         assert!(sess2.add_local_input(1, &serialized_input).is_ok());
 
+        sess1.idle();
+        sess2.idle();
+
         assert!(sess1.advance_frame(&mut stub1).is_ok());
         assert!(sess2.advance_frame(&mut stub2).is_ok());
 
-        sess1.idle();
-        sess2.idle();
+        // gamestate evolves
+        assert_eq!(stub1.gs.frame, i as i32 + 1);
+        assert_eq!(stub2.gs.frame, i as i32 + 1);
     }
 }

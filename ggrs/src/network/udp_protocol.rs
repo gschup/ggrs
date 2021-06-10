@@ -1,4 +1,5 @@
 use crate::frame_info::{GameInput, BLANK_INPUT};
+use crate::network::compression::{decode, encode};
 use crate::network::udp_msg::{
     ConnectionStatus, Input, InputAck, MessageBody, MessageHeader, QualityReply, QualityReport,
     SyncReply, SyncRequest, UdpMessage,
@@ -86,6 +87,7 @@ pub(crate) struct UdpProtocol {
     // input compression
     pending_output: VecDeque<GameInput>,
     last_received_input: GameInput,
+    last_acked_input: GameInput,
     input_size: usize,
 
     // time sync
@@ -123,11 +125,17 @@ impl UdpProtocol {
         while magic == 0 {
             magic = rng.gen();
         }
+
         // peer connection status
         let mut peer_connect_status = Vec::new();
         for _ in 0..num_players {
             peer_connect_status.push(ConnectionStatus::default());
         }
+
+        //custom blank inputs
+        let mut blank_input = BLANK_INPUT;
+        blank_input.size = input_size;
+
         Self {
             handle,
             rng: rand::thread_rng(),
@@ -156,7 +164,8 @@ impl UdpProtocol {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
-            last_received_input: BLANK_INPUT,
+            last_received_input: blank_input,
+            last_acked_input: blank_input,
             input_size,
 
             // time sync
@@ -319,7 +328,8 @@ impl UdpProtocol {
 
     fn pop_pending_output(&mut self, ack_frame: FrameNumber) {
         while let Some(input) = self.pending_output.front() {
-            if input.frame < ack_frame {
+            if input.frame <= ack_frame {
+                self.last_acked_input = *input;
                 self.pending_output.pop_front();
             } else {
                 break;
@@ -371,20 +381,15 @@ impl UdpProtocol {
     fn send_pending_output(&mut self, connect_status: &[ConnectionStatus]) {
         let mut body = Input::default();
 
-        // concatenate all pending inputs to the byte buffer
-        // TODO: pond3r/ggpo encodes the inputs
         if let Some(input) = self.pending_output.front() {
+            assert!(self.last_acked_input.frame + 1 == input.frame);
             body.start_frame = input.frame;
-        }
-        for input in &self.pending_output {
-            assert!(input.size == self.input_size);
-            body.bytes
-                .extend_from_slice(&input.buffer[0..self.input_size]);
+        } else {
+            body.start_frame = 0;
         }
 
-        // the byte buffer should hold exactly as many same-sized inputs as `pending_output` contains
-        assert!(body.bytes.len() % self.input_size == 0);
-        assert!(body.bytes.len() / self.input_size == self.pending_output.len());
+        // encode all pending inputs to a byte buffer
+        body.bytes = encode(&self.last_acked_input, self.pending_output.iter());
 
         // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
         assert!(body.bytes.len() <= MAX_PAYLOAD);
@@ -533,6 +538,7 @@ impl UdpProtocol {
     }
 
     fn on_input(&mut self, body: &Input) {
+        assert!(self.last_received_input.frame + 1 == body.start_frame);
         if body.disconnect_requested {
             // if a disconnect is requested, disconnect now
             if self.state != ProtocolState::Disconnected && !self.disconnect_event_sent {
@@ -553,26 +559,18 @@ impl UdpProtocol {
         }
 
         // process the inputs
-        assert!(body.bytes.len() % self.input_size == 0);
-        let num_inputs = body.bytes.len() / self.input_size;
+        let recv_inputs = decode(&self.last_received_input, &body.bytes).expect("decoding failed");
 
-        for i in 0..num_inputs {
-            // skip forward to the first relevant input
-            let current_frame = body.start_frame + i as i32;
-            if current_frame <= self.last_received_input.frame {
+        for game_input in &recv_inputs {
+            // skip inputs that we don't need
+            if game_input.frame <= self.last_received_input.frame {
                 continue;
             }
 
-            // recreate the game input
-            let mut game_input = GameInput::new(current_frame, None, self.input_size);
-            let index_start = i * self.input_size;
-            let index_stop = index_start + self.input_size;
-            game_input.copy_input(&body.bytes[index_start..index_stop]);
-
             // send the input to the session
-            self.last_received_input = game_input;
+            self.last_received_input = *game_input;
             self.running_last_input_recv = Instant::now();
-            self.event_queue.push_back(Event::Input(game_input));
+            self.event_queue.push_back(Event::Input(*game_input));
         }
 
         // send an input ack

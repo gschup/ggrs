@@ -1,5 +1,5 @@
 /// The `NetworkStats` struct contains statistics about the current session.
-#[derive(Debug, Default, Clone, Copy, Hash)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct NetworkStats {
     /// The length of the queue containing UDP packets which have not yet been acknowledged by the end client.  
     /// The length of the send queue is a rough indication of the quality of the connection. The longer the send queue, the higher the round-trip time between the

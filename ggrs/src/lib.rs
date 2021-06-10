@@ -23,6 +23,7 @@ pub(crate) mod sessions {
     pub(crate) mod sync_test_session;
 }
 pub(crate) mod network {
+    pub(crate) mod compression;
     pub(crate) mod network_stats;
     pub(crate) mod udp_msg;
     pub(crate) mod udp_protocol;
@@ -48,14 +49,16 @@ pub const NULL_FRAME: i32 = -1;
 pub type FrameNumber = i32;
 pub type PlayerHandle = usize;
 
-/// Defines the three types of players that can exist: local player, who play on the local device,
-/// remote players, who play on other devices and spectators, who are remote players that do not contribute to the game input.
-/// Both Remote and Spectator have a socket address associated with them.
+/// Defines the three types of players that GGRS considers:
+/// - local players, who play on the local device,
+/// - remote players, who play on other devices and
+/// - spectators, who are remote players that do not contribute to the game input.
+/// Both `Remote` and `Spectator` have a socket address associated with them.
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum PlayerType {
-    /// This player plays on the local device
+    /// This player plays on the local device.
     Local,
-    /// This player plays on a remote device identified by the socket address
+    /// This player plays on a remote device identified by the socket address.
     Remote(std::net::SocketAddr),
     /// This player spectates on a remote device identified by the socket address. They do not contribute to the game input.
     Spectator(std::net::SocketAddr),
@@ -67,7 +70,7 @@ impl Default for PlayerType {
     }
 }
 
-/// A `GGRSSession` is always in one of these states.
+/// A `GGRSSession` is always in one of these states. You can query the current state of a `GGRSSession` via `current_state()`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SessionState {
     /// When initializing, you must add all necessary players and start the session to continue.
@@ -159,6 +162,7 @@ pub trait GGRSSession {
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
     fn idle(&mut self);
 
+    /// Returns the current `SessionState` of a session. This information can be used.
     fn current_state(&self) -> SessionState;
 }
 
