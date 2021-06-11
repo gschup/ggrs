@@ -43,11 +43,11 @@ fn test_start_single_session_then_idle() {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
-    assert!(sess.start_session().is_ok()); // works
-    sess.idle();
-    sess.idle();
-    sess.idle();
-    sess.idle();
+    assert!(sess.start_session().is_ok());
+
+    for _ in 0..10 {
+        sess.idle();
+    }
 }
 
 #[test]
