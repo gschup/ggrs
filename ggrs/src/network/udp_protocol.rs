@@ -26,7 +26,7 @@ const UDP_HEADER_SIZE: usize = 28; // Size of IP + UDP headers
 const NUM_SYNC_PACKETS: u32 = 5;
 const UDP_SHUTDOWN_TIMER: u64 = 5000;
 const PENDING_OUTPUT_SIZE: usize = 64;
-const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(500);
+const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
@@ -189,9 +189,8 @@ impl UdpProtocol {
             return;
         }
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
-        let remote_frame = self.last_received_input.frame
-            + (i32::try_from(self.round_trip_time).expect("Ping is higher than i32::MAX") * 60
-                / 1000);
+        let ping = i32::try_from(self.round_trip_time).expect("Ping is higher than i32::MAX");
+        let remote_frame = self.last_received_input.frame + (ping * 60 / 1000);
 
         self.local_frame_advantage = i8::try_from(remote_frame - local_frame)
             .expect("Frame discrepancy is higher than i8::MAX");
@@ -418,7 +417,7 @@ impl UdpProtocol {
         self.running_last_quality_report = Instant::now();
         let body = QualityReport {
             frame_advantage: self.local_frame_advantage,
-            ping: self.round_trip_time,
+            ping: millis_since_epoch(),
         };
 
         self.queue_message(MessageBody::QualityReport(body));
@@ -530,7 +529,6 @@ impl UdpProtocol {
     }
 
     fn on_input(&mut self, body: &Input) {
-        assert_eq!(self.last_received_input.frame + 1, body.start_frame);
         if body.disconnect_requested {
             // if a disconnect is requested, disconnect now
             if self.state != ProtocolState::Disconnected && !self.disconnect_event_sent {
@@ -587,7 +585,7 @@ impl UdpProtocol {
     /// Upon receiving a `QualityReply`, update network stats.
     fn on_quality_reply(&mut self, body: &QualityReply) {
         let millis = millis_since_epoch();
-        assert!(millis > body.pong);
+        assert!(millis >= body.pong);
         self.round_trip_time = millis - body.pong;
     }
 }

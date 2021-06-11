@@ -281,7 +281,13 @@ impl P2PSession {
         // skip advancing to wait for other clients
         if self.wait_frames > 0 {
             self.wait_frames -= 1;
+            self.event_queue.push_back(GGRSEvent::FrameSkipped);
             return Ok(());
+        }
+
+        // check game consistency and rollback, if necessary
+        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
+            self.adjust_gamestate(first_incorrect, interface);
         }
 
         // save the current frame in the syncronization layer
@@ -296,10 +302,6 @@ impl P2PSession {
         self.sync_layer.advance_frame();
         interface.advance_frame(sync_inputs);
 
-        // check game consistency and rollback, if necessary
-        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
-            self.adjust_gamestate(first_incorrect, interface);
-        }
         Ok(())
     }
 

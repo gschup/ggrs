@@ -97,8 +97,10 @@ pub enum GGRSEvent {
         player_handle: PlayerHandle,
         disconnect_timeout: u128,
     },
-    /// Sent only after a `NetworkInterrupted` event, if communication has resumed.
+    /// Sent only after a `NetworkInterrupted` event, if communication with that player has resumed.
     NetworkResumed { player_handle: PlayerHandle },
+    /// Sent out if GGRS decided to skip a frame to wait for remotes
+    FrameSkipped,
 }
 
 /// The `GGRSInterface` trait describes the functions that your application interface must provide.
