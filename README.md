@@ -19,6 +19,7 @@ For more information about GGPO, check out [the official website](http://ggpo.ne
 GGRS is still in a very early stage. Basic unit and integration tests hint towards a functional library, but testing over a network connection has yet to be performed.
 
 ### What is missing - Next Goals
+- bug hunting
 - a simple example
 - spectator functionality
 - improved error output
