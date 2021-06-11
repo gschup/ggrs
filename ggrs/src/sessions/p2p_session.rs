@@ -127,7 +127,9 @@ impl P2PSession {
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session.
     /// # Errors
     /// - Returns `InvalidHandle` when the provided player handle is too big for the number of players
-    /// - Returns `InvalidRequest` if a player with that handle has been added before or if the session has already been started.
+    /// - Returns `InvalidRequest` if a player with that handle has been added before
+    /// - Returns `InvalidRequest` if the session has already been started
+    /// - Returns `InvalidRequest` when adding more than one local player
     pub fn add_player(
         &mut self,
         player_type: PlayerType,

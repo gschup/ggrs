@@ -29,9 +29,10 @@ impl BoxGameRunner {
         let mut next = Instant::now();
         loop {
             if Instant::now() >= next {
-                next = next + Duration::from_millis(17); // pseudo 60 FPS
+                next = next + Duration::from_nanos(16666667); // pseudo 60 FPS
                 if self.sess.current_state() == SessionState::Running {
                     // do stuff only when the session is ready
+                    self.sess.advance_frame(&mut self.game)?;
                 }
 
                 // in any case, get events

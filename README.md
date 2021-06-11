@@ -1,7 +1,7 @@
 ![GitHub branch checks state](https://img.shields.io/github/checks-status/gschup/ggrs/main?style=for-the-badge) ![GitHub top language](https://img.shields.io/github/languages/top/gschup/ggrs?style=for-the-badge) ![GitHub](https://img.shields.io/github/license/gschup/ggrs?style=for-the-badge)
 
 # GGRS - P2P Rollback Networking in Rust
-GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](https://www.ggpo.net/) written in [Rust 🦀](https://www.rust-lang.org/). 
+GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](https://www.ggpo.net/) written in 100% safe [Rust 🦀](https://www.rust-lang.org/). 
 
 ## What is GGPO / Rollback?
 
@@ -19,10 +19,11 @@ For more information about GGPO, check out [the official website](http://ggpo.ne
 GGRS is still in a very early stage. Basic unit and integration tests hint towards a functional library, but testing over a network connection has yet to be performed.
 
 ### What is missing - Next Goals
-- spectator functionality
 - a simple example
+- spectator functionality
+- improved error output
 - tests
-- more Tests
+- more tests
 - improved documentation
 
 ## Other Rollback Implementations in Rust
