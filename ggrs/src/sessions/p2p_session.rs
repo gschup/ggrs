@@ -148,6 +148,13 @@ impl P2PSession {
             return Err(GGRSError::InvalidRequest);
         }
 
+        // check if a local player already exists
+        if player_type == PlayerType::Local
+            && self.players.values().any(|p| matches!(p, Player::Local))
+        {
+            return Err(GGRSError::InvalidRequest);
+        }
+
         // add the player depending on type
         match player_type {
             PlayerType::Local => self.add_local_player(player_handle),
