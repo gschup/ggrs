@@ -604,8 +604,14 @@ impl P2PSession {
 
     fn handle_event(&mut self, event: Event, player_handle: PlayerHandle) {
         match event {
-            // do nothing for this event (yet)
-            Event::Synchronizing { .. } => (),
+            // forward to user
+            Event::Synchronizing { total, count } => {
+                self.event_queue.push_back(GGRSEvent::Synchronizing {
+                    player_handle,
+                    total,
+                    count,
+                });
+            }
             // forward to user
             Event::NetworkInterrupted { disconnect_timeout } => {
                 self.event_queue.push_back(GGRSEvent::NetworkInterrupted {

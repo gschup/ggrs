@@ -34,8 +34,13 @@ impl NonBlockingSocket {
                     let msg = bincode::deserialize(&self.buffer[0..number_of_bytes]).unwrap();
                     received_messages.push((src_addr, msg));
                 }
+                // there are no more messages
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => return received_messages,
-                Err(err) => panic!("UDP error: {}", err),
+                // datagram socket apparently sometimes do this when there are no messages instead of `WouldBlock`
+                Err(ref err) if err.kind() == ErrorKind::ConnectionReset => {
+                    return received_messages
+                }
+                Err(err) => panic!("{:?}: {} on {:?}", err.kind(), err, &self.socket),
             }
         }
     }

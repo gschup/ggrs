@@ -38,6 +38,20 @@ fn test_start_session() {
 
 #[test]
 #[serial]
+fn test_start_single_session_then_idle() {
+    let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+    assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
+    assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
+    assert!(sess.start_session().is_ok()); // works
+    sess.idle();
+    sess.idle();
+    sess.idle();
+    sess.idle();
+}
+
+#[test]
+#[serial]
 fn test_disconnect_player() {
     let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);

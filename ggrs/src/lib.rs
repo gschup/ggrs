@@ -82,6 +82,12 @@ pub enum SessionState {
 /// These are the notifications that you can receive from the session.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum GGRSEvent {
+    /// The session made progress in synchronizing. After `total` roundtrips, the session are synchronized.
+    Synchronizing {
+        player_handle: PlayerHandle,
+        total: u32,
+        count: u32,
+    },
     /// The session is now synchronized with the remote client.
     Synchronized { player_handle: PlayerHandle },
     /// The remote client has disconnected.
