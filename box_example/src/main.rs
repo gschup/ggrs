@@ -1,7 +1,9 @@
 use adler::Adler32;
 use bincode;
-use ggrs::{GGRSError, P2PSession, SessionState};
-use ggrs::{GGRSInterface, GameInput, GameState, PlayerHandle, PlayerType};
+use ggrs::{
+    GGRSError, GGRSEvent, GGRSInterface, GameInput, GameState, P2PSession, PlayerHandle,
+    PlayerType, SessionState,
+};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::hash::Hash;
@@ -45,27 +47,34 @@ impl BoxGameRunner {
         self.sess.start_session()?;
 
         let mut next = Instant::now();
+        let mut frames_to_skip = 0;
         loop {
             if Instant::now() >= next {
                 // almost 60 fps
                 next = next + Duration::from_millis(17);
                 // print current state
-                println!("State: {:?}, Frame {}", self.sess.current_state(), self.game.state.frame);
+                println!(
+                    "State: {:?}, Frame {}",
+                    self.sess.current_state(),
+                    self.game.state.frame
+                );
 
                 // do stuff only when the session is ready
                 if self.sess.current_state() != SessionState::Running {
                     continue;
                 }
-                
-                // fake an input
-                let input: u32 = 5;
-                let serialized_input = bincode::serialize(&input).unwrap();
+
+                // skip frames, if recommended
+                if frames_to_skip > 0 {
+                    frames_to_skip += 1;
+                    continue;
+                }
+
+                // get local input
+                let local_input = self.local_input();
 
                 // add local input
-                match self
-                    .sess
-                    .add_local_input(self.local_handle, &serialized_input)
-                {
+                match self.sess.add_local_input(self.local_handle, &local_input) {
                     Ok(()) => {
                         self.sess.advance_frame(&mut self.game)?;
                     }
@@ -76,16 +85,24 @@ impl BoxGameRunner {
                         return Err(e);
                     }
                 };
-                
             } else {
                 // not time for the next frame, let ggrs do some internal work
                 self.sess.idle();
             }
-            // in any case, get events
+            // in any case, get and handle events
             for event in self.sess.events() {
+                match event {
+                    GGRSEvent::WaitRecommendation { skip_frames } => frames_to_skip += skip_frames,
+                    _ => (),
+                }
                 println!("Event: {:?}", event);
             }
         }
+    }
+
+    fn local_input(&self) -> Vec<u8> {
+        let input: u32 = 5;
+        bincode::serialize(&input).unwrap()
     }
 }
 
