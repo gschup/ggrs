@@ -1,10 +1,10 @@
 use crate::frame_info::BLANK_INPUT;
 use crate::GameInput;
 
-const FRAME_WINDOW_SIZE: usize = 10;
+const FRAME_WINDOW_SIZE: usize = 30;
 const MIN_UNIQUE_FRAMES: usize = 10;
 const MIN_FRAME_ADVANTAGE: i32 = 3;
-const MAX_FRAME_ADVANTAGE: i32 = 8;
+const MAX_FRAME_ADVANTAGE: i32 = 9;
 
 #[derive(Debug)]
 pub(crate) struct TimeSync {

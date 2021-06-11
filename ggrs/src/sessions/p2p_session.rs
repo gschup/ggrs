@@ -16,6 +16,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
+const RECOMMENDATION_INTERVAL: FrameNumber = 240;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
 pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
@@ -72,8 +73,8 @@ pub struct P2PSession {
     disconnect_timeout: Duration,
     /// The time until the client will get a notification that a remote player is about to be disconnected.
     disconnect_notify_start: Duration,
-    /// The amount of frames which the session will skip advancing the state in order to wait for the other clients.
-    wait_frames: u32,
+    /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
+    next_recommended_sleep: FrameNumber,
 
     /// Internal State of the Session.
     state: SessionState,
@@ -111,10 +112,10 @@ impl P2PSession {
             input_size,
             socket,
             local_connect_status,
+            next_recommended_sleep: 0,
             sync_layer: SyncLayer::new(num_players, input_size),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
-            wait_frames: 0,
             players: HashMap::new(),
             event_queue: VecDeque::new(),
         })
@@ -272,13 +273,6 @@ impl P2PSession {
 
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
-        }
-
-        // skip advancing to wait for other clients
-        if self.wait_frames > 0 {
-            self.wait_frames -= 1;
-            self.event_queue.push_back(GGRSEvent::FrameSkipped);
-            return Ok(());
         }
 
         // check game consistency and rollback, if necessary
@@ -508,7 +502,15 @@ impl P2PSession {
             .set_last_confirmed_frame(min_confirmed_frame);
 
         // check time sync and wait, if appropriate
-        self.wait_frames = self.max_delay_recommendation(false);
+        if self.sync_layer.current_frame() > self.next_recommended_sleep {
+            let skip_frames = self.max_delay_recommendation(true);
+            if skip_frames > 0 {
+                self.next_recommended_sleep =
+                    self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
+                self.event_queue
+                    .push_back(GGRSEvent::WaitRecommendation { skip_frames });
+            }
+        }
 
         // send all queued UDP packets
         for endpoint in self
