@@ -1,15 +1,15 @@
 use crate::frame_info::BLANK_INPUT;
 use crate::GameInput;
 
-const FRAME_WINDOW_SIZE: usize = 40;
+const FRAME_WINDOW_SIZE: usize = 10;
 const MIN_UNIQUE_FRAMES: usize = 10;
 const MIN_FRAME_ADVANTAGE: i32 = 3;
-const MAX_FRAME_ADVANTAGE: i32 = 9;
+const MAX_FRAME_ADVANTAGE: i32 = 8;
 
 #[derive(Debug)]
 pub(crate) struct TimeSync {
-    local: [i8; FRAME_WINDOW_SIZE],
-    remote: [i8; FRAME_WINDOW_SIZE],
+    local: [i32; FRAME_WINDOW_SIZE],
+    remote: [i32; FRAME_WINDOW_SIZE],
     last_inputs: [GameInput; MIN_UNIQUE_FRAMES],
 }
 
@@ -22,7 +22,7 @@ impl TimeSync {
         }
     }
 
-    pub(crate) fn advance_frame(&mut self, input: GameInput, local_adv: i8, remote_adv: i8) {
+    pub(crate) fn advance_frame(&mut self, input: GameInput, local_adv: i32, remote_adv: i32) {
         self.last_inputs[input.frame as usize % self.last_inputs.len()] = input;
         self.local[input.frame as usize % self.last_inputs.len()] = local_adv;
         self.remote[input.frame as usize % self.last_inputs.len()] = remote_adv;
@@ -30,9 +30,9 @@ impl TimeSync {
 
     pub(crate) fn recommend_frame_delay(&self, require_idle_input: bool) -> u32 {
         // average local and remote frame advantages
-        let local_sum: i8 = self.local.iter().sum();
+        let local_sum: i32 = self.local.iter().sum();
         let local_avg = local_sum as f32 / self.local.len() as f32;
-        let remote_sum: i8 = self.remote.iter().sum();
+        let remote_sum: i32 = self.remote.iter().sum();
         let remote_avg = remote_sum as f32 / self.remote.len() as f32;
 
         // if we have the advantage, we are behind and don't need to wait.
@@ -60,6 +60,7 @@ impl TimeSync {
             }
         }
 
+        println!("RECOMMEND WAIT: {}", sleep_frames);
         // never recommend beyond maximum wait
         std::cmp::max(sleep_frames, MAX_FRAME_ADVANTAGE) as u32
     }

@@ -84,8 +84,8 @@ pub(crate) struct UdpProtocol {
 
     // time sync
     time_sync_layer: TimeSync,
-    local_frame_advantage: i8,
-    remote_frame_advantage: i8,
+    local_frame_advantage: i32,
+    remote_frame_advantage: i32,
 
     // network
     stats_start_time: u128,
@@ -191,9 +191,7 @@ impl UdpProtocol {
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
         let ping = i32::try_from(self.round_trip_time).expect("Ping is higher than i32::MAX");
         let remote_frame = self.last_received_input.frame + (ping * 60 / 1000);
-
-        self.local_frame_advantage = i8::try_from(remote_frame - local_frame)
-            .expect("Frame discrepancy is higher than i8::MAX");
+        self.local_frame_advantage = remote_frame - local_frame;
     }
 
     pub(crate) fn set_disconnect_timeout(&mut self, timeout: Duration) {
@@ -416,7 +414,7 @@ impl UdpProtocol {
     fn send_quality_report(&mut self) {
         self.running_last_quality_report = Instant::now();
         let body = QualityReport {
-            frame_advantage: self.local_frame_advantage,
+            frame_advantage: i8::try_from(self.local_frame_advantage).expect("local_frame_advantage bigger than i8::MAX"),
             ping: millis_since_epoch(),
         };
 
@@ -577,7 +575,7 @@ impl UdpProtocol {
 
     /// Upon receiving a `QualityReport`, update network stats and reply with a `QualityReply`.
     fn on_quality_report(&mut self, body: &QualityReport) {
-        self.remote_frame_advantage = body.frame_advantage;
+        self.remote_frame_advantage = body.frame_advantage as i32;
         let reply_body = QualityReply { pong: body.ping };
         self.queue_message(MessageBody::QualityReply(reply_body));
     }

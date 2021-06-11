@@ -47,32 +47,36 @@ impl BoxGameRunner {
         let mut next = Instant::now();
         loop {
             if Instant::now() >= next {
-                // pseudo 60 FPS
+                // almost 60 fps
                 next = next + Duration::from_millis(17);
+                // print current state
+                println!("State: {:?}, Frame {}", self.sess.current_state(), self.game.state.frame);
 
                 // do stuff only when the session is ready
-                if self.sess.current_state() == SessionState::Running {
-                    let input: u32 = 5;
-                    let serialized_input = bincode::serialize(&input).unwrap();
-                    match self
-                        .sess
-                        .add_local_input(self.local_handle, &serialized_input)
-                    {
-                        Ok(()) => {
-                            self.sess.advance_frame(&mut self.game)?;
-                        }
-                        Err(GGRSError::PredictionThreshold) => {
-                            println!("too far ahead, skip frame");
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
-                    // print frame every 300 frames
-                    if self.game.state.frame % 300 == 0 {
-                        println!("Frame: {}", self.game.state.frame);
-                    }
+                if self.sess.current_state() != SessionState::Running {
+                    continue;
                 }
+                
+                // fake an input
+                let input: u32 = 5;
+                let serialized_input = bincode::serialize(&input).unwrap();
+
+                // add local input
+                match self
+                    .sess
+                    .add_local_input(self.local_handle, &serialized_input)
+                {
+                    Ok(()) => {
+                        self.sess.advance_frame(&mut self.game)?;
+                    }
+                    Err(GGRSError::PredictionThreshold) => {
+                        println!("PredictionThreshold reached, skipping a frame.");
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+                
             } else {
                 // not time for the next frame, let ggrs do some internal work
                 self.sess.idle();

@@ -16,10 +16,9 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
-const SLEEP_RECOMMENDATION_INTERVAL: FrameNumber = 240;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
-pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
-pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(750);
+pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
+pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
 
 #[derive(Debug, PartialEq, Eq)]
 enum Player {
@@ -73,8 +72,6 @@ pub struct P2PSession {
     disconnect_timeout: Duration,
     /// The time until the client will get a notification that a remote player is about to be disconnected.
     disconnect_notify_start: Duration,
-    /// The next frame on which the session will stop advancing frames to compensate for being before other players.
-    next_recommended_sleep: FrameNumber,
     /// The amount of frames which the session will skip advancing the state in order to wait for the other clients.
     wait_frames: u32,
 
@@ -117,7 +114,6 @@ impl P2PSession {
             sync_layer: SyncLayer::new(num_players, input_size),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
-            next_recommended_sleep: 0,
             wait_frames: 0,
             players: HashMap::new(),
             event_queue: VecDeque::new(),
@@ -482,7 +478,9 @@ impl P2PSession {
             .values_mut()
             .filter_map(Player::as_endpoint_mut)
         {
-            endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
+            if endpoint.is_running() {
+                endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
+            }
         }
 
         // run enpoint poll and get events from endpoints. This will trigger additional UDP packets to be sent.
@@ -509,16 +507,8 @@ impl P2PSession {
         self.sync_layer
             .set_last_confirmed_frame(min_confirmed_frame);
 
-        // check time sync
-        if self.sync_layer.current_frame() > self.next_recommended_sleep {
-            let rec_interval = self.max_delay_recommendation(false);
-            // only wait ever so often
-            if rec_interval > 0 {
-                self.next_recommended_sleep =
-                    self.sync_layer.current_frame() + SLEEP_RECOMMENDATION_INTERVAL;
-            }
-            self.wait_frames = rec_interval;
-        }
+        // check time sync and wait, if appropriate
+        self.wait_frames = self.max_delay_recommendation(false);
 
         // send all queued UDP packets
         for endpoint in self
