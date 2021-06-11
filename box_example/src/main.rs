@@ -13,6 +13,7 @@ const INPUT_SIZE: usize = std::mem::size_of::<u32>();
 struct BoxGameRunner {
     pub game: BoxGame,
     pub sess: P2PSession,
+    local_handle: PlayerHandle,
 }
 
 impl BoxGameRunner {
@@ -20,6 +21,23 @@ impl BoxGameRunner {
         BoxGameRunner {
             game: BoxGame::new(),
             sess,
+            local_handle: 0,
+        }
+    }
+
+    pub fn add_player(
+        &mut self,
+        player_type: PlayerType,
+        player_handle: PlayerHandle,
+    ) -> Result<(), GGRSError> {
+        match self.sess.add_player(player_type, player_handle) {
+            Ok(_) => {
+                if player_type == PlayerType::Local {
+                    self.local_handle = player_handle;
+                }
+                Ok(())
+            }
+            Err(e) => return Err(e),
         }
     }
 
@@ -29,55 +47,75 @@ impl BoxGameRunner {
         let mut next = Instant::now();
         loop {
             if Instant::now() >= next {
-                next = next + Duration::from_nanos(16666667); // pseudo 60 FPS
-                if self.sess.current_state() == SessionState::Running {
-                    // do stuff only when the session is ready
-                    self.sess.advance_frame(&mut self.game)?;
-                }
+                // pseudo 60 FPS
+                next = next + Duration::from_millis(17);
 
-                // in any case, get events
-                for event in self.sess.events() {
-                    println!("Event!: {:?}", event);
+                // do stuff only when the session is ready
+                if self.sess.current_state() == SessionState::Running {
+                    let input: u32 = 5;
+                    let serialized_input = bincode::serialize(&input).unwrap();
+                    match self
+                        .sess
+                        .add_local_input(self.local_handle, &serialized_input)
+                    {
+                        Ok(()) => {
+                            self.sess.advance_frame(&mut self.game)?;
+                        }
+                        Err(GGRSError::PredictionThreshold) => {
+                            println!("too far ahead, skip frame");
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    };
+                    // print frame every 300 frames
+                    if self.game.state.frame % 300 == 0 {
+                        println!("Frame: {}", self.game.state.frame);
+                    }
                 }
             } else {
                 // not time for the next frame, let ggrs do some internal work
                 self.sess.idle();
+            }
+            // in any case, get events
+            for event in self.sess.events() {
+                println!("Event: {:?}", event);
             }
         }
     }
 }
 
 struct BoxGame {
-    pub gs: BoxGameState,
+    pub state: BoxGameState,
 }
 
 impl BoxGame {
     pub fn new() -> Self {
         BoxGame {
-            gs: BoxGameState::new(),
+            state: BoxGameState::new(),
         }
     }
 }
 
 impl GGRSInterface for BoxGame {
     fn save_game_state(&self) -> GameState {
-        let buffer = bincode::serialize(&self.gs).unwrap();
+        let buffer = bincode::serialize(&self.state).unwrap();
         let mut adler = Adler32::new();
-        self.gs.hash(&mut adler);
+        self.state.hash(&mut adler);
         let checksum = adler.checksum();
         GameState {
-            frame: self.gs.frame,
+            frame: self.state.frame,
             buffer,
             checksum: Some(checksum),
         }
     }
 
     fn load_game_state(&mut self, state: &GameState) {
-        self.gs = bincode::deserialize(&state.buffer).unwrap();
+        self.state = bincode::deserialize(&state.buffer).unwrap();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
-        self.gs.advance_frame(inputs);
+        self.state.advance_frame(inputs);
     }
 }
 
@@ -116,14 +154,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let remote_addr: SocketAddr = args[3].parse()?;
 
     // create the session with two players
-    let mut sess = ggrs::start_p2p_session(2, INPUT_SIZE, port)?;
-
-    // add players
-    sess.add_player(PlayerType::Local, local_handle)?;
-    sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
+    let sess = ggrs::start_p2p_session(2, INPUT_SIZE, port)?;
 
     // create the BoxGameRunner
     let mut bgr = BoxGameRunner::new(sess);
+
+    // add players
+    bgr.add_player(PlayerType::Local, local_handle)?;
+    bgr.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
 
     //start BoxGameRunner
     println!("Starting the game loop.");
