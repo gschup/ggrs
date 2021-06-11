@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::hash::Hash;
 use std::net::SocketAddr;
-use std::thread;
 use std::time::{Duration, Instant};
 
 const INPUT_SIZE: usize = std::mem::size_of::<u32>();
@@ -43,13 +42,6 @@ impl BoxGameRunner {
                 // not time for the next frame, let ggrs do some internal work
                 self.sess.idle();
             }
-            /*
-            self.sess.idle();
-
-            thread::sleep(Duration::from_millis(10));
-
-
-            */
         }
     }
 }
