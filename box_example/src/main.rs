@@ -1,21 +1,65 @@
 use adler::Adler32;
 use bincode;
+use ggrs::{GGRSError, P2PSession, SessionState};
 use ggrs::{GGRSInterface, GameInput, GameState, PlayerHandle, PlayerType};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::hash::Hash;
 use std::net::SocketAddr;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const INPUT_SIZE: usize = std::mem::size_of::<u32>();
 
-pub struct BoxGame {
+struct BoxGameRunner {
+    pub game: BoxGame,
+    pub sess: P2PSession,
+}
+
+impl BoxGameRunner {
+    pub fn new(sess: P2PSession) -> Self {
+        BoxGameRunner {
+            game: BoxGame::new(),
+            sess,
+        }
+    }
+
+    pub fn run(&mut self) -> Result<(), GGRSError> {
+        self.sess.start_session()?;
+
+        let mut next = Instant::now();
+        loop {
+            if Instant::now() >= next {
+                next = next + Duration::from_millis(17); // pseudo 60 FPS
+                if self.sess.current_state() == SessionState::Running {
+                    // do stuff only when the session is ready
+                }
+
+                // in any case, get events
+                for event in self.sess.events() {
+                    println!("Event!: {:?}", event);
+                }
+            } else {
+                // not time for the next frame, let ggrs do some internal work
+                self.sess.idle();
+            }
+            /*
+            self.sess.idle();
+
+            thread::sleep(Duration::from_millis(10));
+
+
+            */
+        }
+    }
+}
+
+struct BoxGame {
     pub gs: BoxGameState,
 }
 
 impl BoxGame {
-    pub fn new() -> BoxGame {
+    pub fn new() -> Self {
         BoxGame {
             gs: BoxGameState::new(),
         }
@@ -45,7 +89,7 @@ impl GGRSInterface for BoxGame {
 }
 
 #[derive(Hash, Default, Serialize, Deserialize)]
-pub struct BoxGameState {
+struct BoxGameState {
     pub frame: i32,
     pub state: i32,
 }
@@ -85,19 +129,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     sess.add_player(PlayerType::Local, local_handle)?;
     sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
 
-    //start session
-    sess.start_session()?;
+    // create the BoxGameRunner
+    let mut bgr = BoxGameRunner::new(sess);
 
-    let mut count = 0;
-    loop {
-        sess.idle();
-        for event in sess.events() {
-            println!("Event!: {:?}", event);
-        }
-        thread::sleep(Duration::from_millis(10));
-        count += 1;
-        if count % 100 == 0 {
-            println!("State: {:?}", sess.current_state());
-        }
-    }
+    //start BoxGameRunner
+    println!("Starting the game loop.");
+    bgr.run()?;
+
+    Ok(())
 }
