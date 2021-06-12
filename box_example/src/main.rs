@@ -1,5 +1,4 @@
 use adler::Adler32;
-use bincode;
 use ggrs::{
     GGRSError, GGRSEvent, GGRSInterface, GameInput, GameState, P2PSession, PlayerHandle,
     PlayerType, SessionState,
@@ -39,7 +38,7 @@ impl BoxGameRunner {
                 }
                 Ok(())
             }
-            Err(e) => return Err(e),
+            Err(e) => Err(e),
         }
     }
 
@@ -51,7 +50,7 @@ impl BoxGameRunner {
         loop {
             if Instant::now() >= next {
                 // almost 60 fps
-                next = next + Duration::from_millis(17);
+                next += Duration::from_millis(17);
                 // print current state
                 println!(
                     "State: {:?}, Frame {}",
@@ -91,9 +90,8 @@ impl BoxGameRunner {
             }
             // in any case, get and handle events
             for event in self.sess.events() {
-                match event {
-                    GGRSEvent::WaitRecommendation { skip_frames } => frames_to_skip += skip_frames,
-                    _ => (),
+                if let GGRSEvent::WaitRecommendation { skip_frames } = event {
+                    frames_to_skip += skip_frames
                 }
                 println!("Event: {:?}", event);
             }

@@ -1,5 +1,4 @@
 use crate::GameInput;
-use bitfield_rle;
 
 pub(crate) fn encode<'a>(
     reference: &GameInput,
