@@ -117,8 +117,8 @@ pub trait GGRSInterface {
     fn load_game_state(&mut self, state: &GameState);
 
     /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
-    /// if for some player `i` the `input[i].frame` is the `NULL_FRAME`, then that player has disconnected from the session. Instead of using the provided input, you could opt to
-    /// let the player be controlled by the CPU.
+    /// if for some player `i` the `input[i].frame` is the `NULL_FRAME`, then that player has disconnected from the session. In that case, the byte buffer does not contain
+    /// a useful input. Instead of using the provided input, you should let the player be controlled by the CPU or let them stay idle.
     ///
     /// GGRS will call it at least once after each `advance_frame()` call, but possibly multiple times when a rollback occurs. Do not call this function yourself.
     fn advance_frame(&mut self, inputs: Vec<GameInput>);

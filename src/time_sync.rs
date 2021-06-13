@@ -4,7 +4,7 @@ use crate::GameInput;
 const FRAME_WINDOW_SIZE: usize = 30;
 const MIN_UNIQUE_FRAMES: usize = 10;
 const MIN_FRAME_ADVANTAGE: i32 = 3;
-const MAX_FRAME_ADVANTAGE: i32 = 9;
+const MAX_FRAME_ADVANTAGE: i32 = 30;
 
 #[derive(Debug)]
 pub(crate) struct TimeSync {
@@ -26,7 +26,6 @@ impl TimeSync {
         self.last_inputs[input.frame as usize % self.last_inputs.len()] = input;
         self.local[input.frame as usize % self.local.len()] = local_adv;
         self.remote[input.frame as usize % self.remote.len()] = remote_adv;
-        println!("logged local: {}, remote: {}", local_adv, remote_adv);
     }
 
     pub(crate) fn recommend_frame_delay(&self, require_idle_input: bool) -> u32 {
