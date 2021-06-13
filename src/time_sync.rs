@@ -60,8 +60,7 @@ impl TimeSync {
             }
         }
 
-        println!("RECOMMEND WAIT: {}", sleep_frames);
         // never recommend beyond maximum wait
-        std::cmp::max(sleep_frames, MAX_FRAME_ADVANTAGE) as u32
+        std::cmp::min(sleep_frames, MAX_FRAME_ADVANTAGE) as u32
     }
 }

@@ -599,8 +599,16 @@ impl P2PSession {
 
     fn max_delay_recommendation(&self, require_idle_input: bool) -> u32 {
         let mut interval = 0;
-        for endpoint in self.players.values().filter_map(Player::as_endpoint) {
-            interval = std::cmp::max(interval, endpoint.recommend_frame_delay(require_idle_input));
+        for (player_handle, endpoint) in self
+            .players
+            .values()
+            .filter_map(Player::as_endpoint)
+            .enumerate()
+        {
+            if !self.local_connect_status[player_handle].disconnected {
+                interval =
+                    std::cmp::max(interval, endpoint.recommend_frame_delay(require_idle_input));
+            }
         }
         interval
     }
