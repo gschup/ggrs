@@ -657,7 +657,10 @@ impl P2PSession {
                 if !self.local_connect_status[player_handle].disconnected {
                     // check if the input comes in the correct sequence
                     let current_remote_frame = self.local_connect_status[player_handle].last_frame;
-                    assert_eq!(current_remote_frame + 1, input.frame);
+                    assert!(
+                        current_remote_frame == NULL_FRAME
+                            || current_remote_frame + 1 == input.frame
+                    );
                     // update our info
                     self.local_connect_status[player_handle].last_frame = input.frame;
                     // add the remote input

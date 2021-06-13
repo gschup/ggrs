@@ -83,8 +83,8 @@ impl GGRSInterface for BoxGame {
             let (old_x, old_y) = self.game_state.positions[i];
             let (old_vel_x, old_vel_y) = self.game_state.velocities[i];
             // slow down
-            let mut vel_x = (2 * old_vel_x) / 3;
-            let mut vel_y = (2 * old_vel_y) / 3;
+            let mut vel_x = (9 * old_vel_x) / 10;
+            let mut vel_y = (9 * old_vel_y) / 10;
             // apply input
             if input & INPUT_UP != 0 {
                 vel_y = -PLAYER_SPEED;
@@ -195,6 +195,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // add players
     sess.add_player(PlayerType::Local, local_handle)?;
     sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
+
+    // set input delay for the local player - CURRENTLY CRASHES
+    sess.set_frame_delay(2, local_handle)?;
 
     // start the GGRS session
     sess.start_session()?;

@@ -1,4 +1,4 @@
-use crate::{FrameNumber, GameInput};
+use crate::{FrameNumber, GameInput, NULL_FRAME};
 
 pub(crate) fn encode<'a>(
     reference: &GameInput,
@@ -20,8 +20,8 @@ pub(crate) fn delta_encode<'a>(
     let mut bytes = Vec::with_capacity(capacity);
 
     for (i, input) in pending_input.enumerate() {
-        assert!(input.size == reference.size);
-        assert!(input.frame == reference.frame + i as i32 + 1);
+        assert_eq!(input.size, reference.size);
+        assert!(reference.frame == NULL_FRAME || input.frame == reference.frame + i as i32 + 1);
         let input_bytes = input.input();
         for (b1, b2) in ref_bytes.iter().zip(input_bytes.iter()) {
             bytes.push(b1 ^ b2);

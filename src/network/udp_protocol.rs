@@ -371,7 +371,10 @@ impl UdpProtocol {
         let mut body = Input::default();
 
         if let Some(input) = self.pending_output.front() {
-            assert_eq!(self.last_acked_input.frame + 1, input.frame);
+            assert!(
+                self.last_acked_input.frame == NULL_FRAME
+                    || self.last_acked_input.frame + 1 == input.frame
+            );
             body.start_frame = input.frame;
         } else {
             body.start_frame = 0;
