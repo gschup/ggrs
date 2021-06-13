@@ -32,7 +32,7 @@ const INPUT_DOWN: u8 = 1 << 1;
 const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 
-const PLAYER_SPEED: i32 = 180;
+const PLAYER_SPEED: i32 = 240;
 
 // BoxGame holds the gamestate and acts as an interface for GGRS
 struct BoxGame {
@@ -99,8 +99,14 @@ impl GGRSInterface for BoxGame {
                 vel_x = PLAYER_SPEED;
             }
             // compute new values
-            let x = old_x + vel_x / FPS;
-            let y = old_y + vel_y / FPS;
+            let mut x = old_x + vel_x / FPS;
+            let mut y = old_y + vel_y / FPS;
+
+            //constrain boxes to canvas borders
+            x = std::cmp::max(x, 0 + PLAYER_SIZE as i32 / 2);
+            x = std::cmp::min(x, WINDOW_WIDTH as i32 - PLAYER_SIZE as i32 / 2);
+            y = std::cmp::max(y, 0 + PLAYER_SIZE as i32 / 2);
+            y = std::cmp::min(y, WINDOW_HEIGHT as i32 - PLAYER_SIZE as i32 / 2);
 
             self.game_state.positions[i] = (x as i32, y as i32);
             self.game_state.velocities[i] = (vel_x as i32, vel_y as i32);
