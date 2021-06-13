@@ -52,7 +52,7 @@ impl SyncLayer {
             num_players,
             input_size,
             rolling_back: false,
-            last_confirmed_frame: -1,
+            last_confirmed_frame: NULL_FRAME,
             current_frame: 0,
             saved_states: SavedStates {
                 head: 0,
@@ -64,6 +64,10 @@ impl SyncLayer {
 
     pub(crate) const fn current_frame(&self) -> FrameNumber {
         self.current_frame
+    }
+
+    pub(crate) const fn last_confirmed_frame(&self) -> FrameNumber {
+        self.last_confirmed_frame
     }
 
     pub(crate) fn advance_frame(&mut self) {
@@ -121,12 +125,12 @@ impl SyncLayer {
         player_handle: PlayerHandle,
         input: GameInput,
     ) -> Result<FrameNumber, GGRSError> {
-        let frames_behind = self.current_frame - self.last_confirmed_frame;
-        if frames_behind > MAX_PREDICTION_FRAMES as i32 {
+        let frames_ahead = self.current_frame - self.last_confirmed_frame;
+        if frames_ahead >= MAX_PREDICTION_FRAMES as i32 {
             return Err(GGRSError::PredictionThreshold);
         }
 
-        // The input provided should match the current frame
+        // The input provided should match the current frame, we account for input delay later
         assert_eq!(input.frame, self.current_frame);
         Ok(self.input_queues[player_handle].add_input(input))
     }

@@ -414,7 +414,8 @@ impl UdpProtocol {
     fn send_quality_report(&mut self) {
         self.running_last_quality_report = Instant::now();
         let body = QualityReport {
-            frame_advantage: i8::try_from(self.local_frame_advantage).expect("local_frame_advantage bigger than i8::MAX"),
+            frame_advantage: i8::try_from(self.local_frame_advantage)
+                .expect("local_frame_advantage bigger than i8::MAX"),
             ping: millis_since_epoch(),
         };
 
@@ -540,14 +541,15 @@ impl UdpProtocol {
                     body.peer_connect_status[i].last_frame
                         >= self.peer_connect_status[i].last_frame
                 );
-                self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected
-                    || self.peer_connect_status[i].disconnected;
+                // self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected || self.peer_connect_status[i].disconnected;
+                self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected;
                 self.peer_connect_status[i].last_frame = body.peer_connect_status[i].last_frame;
             }
         }
 
         // process the inputs
-        let recv_inputs = decode(&self.last_received_input, &body.bytes).expect("decoding failed");
+        let recv_inputs = decode(&self.last_received_input, body.start_frame, &body.bytes)
+            .expect("decoding failed");
 
         for game_input in &recv_inputs {
             // skip inputs that we don't need

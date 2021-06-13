@@ -1,4 +1,5 @@
 use adler::Adler32;
+use ggrs::NULL_FRAME;
 use ggrs::{
     GGRSError, GGRSEvent, GGRSInterface, GameInput, GameState, PlayerHandle, PlayerType,
     SessionState,
@@ -52,6 +53,7 @@ impl GGRSInterface for BoxGame {
         let mut adler = Adler32::new();
         self.game_state.hash(&mut adler);
         let checksum = adler.checksum();
+
         GameState {
             frame: self.game_state.frame,
             buffer,
@@ -69,7 +71,13 @@ impl GGRSInterface for BoxGame {
 
         for i in 0..NUM_PLAYERS {
             // get input of that player
-            let input: u8 = bincode::deserialize(inputs[i].input()).unwrap();
+            let mut input: u8 = bincode::deserialize(inputs[i].input()).unwrap();
+
+            // check if the player is disconnected (disconnected players might maybe do something different)
+            if inputs[i].frame == NULL_FRAME {
+                input = 0; // disconnected players do nothing
+            }
+
             // old values
             let (old_x, old_y) = self.game_state.positions[i];
             let (old_vel_x, old_vel_y) = self.game_state.velocities[i];
@@ -238,14 +246,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if Instant::now() < next {
             continue;
         }
-
-        next += Duration::from_micros(16667); // 60 fps
+        next = Instant::now() + Duration::from_micros(16667); // 60 fps
 
         // do stuff only when the session is ready
         if sess.current_state() == SessionState::Running {
             // skip frames, if recommended
             if frames_to_skip > 0 {
                 frames_to_skip -= 1;
+                println!("Skipping a frame.");
             } else {
                 // add local input and advance frame, if successful
                 let local_input = local_input(&event_pump);

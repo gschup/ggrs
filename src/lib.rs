@@ -92,7 +92,7 @@ pub enum GGRSEvent {
     Synchronized { player_handle: PlayerHandle },
     /// The remote client has disconnected.
     Disconnected { player_handle: PlayerHandle },
-    /// The session has not received packets from the remote client since `disconnect_timeout` ms.
+    /// The session has not received packets from the remote client for some time and will disconnect the remote in `disconnect_timeout` ms.
     NetworkInterrupted {
         player_handle: PlayerHandle,
         disconnect_timeout: u128,
@@ -127,12 +127,13 @@ pub trait GGRSInterface {
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
 /// If checksums are provided with the saved states, the `SyncTestSession` will compare the checksums from resimulated states to the original states.
 /// This is a great way to test if your system runs deterministically. After creating the session, add local players, set input delay for them and then start the session.
+/// Currently, 6 is the maximum allowed `check_distance`.
 /// # Example
 ///
 /// ```
 /// # use ggrs::GGRSError;
 /// # fn main() -> Result<(), GGRSError> {
-/// let check_distance : u32 = 7;
+/// let check_distance : u32 = 6;
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
 /// let mut sess = ggrs::start_synctest_session(num_players, input_size, check_distance)?;
@@ -155,7 +156,7 @@ pub fn start_synctest_session(
     if input_size > MAX_INPUT_BYTES {
         return Err(GGRSError::InvalidRequest);
     }
-    if check_distance > MAX_PREDICTION_FRAMES {
+    if check_distance > MAX_PREDICTION_FRAMES - 2 {
         return Err(GGRSError::InvalidRequest);
     }
     Ok(SyncTestSession::new(

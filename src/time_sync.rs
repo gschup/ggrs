@@ -24,8 +24,9 @@ impl TimeSync {
 
     pub(crate) fn advance_frame(&mut self, input: GameInput, local_adv: i32, remote_adv: i32) {
         self.last_inputs[input.frame as usize % self.last_inputs.len()] = input;
-        self.local[input.frame as usize % self.last_inputs.len()] = local_adv;
-        self.remote[input.frame as usize % self.last_inputs.len()] = remote_adv;
+        self.local[input.frame as usize % self.local.len()] = local_adv;
+        self.remote[input.frame as usize % self.remote.len()] = remote_adv;
+        println!("logged local: {}, remote: {}", local_adv, remote_adv);
     }
 
     pub(crate) fn recommend_frame_delay(&self, require_idle_input: bool) -> u32 {
@@ -40,7 +41,7 @@ impl TimeSync {
             return 0;
         }
 
-        // so we don't overcompensate
+        // meet in the middle
         let sleep_frames = (((remote_avg - local_avg) / 2.0f32) + 0.5) as i32;
 
         // only wait if the discrepancy is big enough

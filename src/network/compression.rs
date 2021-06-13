@@ -1,4 +1,4 @@
-use crate::GameInput;
+use crate::{FrameNumber, GameInput};
 
 pub(crate) fn encode<'a>(
     reference: &GameInput,
@@ -32,22 +32,27 @@ pub(crate) fn delta_encode<'a>(
 
 pub(crate) fn decode(
     reference: &GameInput,
+    start_frame: FrameNumber,
     data: impl AsRef<[u8]>,
 ) -> Result<Vec<GameInput>, Box<dyn std::error::Error>> {
     // decode the RLE encoding first
     let buf = bitfield_rle::decode(data)?;
 
     // decode the delta-encoding
-    Ok(delta_decode(reference, buf))
+    Ok(delta_decode(reference, start_frame, buf))
 }
 
-pub(crate) fn delta_decode(reference: &GameInput, data: Vec<u8>) -> Vec<GameInput> {
+pub(crate) fn delta_decode(
+    reference: &GameInput,
+    start_frame: FrameNumber,
+    data: Vec<u8>,
+) -> Vec<GameInput> {
     assert!(data.len() % reference.size == 0);
     let out_size = data.len() / reference.size;
     let mut output = Vec::with_capacity(out_size);
 
     for inp in 0..out_size {
-        let mut game_input = GameInput::new(reference.frame + inp as i32 + 1, None, reference.size);
+        let mut game_input = GameInput::new(start_frame + inp as i32, None, reference.size);
         for (i, byte) in reference.input().iter().enumerate() {
             game_input.buffer[i] = byte ^ data[reference.size * inp + i];
         }
@@ -78,7 +83,7 @@ mod compression_tests {
         let pend_inp = vec![inp0, inp1, inp2, inp3, inp4];
 
         let encoded = encode(&ref_input, pend_inp.iter());
-        let decoded = decode(&ref_input, encoded).unwrap();
+        let decoded = decode(&ref_input, 6, encoded).unwrap();
 
         assert!(pend_inp == decoded);
     }
