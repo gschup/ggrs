@@ -16,7 +16,7 @@ Taken from [the official GGPO website](https://ggpo.net/):
 For more information about GGPO, check out [the official website](http://ggpo.net/) or [the official github repository](https://github.com/pond3r/ggpo).
 
 ## Development Status
-GGRS is still in a very early stage. Basic unit and integration tests hint towards a somewhat functional library, but testing over a range of network connections has yet to be performed. The library is very unstable, there are various bugs to be fixed.
+GGRS is still in an early stage. Basic unit and integration tests, as well as a simple example hint towards a functional library, but testing over a range of network connections has yet to be performed. The library might unexpectedly crash, there are still various bugs to be fixed (I assume).
 
 ### What is missing - Next Goals
 - bug hunting
