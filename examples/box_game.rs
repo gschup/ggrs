@@ -5,6 +5,7 @@ use ggrs::{
 };
 use sdl2::render::Canvas;
 use sdl2::video::Window;
+use sdl2::EventPump;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::hash::Hash;
@@ -16,14 +17,21 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 
-const WINDOW_HEIGHT: u32 = 800;
-const WINDOW_WIDTH: u32 = 600;
+const FPS: i32 = 60;
 const NUM_PLAYERS: usize = 2;
-
-const INPUT_SIZE: usize = std::mem::size_of::<u32>();
+const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 
 const PLAYER_SIZE: u32 = 50;
 const PLAYER_COLORS: [Color; 2] = [Color::RGB(0, 90, 200), Color::RGB(200, 150, 50)];
+const WINDOW_HEIGHT: u32 = 800;
+const WINDOW_WIDTH: u32 = 600;
+
+const INPUT_UP: u8 = 1 << 0;
+const INPUT_DOWN: u8 = 1 << 1;
+const INPUT_LEFT: u8 = 1 << 2;
+const INPUT_RIGHT: u8 = 1 << 3;
+
+const PLAYER_SPEED: i32 = 180;
 
 // BoxGame holds the gamestate and acts as an interface for GGRS
 struct BoxGame {
@@ -56,16 +64,37 @@ impl GGRSInterface for BoxGame {
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
-        let _p0_inputs: u32 = bincode::deserialize(inputs[0].input()).unwrap();
-        let _p1_inputs: u32 = bincode::deserialize(inputs[1].input()).unwrap();
-
         // increase the frame counter
         self.game_state.frame += 1;
 
         for i in 0..NUM_PLAYERS {
+            // get input of that player
+            let input: u8 = bincode::deserialize(inputs[i].input()).unwrap();
+            // old values
             let (old_x, old_y) = self.game_state.positions[i];
-            let (vel_x, vel_y) = self.game_state.velocities[i];
-            self.game_state.positions[i] = (old_x + vel_x, old_y + vel_y);
+            let (old_vel_x, old_vel_y) = self.game_state.velocities[i];
+            // slow down
+            let mut vel_x = (2 * old_vel_x) / 3;
+            let mut vel_y = (2 * old_vel_y) / 3;
+            // apply input
+            if input & INPUT_UP != 0 {
+                vel_y = -PLAYER_SPEED;
+            }
+            if input & INPUT_DOWN != 0 {
+                vel_y = PLAYER_SPEED;
+            }
+            if input & INPUT_LEFT != 0 {
+                vel_x = -PLAYER_SPEED;
+            }
+            if input & INPUT_RIGHT != 0 {
+                vel_x = PLAYER_SPEED;
+            }
+            // compute new values
+            let x = old_x + vel_x / FPS;
+            let y = old_y + vel_y / FPS;
+
+            self.game_state.positions[i] = (x as i32, y as i32);
+            self.game_state.velocities[i] = (vel_x as i32, vel_y as i32);
         }
     }
 }
@@ -86,7 +115,7 @@ impl BoxGameState {
             let x = WINDOW_WIDTH as i32 / 2 + (2 * i as i32 - 1) * (WINDOW_WIDTH as i32 / 4);
             let y = WINDOW_HEIGHT as i32 / 2;
             positions.push((x, y));
-            velocities.push((0, 1));
+            velocities.push((0, 0));
         }
 
         Self {
@@ -97,8 +126,25 @@ impl BoxGameState {
     }
 }
 
-fn local_input() -> Vec<u8> {
-    let input: u32 = 5;
+fn local_input(event_pump: &EventPump) -> Vec<u8> {
+    // Create a set of pressed Keys.
+    let keys: Vec<Keycode> = event_pump
+        .keyboard_state()
+        .pressed_scancodes()
+        .filter_map(Keycode::from_scancode)
+        .collect();
+
+    let mut input: u8 = 0;
+
+    for key in keys {
+        match key {
+            Keycode::W => input |= INPUT_UP,
+            Keycode::S => input |= INPUT_DOWN,
+            Keycode::A => input |= INPUT_LEFT,
+            Keycode::D => input |= INPUT_RIGHT,
+            _ => (),
+        }
+    }
     bincode::serialize(&input).unwrap()
 }
 
@@ -202,7 +248,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 frames_to_skip -= 1;
             } else {
                 // add local input and advance frame, if successful
-                let local_input = local_input();
+                let local_input = local_input(&event_pump);
                 match sess.add_local_input(local_handle, &local_input) {
                     Ok(()) => {
                         sess.advance_frame(&mut game)?;
