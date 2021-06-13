@@ -112,12 +112,15 @@ pub trait GGRSInterface {
 
     /// GGRS will call this function at the beginning of a rollback. The buffer contains a previously saved state returned from the `save_game_state()` function.
     /// The client should deserializing the contents and make the current game state match the state.
+    ///
     /// Do not call this function yourself.
     fn load_game_state(&mut self, state: &GameState);
 
     /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
-    /// GGRS will call it at least once after each `advance_frame()` call, but possibly multiple times when a rollback occurs.
-    /// Do not call this function yourself.
+    /// if for some player `i` the `input[i].frame` is the `NULL_FRAME`, then that player has disconnected from the session. Instead of using the provided input, you could opt to
+    /// let the player be controlled by the CPU.
+    ///
+    /// GGRS will call it at least once after each `advance_frame()` call, but possibly multiple times when a rollback occurs. Do not call this function yourself.
     fn advance_frame(&mut self, inputs: Vec<GameInput>);
 }
 

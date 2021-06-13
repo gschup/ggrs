@@ -1,5 +1,6 @@
 use crate::error::GGRSError;
 use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
+use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::{SavedStates, SyncLayer};
 use crate::{FrameNumber, GGRSInterface, PlayerHandle, PlayerType, SessionState};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
@@ -16,11 +17,16 @@ pub struct SyncTestSession {
     current_input: GameInput,
     saved_states: SavedStates<FrameInfo>,
     sync_layer: SyncLayer,
+    dummy_connect_status: Vec<ConnectionStatus>,
 }
 
 impl SyncTestSession {
     /// Creates a new `SyncTestSession` instance with given values.
     pub(crate) fn new(num_players: u32, input_size: usize, check_distance: u32) -> Self {
+        let mut dummy_connect_status = Vec::new();
+        for _ in 0..num_players {
+            dummy_connect_status.push(ConnectionStatus::default());
+        }
         Self {
             current_frame: NULL_FRAME,
             num_players,
@@ -33,6 +39,7 @@ impl SyncTestSession {
                 states: [BLANK_FRAME; MAX_PREDICTION_FRAMES as usize],
             },
             sync_layer: SyncLayer::new(num_players, input_size),
+            dummy_connect_status,
         }
     }
 
@@ -119,7 +126,9 @@ impl SyncTestSession {
         };
 
         // get the correct inputs for all players from the sync layer
-        let sync_inputs = self.sync_layer.synchronized_inputs();
+        let sync_inputs = self
+            .sync_layer
+            .synchronized_inputs(&self.dummy_connect_status);
         for input in &sync_inputs {
             assert_eq!(input.frame, self.sync_layer.current_frame());
             assert_eq!(input.frame, self.current_frame);
@@ -170,7 +179,9 @@ impl SyncTestSession {
                 }
 
                 // advance the frame
-                let sync_inputs = self.sync_layer.synchronized_inputs();
+                let sync_inputs = self
+                    .sync_layer
+                    .synchronized_inputs(&self.dummy_connect_status);
                 self.sync_layer.advance_frame();
                 interface.advance_frame(sync_inputs);
             }
@@ -183,6 +194,10 @@ impl SyncTestSession {
             // inputs from other players
             self.sync_layer
                 .set_last_confirmed_frame(self.current_frame - self.check_distance as i32);
+            // also, we update the dummy connect status
+            for con_stat in self.dummy_connect_status.iter_mut() {
+                con_stat.last_frame = self.sync_layer.current_frame();
+            }
         }
 
         // after all of this, the sync layer and our own frame_counting should match

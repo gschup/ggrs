@@ -284,7 +284,9 @@ impl P2PSession {
         self.sync_layer
             .save_current_state(interface.save_game_state());
         // get correct inputs for the current frame
-        let sync_inputs = self.sync_layer.synchronized_inputs();
+        let sync_inputs = self
+            .sync_layer
+            .synchronized_inputs(&self.local_connect_status);
         for input in &sync_inputs {
             assert_eq!(input.frame, self.sync_layer.current_frame());
         }
@@ -407,8 +409,9 @@ impl P2PSession {
         player_handle: PlayerHandle,
         last_frame: FrameNumber,
     ) {
+        println!("{},{}", self.sync_layer.current_frame(), last_frame);
         assert!(self.sync_layer.current_frame() >= last_frame);
-        // disconnect the remote player, unwrapping is okay because the player handle was checked in disconnect_player()
+        // disconnect the remote player
         match self
             .players
             .get_mut(&player_handle)
@@ -538,7 +541,9 @@ impl P2PSession {
 
         // step forward to the previous current state
         for _ in 0..count {
-            let inputs = self.sync_layer.synchronized_inputs();
+            let inputs = self
+                .sync_layer
+                .synchronized_inputs(&self.local_connect_status);
             self.sync_layer.advance_frame();
             interface.advance_frame(inputs);
             self.sync_layer
