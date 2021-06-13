@@ -71,11 +71,12 @@ impl GGRSInterface for BoxGame {
 
         for i in 0..NUM_PLAYERS {
             // get input of that player
-            let mut input: u8 = bincode::deserialize(inputs[i].input()).unwrap();
-
+            let input;
             // check if the player is disconnected (disconnected players might maybe do something different)
             if inputs[i].frame == NULL_FRAME {
                 input = 0; // disconnected players do nothing
+            } else {
+                input = bincode::deserialize(inputs[i].input()).unwrap();
             }
 
             // old values
