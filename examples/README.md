@@ -3,7 +3,9 @@
 Gathered here are some additional instructions on how to build and run the examples.
 
 ## BoxGame
-BoxGame is a very basic two-player example with each player controlling a coloured box. There is no real game, just movement with slight ice physics. The example is properly launched by command-line arguments:
+BoxGame is a very basic two-player example with each player controlling a coloured box. There is no real game, just movement with slight ice physics. BoxGame uses [rust bindings](https://github.com/Rust-SDL2/rust-sdl2) of [SDL2](https://www.libsdl.org/) in order to launch and render a window. The bindings come bundled with binaries for SDL2, but depending on your machine, you might need to install SDL2 yourself first.
+
+The example is properly launched by command-line arguments:
 ```
 cargo run --example box_game -- local_port local_player_handle remote_adress:remote_port
 ```
