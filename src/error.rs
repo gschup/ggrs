@@ -19,6 +19,8 @@ pub enum GGRSError {
     SocketCreationFailed,
     /// The Session is not synchronized yet. Please start the session and wait a few ms to let the clients synchronize.
     NotSynchronized,
+    /// The player you are trying to disconnect is already disconnected.
+    PlayerDisconnected,
 }
 
 impl Display for GGRSError {
@@ -47,6 +49,12 @@ impl Display for GGRSError {
             }
             GGRSError::SocketCreationFailed => {
                 write!(f, "UPD Socket creation failed.")
+            }
+            GGRSError::PlayerDisconnected => {
+                write!(
+                    f,
+                    "The player you are trying to disconnect is already disconnected."
+                )
             }
         }
     }
