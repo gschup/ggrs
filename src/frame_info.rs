@@ -58,6 +58,7 @@ pub struct GameInput {
 
 impl GameInput {
     pub(crate) fn new(frame: FrameNumber, bytes: Option<&InputBuffer>, size: usize) -> Self {
+        assert!(size > 0);
         match bytes {
             Some(i_bytes) => Self {
                 frame,

@@ -72,17 +72,13 @@ impl InputQueue {
     /// Returns a `GameInput`, but only if the input for the requested frame is confirmed.
     /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
     pub(crate) fn confirmed_input(&self, requested_frame: u32) -> GameInput {
-        // if we have recorded a first incorrect frame, the requested confirmed should be before that incorrect frame. We should not have asked for a known incorrect frame.
-        assert!(
-            self.first_incorrect_frame == NULL_FRAME
-                || self.first_incorrect_frame > requested_frame as i32
-        );
-
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
         if self.inputs[offset].frame == requested_frame as i32 {
             return self.inputs[offset];
         }
+
+        // the requested confirmed input should not be before a prediction. We should not have asked for a known incorrect frame.
         panic!("SyncLayer::confirmed_input(): There is no confirmed input for the requested frame");
     }
 
@@ -107,7 +103,7 @@ impl InputQueue {
     pub(crate) fn input(&mut self, requested_frame: FrameNumber) -> GameInput {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
-        assert!(self.first_incorrect_frame < 0);
+        assert!(self.first_incorrect_frame == NULL_FRAME);
 
         // Remember the last requested frame number for later. We'll need this in add_input() to drop out of prediction mode.
         self.last_requested_frame = requested_frame;

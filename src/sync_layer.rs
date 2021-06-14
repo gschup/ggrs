@@ -159,7 +159,7 @@ impl SyncLayer {
     ) -> Vec<GameInput> {
         let mut inputs = Vec::new();
         for i in 0..self.num_players as usize {
-            if connect_status[i].disconnected || connect_status[i].last_frame < self.current_frame {
+            if connect_status[i].disconnected || connect_status[i].last_frame < frame {
                 inputs.push(BLANK_INPUT);
             } else {
                 inputs.push(self.input_queues[i].confirmed_input(frame as u32));

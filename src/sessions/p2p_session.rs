@@ -646,14 +646,17 @@ impl P2PSession {
         assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
 
-    /// For each spectator, send them all confirmed input
+    /// For each spectator, send them all confirmed input up until the minimum confirmed frame
     fn send_confirmed_inputs_to_spectators(&mut self, min_confirmed_frame: FrameNumber) {
+        if self.num_spectators() == 0 {
+            return;
+        }
+
         while self.next_spectator_frame <= min_confirmed_frame {
             let inputs = self
                 .sync_layer
                 .confirmed_inputs(self.next_spectator_frame, &self.local_connect_status);
             assert_eq!(inputs.len(), self.num_players as usize);
-
             // construct a pseudo input containing input of all players for the spectators
             let mut spectator_input = GameInput::new(
                 self.next_spectator_frame,
@@ -662,7 +665,7 @@ impl P2PSession {
             );
             for (i, input) in inputs.iter().enumerate() {
                 assert!(input.frame == NULL_FRAME || input.frame == self.next_spectator_frame);
-                assert_eq!(input.size, self.input_size);
+                assert!(input.frame == NULL_FRAME || input.size == self.input_size);
                 let start = i * input.size;
                 let end = (i + 1) * input.size;
                 spectator_input.buffer[start..end].copy_from_slice(input.input());
@@ -812,5 +815,12 @@ impl P2PSession {
         while self.event_queue.len() > MAX_EVENT_QUEUE_SIZE {
             self.event_queue.pop_front();
         }
+    }
+
+    fn num_spectators(&self) -> usize {
+        self.players
+            .values()
+            .filter_map(Player::spectator_as_endpoint)
+            .count()
     }
 }
