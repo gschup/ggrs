@@ -20,8 +20,6 @@ GGRS is still in an early stage. Basic unit and integration tests, as well as a 
 
 ### What is missing - Goals before a first release version
 - bug hunting
-- spectator functionality
-- improved error output
 - tests
 - more tests
 - improved documentation
