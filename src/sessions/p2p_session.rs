@@ -25,20 +25,57 @@ pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_mill
 enum Player {
     Local,
     Remote(Box<UdpProtocol>),
+    Spectator(Box<UdpProtocol>),
 }
 
 impl Player {
+    #[allow(dead_code)]
     const fn as_endpoint(&self) -> Option<&UdpProtocol> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
-            _ => None,
+            Player::Spectator(_) => None,
+            Player::Local => None,
         }
     }
 
     fn as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
-            _ => None,
+            Player::Spectator(_) => None,
+            Player::Local => None,
+        }
+    }
+
+    const fn remote_as_endpoint(&self) -> Option<&UdpProtocol> {
+        match self {
+            Player::Remote(endpoint) => Some(endpoint),
+            Player::Spectator(_) => None,
+            Player::Local => None,
+        }
+    }
+
+    fn remote_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
+        match self {
+            Player::Remote(endpoint) => Some(endpoint),
+            Player::Spectator(_) => None,
+            Player::Local => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    const fn spectator_as_endpoint(&self) -> Option<&UdpProtocol> {
+        match self {
+            Player::Spectator(endpoint) => Some(endpoint),
+            Player::Remote(_) => None,
+            Player::Local => None,
+        }
+    }
+
+    fn spectator_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
+        match self {
+            Player::Spectator(endpoint) => Some(endpoint),
+            Player::Remote(_) => None,
+            Player::Local => None,
         }
     }
 }
@@ -81,10 +118,12 @@ pub struct P2PSession {
 
     /// The `P2PSession` uses this UDP socket to send and receive all messages for remote players.
     socket: NonBlockingSocket,
-    /// A map of player handle to a player struct that handles receiving and sending messages for remote players and register local players.
+    /// A map of player handle to a player struct that handles receiving and sending messages for remote players, remote spectators and register local players.
     players: HashMap<PlayerHandle, Player>,
     /// This struct contains information about remote players, like connection status and the frame of last received input.
     local_connect_status: Vec<ConnectionStatus>,
+    /// notes which inputs have already been sent to the spectators
+    next_spectator_frame: FrameNumber,
 
     ///Contains all events to be forwarded to the user.
     event_queue: VecDeque<GGRSEvent>,
@@ -113,6 +152,7 @@ impl P2PSession {
             socket,
             local_connect_status,
             next_recommended_sleep: 0,
+            next_spectator_frame: 0,
             sync_layer: SyncLayer::new(num_players, input_size),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
@@ -121,7 +161,10 @@ impl P2PSession {
         })
     }
 
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session.
+    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session. Returns the player handle
+    /// used by GGRS to represent that player internally. The player handle will be the same you provided for players, but `player_handle + 1000` for spectators.
+    /// You will need the player handle to add input, change parameters or disconnect the player or spectator.
+    ///
     /// # Errors
     /// - Returns `InvalidHandle` when the provided player handle is too big for the number of players
     /// - Returns `InvalidRequest` if a player with that handle has been added before
@@ -131,26 +174,9 @@ impl P2PSession {
         &mut self,
         player_type: PlayerType,
         player_handle: PlayerHandle,
-    ) -> Result<(), GGRSError> {
+    ) -> Result<PlayerHandle, GGRSError> {
         // currently, you can only add players in the init phase
         if self.state != SessionState::Initializing {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        // check if valid player
-        if player_handle >= self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
-
-        // check if player handle already exists
-        if self.players.contains_key(&player_handle) {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        // check if a local player already exists
-        if player_type == PlayerType::Local
-            && self.players.values().any(|p| matches!(p, Player::Local))
-        {
             return Err(GGRSError::InvalidRequest);
         }
 
@@ -160,7 +186,6 @@ impl P2PSession {
             PlayerType::Remote(addr) => self.add_remote_player(player_handle, addr),
             PlayerType::Spectator(addr) => self.add_spectator(player_handle, addr),
         }
-        Ok(())
     }
 
     /// After you are done defining and adding all players, you should start the session. Then, the synchronization process will begin.
@@ -172,9 +197,11 @@ impl P2PSession {
             return Err(GGRSError::InvalidRequest);
         }
 
-        // check if the amount of players is correct
-        if self.players.len() != self.num_players as usize {
-            return Err(GGRSError::InvalidRequest);
+        // check if all players are added
+        for player_handle in 0..self.num_players as PlayerHandle {
+            if !self.players.get(&player_handle).is_some() {
+                return Err(GGRSError::InvalidRequest);
+            }
         }
 
         // start the synchronisation
@@ -193,18 +220,21 @@ impl P2PSession {
     /// # Errors
     /// - Returns `InvalidRequest` if you try to disconnect a player who has already been disconnected or if you try to disconnect a local player.
     pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
-        // player already disconnected
-        if self.local_connect_status[player_handle].disconnected {
-            return Err(GGRSError::InvalidRequest);
-        }
-
-        let last_frame = self.local_connect_status[player_handle].last_frame;
-
-        // check if the player exists
-        match self.players.get(&player_handle) {
-            None | Some(Player::Local) => Err(GGRSError::InvalidRequest), // TODO: disconnect individual local players?
+        match self.players.get_mut(&player_handle) {
+            // the local player cannot be disconnected
+            None | Some(Player::Local) => Err(GGRSError::InvalidRequest), // TODO: disconnect the local player?
+            // a remote player can only be disconnected if not already disconnected, since there is some additional logic attached
             Some(Player::Remote(_)) => {
-                self.disconnect_player_by_handle(player_handle, last_frame);
+                if !self.local_connect_status[player_handle].disconnected {
+                    let last_frame = self.local_connect_status[player_handle].last_frame;
+                    self.disconnect_player_by_handle(player_handle, last_frame);
+                    return Ok(());
+                }
+                Err(GGRSError::PlayerDisconnected)
+            }
+            // disconnecting spectators is simpler
+            Some(Player::Spectator(_)) => {
+                self.disconnect_player_by_handle(player_handle, NULL_FRAME);
                 Ok(())
             }
         }
@@ -254,7 +284,7 @@ impl P2PSession {
             for endpoint in self
                 .players
                 .values_mut()
-                .filter_map(Player::as_endpoint_mut)
+                .filter_map(Player::remote_as_endpoint_mut)
             {
                 // send the input directly
                 endpoint.send_input(game_input, &self.local_connect_status);
@@ -315,10 +345,12 @@ impl P2PSession {
             .ok_or(GGRSError::InvalidRequest)?
         {
             Player::Local => Err(GGRSError::InvalidRequest),
-            Player::Remote(endpoint) => match endpoint.network_stats() {
-                Some(stats) => Ok(stats),
-                None => Err(GGRSError::NotSynchronized),
-            },
+            Player::Remote(endpoint) | Player::Spectator(endpoint) => {
+                match endpoint.network_stats() {
+                    Some(stats) => Ok(stats),
+                    None => Err(GGRSError::NotSynchronized),
+                }
+            }
         }
     }
 
@@ -341,7 +373,7 @@ impl P2PSession {
             .get(&player_handle)
             .ok_or(GGRSError::InvalidRequest)?
         {
-            Player::Remote(_) => Err(GGRSError::InvalidRequest),
+            Player::Remote(_) | Player::Spectator(_) => Err(GGRSError::InvalidRequest),
             Player::Local => {
                 self.sync_layer.set_frame_delay(player_handle, frame_delay);
                 Ok(())
@@ -386,23 +418,78 @@ impl P2PSession {
         self.event_queue.drain(..)
     }
 
-    fn add_local_player(&mut self, player_handle: PlayerHandle) {
+    fn add_local_player(&mut self, player_handle: PlayerHandle) -> Result<PlayerHandle, GGRSError> {
+        // check if valid player
+        if player_handle >= self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+
+        // check if player handle already exists
+        if self.players.contains_key(&player_handle) {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        // check if a local player already exists
+        if self.players.values().any(|p| matches!(p, Player::Local)) {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        // finally add the local player
         self.players.insert(player_handle, Player::Local);
+        Ok(player_handle)
     }
 
-    fn add_remote_player(&mut self, player_handle: PlayerHandle, addr: SocketAddr) {
+    fn add_remote_player(
+        &mut self,
+        player_handle: PlayerHandle,
+        addr: SocketAddr,
+    ) -> Result<PlayerHandle, GGRSError> {
+        // check if valid player
+        if player_handle >= self.num_players as PlayerHandle {
+            return Err(GGRSError::InvalidHandle);
+        }
+
+        // check if player handle already exists
+        if self.players.contains_key(&player_handle) {
+            return Err(GGRSError::InvalidRequest);
+        }
+
         // create a udp protocol endpoint that handles all the messaging to that remote player
         let mut endpoint = UdpProtocol::new(player_handle, addr, self.num_players, self.input_size);
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
         endpoint.set_disconnect_timeout(self.disconnect_timeout);
-        self.players
-            .insert(player_handle, Player::Remote(Box::new(endpoint)));
+
         // if the input delay has been set previously, erase it (remote players handle input delay at their end)
         self.sync_layer.set_frame_delay(player_handle, 0);
+
+        // add the remote player
+        self.players
+            .insert(player_handle, Player::Remote(Box::new(endpoint)));
+        Ok(player_handle)
     }
 
-    fn add_spectator(&mut self, player_handle: PlayerHandle, addr: SocketAddr) {
-        todo!()
+    fn add_spectator(
+        &mut self,
+        player_handle: PlayerHandle,
+        addr: SocketAddr,
+    ) -> Result<PlayerHandle, GGRSError> {
+        let spectator_handle = player_handle + 1000;
+
+        // check if player handle already exists
+        if self.players.contains_key(&spectator_handle) {
+            return Err(GGRSError::InvalidRequest);
+        }
+
+        // create a udp protocol endpoint that handles all the messaging to that remote spectator
+        let mut endpoint =
+            UdpProtocol::new(spectator_handle, addr, self.num_players, self.input_size);
+        endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
+        endpoint.set_disconnect_timeout(self.disconnect_timeout);
+
+        // add the spectator
+        self.players
+            .insert(spectator_handle, Player::Spectator(Box::new(endpoint)));
+        Ok(spectator_handle)
     }
 
     fn disconnect_player_by_handle(
@@ -417,6 +504,7 @@ impl P2PSession {
             .expect("Invalid player handle")
         {
             Player::Remote(endpoint) => endpoint.disconnect(),
+            Player::Spectator(endpoint) => endpoint.disconnect(),
             Player::Local => (),
         }
 
@@ -440,13 +528,16 @@ impl P2PSession {
         }
 
         // if any remote player is not synchronized, we continue synchronizing
-        for endpoint in self.players.values().filter_map(Player::as_endpoint) {
-            if !endpoint.is_synchronized() {
-                return;
+        for player in self.players.values() {
+            match player {
+                Player::Remote(endpoint) | Player::Spectator(endpoint) => {
+                    if !endpoint.is_synchronized() {
+                        return;
+                    }
+                }
+                Player::Local => (),
             }
         }
-
-        // TODO: spectators
 
         // everyone is synchronized, so we can change state and accept input
         self.state = SessionState::Running;
@@ -468,23 +559,23 @@ impl P2PSession {
             }
         }
 
-        // update frame information between clients
+        // update frame information between remote players
         for endpoint in self
             .players
             .values_mut()
-            .filter_map(Player::as_endpoint_mut)
+            .filter_map(Player::remote_as_endpoint_mut)
         {
             if endpoint.is_running() {
                 endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
             }
         }
 
-        // run enpoint poll and get events from endpoints. This will trigger additional UDP packets to be sent.
+        // run enpoint poll and get events from remote players. This will trigger additional UDP packets to be sent.
         let mut events = VecDeque::new();
         for endpoint in self
             .players
             .values_mut()
-            .filter_map(Player::as_endpoint_mut)
+            .filter_map(Player::remote_as_endpoint_mut)
         {
             let player_handle = endpoint.player_handle();
             for event in endpoint.poll(&self.local_connect_status) {
@@ -498,8 +589,12 @@ impl P2PSession {
         }
 
         // find the total minimum confirmed frame and propagate disconnects
-        // TODO: send the inputs from this frame to spectators
         let min_confirmed_frame = self.min_confirmed_frame();
+
+        // send confirmed inputs to remotes
+        self.send_confirmed_inputs_to_spectators(min_confirmed_frame);
+
+        // set the last confirmed frame and discard all saved inputs before that frame
         self.sync_layer
             .set_last_confirmed_frame(min_confirmed_frame);
 
@@ -551,6 +646,44 @@ impl P2PSession {
         assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
 
+    /// For each spectator, send them all confirmed input
+    fn send_confirmed_inputs_to_spectators(&mut self, min_confirmed_frame: FrameNumber) {
+        while self.next_spectator_frame <= min_confirmed_frame {
+            let inputs = self
+                .sync_layer
+                .confirmed_inputs(self.next_spectator_frame, &self.local_connect_status);
+            assert_eq!(inputs.len(), self.num_players as usize);
+
+            // construct a pseudo input containing input of all players for the spectators
+            let mut spectator_input = GameInput::new(
+                self.next_spectator_frame,
+                None,
+                self.input_size * self.num_players as usize,
+            );
+            for (i, input) in inputs.iter().enumerate() {
+                assert!(input.frame == NULL_FRAME || input.frame == self.next_spectator_frame);
+                assert_eq!(input.size, self.input_size);
+                let start = i * input.size;
+                let end = (i + 1) * input.size;
+                spectator_input.buffer[start..end].copy_from_slice(input.input());
+            }
+
+            // send it off
+            for endpoint in self
+                .players
+                .values_mut()
+                .filter_map(Player::spectator_as_endpoint_mut)
+            {
+                if endpoint.is_running() {
+                    endpoint.send_input(spectator_input, &self.local_connect_status);
+                }
+            }
+
+            // onto the next frame
+            self.next_spectator_frame += 1;
+        }
+    }
+
     /// For each player, find out if they are still connected and what their minimum confirmed frame is.
     /// Disconnects players if the remote clients have disconnected them already.
     fn min_confirmed_frame(&mut self) -> FrameNumber {
@@ -560,11 +693,11 @@ impl P2PSession {
             let mut queue_connected = true;
             let mut queue_min_confirmed = i32::MAX;
 
-            // check all remotes for that player
+            // check all remote players for that player
             for endpoint in self
                 .players
                 .values_mut()
-                .filter_map(Player::as_endpoint_mut)
+                .filter_map(Player::remote_as_endpoint_mut)
             {
                 if !endpoint.is_running() {
                     continue;
@@ -606,7 +739,7 @@ impl P2PSession {
         for (player_handle, endpoint) in self
             .players
             .values()
-            .filter_map(Player::as_endpoint)
+            .filter_map(Player::remote_as_endpoint)
             .enumerate()
         {
             if !self.local_connect_status[player_handle].disconnected {
@@ -647,13 +780,19 @@ impl P2PSession {
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
-                let last_frame = self.local_connect_status[player_handle].last_frame;
+                let mut last_frame = NULL_FRAME;
+                // for remote players
+                if player_handle < self.num_players as PlayerHandle {
+                    last_frame = self.local_connect_status[player_handle].last_frame;
+                }
                 self.disconnect_player_by_handle(player_handle, last_frame);
                 self.event_queue
                     .push_back(GGRSEvent::Disconnected { player_handle });
             }
             // add the input and all associated information
             Event::Input(input) => {
+                // input only comes from remote players, not spectators
+                assert!(player_handle < self.num_players as PlayerHandle);
                 if !self.local_connect_status[player_handle].disconnected {
                     // check if the input comes in the correct sequence
                     let current_remote_frame = self.local_connect_status[player_handle].last_frame;

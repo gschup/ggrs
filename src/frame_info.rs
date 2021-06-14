@@ -50,7 +50,7 @@ impl GameState {
 pub struct GameInput {
     /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
     pub frame: FrameNumber,
-    // The input size per player
+    // The input size
     pub size: usize,
     /// An input buffer that will hold input data
     pub buffer: InputBuffer,
@@ -58,7 +58,6 @@ pub struct GameInput {
 
 impl GameInput {
     pub(crate) fn new(frame: FrameNumber, bytes: Option<&InputBuffer>, size: usize) -> Self {
-        assert!(size <= MAX_INPUT_BYTES);
         match bytes {
             Some(i_bytes) => Self {
                 frame,

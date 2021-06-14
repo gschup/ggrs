@@ -1,7 +1,5 @@
 use crate::error::GGRSError;
-use crate::frame_info::GameInput;
-use crate::frame_info::BLANK_INPUT;
-use crate::frame_info::{GameState, BLANK_STATE};
+use crate::frame_info::{GameInput, GameState, BLANK_INPUT, BLANK_STATE};
 use crate::input_queue::InputQueue;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::{FrameNumber, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
@@ -64,10 +62,6 @@ impl SyncLayer {
 
     pub(crate) const fn current_frame(&self) -> FrameNumber {
         self.current_frame
-    }
-
-    pub(crate) const fn last_confirmed_frame(&self) -> FrameNumber {
-        self.last_confirmed_frame
     }
 
     pub(crate) fn advance_frame(&mut self) {
@@ -159,7 +153,8 @@ impl SyncLayer {
 
     /// Returns confirmed inputs for all players for the current frame of the sync layer.
     pub(crate) fn confirmed_inputs(
-        &mut self,
+        &self,
+        frame: FrameNumber,
         connect_status: &[ConnectionStatus],
     ) -> Vec<GameInput> {
         let mut inputs = Vec::new();
@@ -167,7 +162,7 @@ impl SyncLayer {
             if connect_status[i].disconnected || connect_status[i].last_frame < self.current_frame {
                 inputs.push(BLANK_INPUT);
             } else {
-                inputs.push(self.input_queues[i].confirmed_input(self.current_frame as u32));
+                inputs.push(self.input_queues[i].confirmed_input(frame as u32));
             }
         }
         inputs

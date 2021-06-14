@@ -32,10 +32,8 @@ pub(crate) mod network {
 // # CONSTANTS #
 // #############
 
-/// The maximum number of players allowed. Theoretically, higher player numbers are supported, but not well-tested.
+/// The maximum number of players allowed. Theoretically, higher player numbers should work, but are not well-tested.
 pub(crate) const MAX_PLAYERS: u32 = 4;
-/// The maximum number of spectators allowed. This number is arbitrarily chosen and could be higher in theory.
-pub(crate) const MAX_SPECTATORS: u32 = 8;
 /// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct if the players did not desync.
 pub(crate) const MAX_PREDICTION_FRAMES: u32 = 8;
 /// The maximum number of bytes the input of a single player can consist of. This corresponds to the size of `usize`.

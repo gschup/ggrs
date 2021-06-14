@@ -1,4 +1,4 @@
-use ggrs::SessionState;
+use ggrs::{PlayerType, SessionState};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use serial_test::serial;
@@ -16,10 +16,12 @@ fn test_create_session() {
 fn test_add_player() {
     let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
-    assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
-    assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
-    assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_err()); // handle already registered
-    assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 2).is_err()); // invalid handle
+    assert!(sess.add_player(PlayerType::Local, 0).is_ok());
+    assert!(sess.add_player(PlayerType::Remote(addr), 1).is_ok());
+    assert!(sess.add_player(PlayerType::Remote(addr), 1).is_err()); // handle already registered
+    assert!(sess.add_player(PlayerType::Remote(addr), 2).is_err()); // invalid handle
+    assert!(sess.add_player(PlayerType::Spectator(addr), 2).is_ok());
+    assert!(sess.add_player(PlayerType::Spectator(addr), 2).is_err()); // specatator handle already registered
     assert!(sess.start_session().is_ok());
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_err()); // cannot add player after starting
 }

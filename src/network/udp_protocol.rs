@@ -241,6 +241,10 @@ impl UdpProtocol {
     }
 
     pub(crate) fn disconnect(&mut self) {
+        if self.state == ProtocolState::Shutdown {
+            return;
+        }
+
         self.state = ProtocolState::Disconnected;
         // schedule the timeout which will lead to shutdown
         self.shutdown_timeout = Instant::now().add(Duration::from_millis(UDP_SHUTDOWN_TIMER))

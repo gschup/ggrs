@@ -1,9 +1,23 @@
 use crate::error::GGRSError;
-use crate::frame_info::{FrameInfo, GameInput, BLANK_FRAME};
+use crate::frame_info::{GameInput, GameState, BLANK_INPUT, BLANK_STATE};
 use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::{SavedStates, SyncLayer};
 use crate::{FrameNumber, GGRSInterface, PlayerHandle, PlayerType, SessionState};
 use crate::{MAX_PREDICTION_FRAMES, NULL_FRAME};
+
+/// This struct holds a state and an input. It is intended that both the state and the input correspond to the same frame.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct FrameInfo {
+    pub frame: FrameNumber,
+    pub state: GameState,
+    pub input: GameInput,
+}
+
+pub(crate) const BLANK_FRAME: FrameInfo = FrameInfo {
+    frame: NULL_FRAME,
+    state: BLANK_STATE,
+    input: BLANK_INPUT,
+};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
 /// in your `save_game_state()` function, the `SyncTestSession` will compare the resimulated checksums with the original checksums and report if there was a mismatch.
