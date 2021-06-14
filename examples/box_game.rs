@@ -250,7 +250,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // let ggrs do some internal work
-        sess.idle();
+        sess.idle(&mut game);
 
         // only process and render if it is time
         if Instant::now() < next {

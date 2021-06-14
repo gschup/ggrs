@@ -199,7 +199,7 @@ impl P2PSession {
 
         // check if all players are added
         for player_handle in 0..self.num_players as PlayerHandle {
-            if !self.players.get(&player_handle).is_some() {
+            if self.players.get(&player_handle).is_none() {
                 return Err(GGRSError::InvalidRequest);
             }
         }
@@ -299,15 +299,10 @@ impl P2PSession {
     /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
     pub fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
         // receive info from remote players, trigger events and send messages
-        self.poll_endpoints();
+        self.poll_endpoints(interface);
 
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
-        }
-
-        // check game consistency and rollback, if necessary
-        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
-            self.adjust_gamestate(first_incorrect, interface);
         }
 
         // save the current frame in the syncronization layer
@@ -404,8 +399,8 @@ impl P2PSession {
     }
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
-    pub fn idle(&mut self) {
-        self.poll_endpoints();
+    pub fn idle(&mut self, interface: &mut impl GGRSInterface) {
+        self.poll_endpoints(interface);
     }
 
     /// Returns the current `SessionState` of a session.
@@ -543,7 +538,7 @@ impl P2PSession {
         self.state = SessionState::Running;
     }
 
-    fn poll_endpoints(&mut self) {
+    fn poll_endpoints(&mut self, interface: &mut impl GGRSInterface) {
         // Get all udp packets and distribute them to associated endpoints.
         // The endpoints will handle their packets, which will trigger both events and UPD replies.
         for (from, msg) in &self.socket.receive_all_messages() {
@@ -586,6 +581,11 @@ impl P2PSession {
         // handle all events locally
         for (event, handle) in events.drain(..) {
             self.handle_event(event, handle);
+        }
+
+        // check game consistency and rollback, if necessary
+        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
+            self.adjust_gamestate(first_incorrect, interface);
         }
 
         // find the total minimum confirmed frame and propagate disconnects

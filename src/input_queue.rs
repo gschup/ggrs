@@ -95,7 +95,6 @@ impl InputQueue {
             self.tail = self.head;
         } else if frame <= self.inputs[self.tail].frame {
             // we don't need to delete anything
-            return;
         } else {
             let offset = (frame - (self.inputs[self.tail].frame)) as usize;
             self.tail = (self.tail + offset) % INPUT_QUEUE_LENGTH;
@@ -112,6 +111,12 @@ impl InputQueue {
         // Remember the last requested frame number for later. We'll need this in add_input() to drop out of prediction mode.
         self.last_requested_frame = requested_frame;
 
+        if requested_frame < self.inputs[self.tail].frame {
+            println!(
+                "REQUESTED {}, BUT LAST IS {}",
+                requested_frame, self.inputs[self.tail].frame
+            )
+        }
         assert!(requested_frame >= self.inputs[self.tail].frame);
 
         // We currently don't have a prediction frame

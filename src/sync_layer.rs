@@ -141,8 +141,8 @@ impl SyncLayer {
         connect_status: &[ConnectionStatus],
     ) -> Vec<GameInput> {
         let mut inputs = Vec::new();
-        for i in 0..self.num_players as usize {
-            if connect_status[i].disconnected {
+        for (i, con_stat) in connect_status.iter().enumerate() {
+            if con_stat.disconnected {
                 inputs.push(BLANK_INPUT);
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
@@ -158,8 +158,8 @@ impl SyncLayer {
         connect_status: &[ConnectionStatus],
     ) -> Vec<GameInput> {
         let mut inputs = Vec::new();
-        for i in 0..self.num_players as usize {
-            if connect_status[i].disconnected || connect_status[i].last_frame < frame {
+        for (i, con_stat) in connect_status.iter().enumerate() {
+            if con_stat.disconnected || con_stat.last_frame < frame {
                 inputs.push(BLANK_INPUT);
             } else {
                 inputs.push(self.input_queues[i].confirmed_input(frame as u32));
@@ -170,6 +170,18 @@ impl SyncLayer {
 
     /// Sets the last confirmed frame to a given frame. By raising the last confirmed frame, we can discard all previous frames, as they are no longer necessary.
     pub(crate) fn set_last_confirmed_frame(&mut self, frame: FrameNumber) {
+        // dont set the last confirmed frame after the first incorrect frame before a rollback has happened
+        let mut first_incorrect: FrameNumber = NULL_FRAME;
+        for handle in 0..self.num_players as usize {
+            first_incorrect = std::cmp::max(
+                first_incorrect,
+                self.input_queues[handle].first_incorrect_frame(),
+            );
+        }
+        if first_incorrect != NULL_FRAME && first_incorrect < frame {
+            println!("ITS GONNA CRASH, {}, {}", first_incorrect, frame);
+        }
+
         self.last_confirmed_frame = frame;
         if self.last_confirmed_frame > 0 {
             for i in 0..self.num_players {

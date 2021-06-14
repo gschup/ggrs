@@ -40,20 +40,6 @@ fn test_start_session() {
 
 #[test]
 #[serial]
-fn test_start_single_session_then_idle() {
-    let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
-    assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
-    assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
-    assert!(sess.start_session().is_ok());
-
-    for _ in 0..10 {
-        sess.idle();
-    }
-}
-
-#[test]
-#[serial]
 fn test_disconnect_player() {
     let mut sess = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
@@ -68,6 +54,8 @@ fn test_disconnect_player() {
 #[test]
 #[serial]
 fn test_synchronize_p2p_sessions() {
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
     let mut sess1 = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 7777).unwrap();
     let mut sess2 = ggrs::start_p2p_session(2, stubs::INPUT_SIZE, 8888).unwrap();
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
@@ -88,8 +76,8 @@ fn test_synchronize_p2p_sessions() {
     assert!(sess2.current_state() == SessionState::Synchronizing);
 
     for _ in 0..10 {
-        sess1.idle();
-        sess2.idle();
+        sess1.idle(&mut stub1);
+        sess2.idle(&mut stub2);
     }
 
     assert!(sess1.current_state() == SessionState::Running);
@@ -121,8 +109,8 @@ fn test_advance_frame_p2p_sessions() {
     assert!(sess2.current_state() == SessionState::Synchronizing);
 
     for _ in 0..10 {
-        sess1.idle();
-        sess2.idle();
+        sess1.idle(&mut stub1);
+        sess2.idle(&mut stub2);
     }
 
     assert!(sess1.current_state() == SessionState::Running);
@@ -135,8 +123,8 @@ fn test_advance_frame_p2p_sessions() {
         assert!(sess1.add_local_input(0, &serialized_input).is_ok());
         assert!(sess2.add_local_input(1, &serialized_input).is_ok());
 
-        sess1.idle();
-        sess2.idle();
+        sess1.idle(&mut stub1);
+        sess2.idle(&mut stub2);
 
         assert!(sess1.advance_frame(&mut stub1).is_ok());
         assert!(sess2.advance_frame(&mut stub2).is_ok());
