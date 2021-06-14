@@ -584,8 +584,8 @@ impl P2PSession {
         }
 
         // handle all events locally
-        for (event, handle) in events.iter() {
-            self.handle_event(*event, *handle);
+        for (event, handle) in events.drain(..) {
+            self.handle_event(event, handle);
         }
 
         // find the total minimum confirmed frame and propagate disconnects

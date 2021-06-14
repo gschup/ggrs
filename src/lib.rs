@@ -5,10 +5,13 @@
 
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
+use std::net::SocketAddr;
+
 pub use error::GGRSError;
 pub use frame_info::{GameInput, GameState};
 pub use network::network_stats::NetworkStats;
 pub use sessions::p2p_session::P2PSession;
+pub use sessions::p2p_spectator_session::P2PSpectatorSession;
 pub use sessions::sync_test_session::SyncTestSession;
 
 pub(crate) mod error;
@@ -18,6 +21,7 @@ pub(crate) mod sync_layer;
 pub(crate) mod time_sync;
 pub(crate) mod sessions {
     pub(crate) mod p2p_session;
+    pub(crate) mod p2p_spectator_session;
     pub(crate) mod sync_test_session;
 }
 pub(crate) mod network {
@@ -164,16 +168,17 @@ pub fn start_synctest_session(
     ))
 }
 
-/// Used to create a new `P2PSession`. After creating the session, add local and remote players, set input delay for local players and then start the session.
+/// Used to create a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+/// set input delay for local players and then start the session.
 /// # Example
 ///
 /// ```
 /// # use ggrs::GGRSError;
 /// # fn main() -> Result<(), GGRSError> {
-/// let port: u16 = 7777;
+/// let local_port: u16 = 7777;
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
-/// let mut sess = ggrs::start_p2p_session(num_players, input_size, port)?;
+/// let mut sess = ggrs::start_p2p_session(num_players, input_size, local_port)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -186,7 +191,7 @@ pub fn start_synctest_session(
 pub fn start_p2p_session(
     num_players: u32,
     input_size: usize,
-    port: u16,
+    local_port: u16,
 ) -> Result<P2PSession, GGRSError> {
     if num_players > MAX_PLAYERS {
         return Err(GGRSError::InvalidRequest);
@@ -194,5 +199,43 @@ pub fn start_p2p_session(
     if input_size > MAX_INPUT_BYTES {
         return Err(GGRSError::InvalidRequest);
     }
-    P2PSession::new(num_players, input_size, port).map_err(|_| GGRSError::SocketCreationFailed)
+    P2PSession::new(num_players, input_size, local_port)
+        .map_err(|_| GGRSError::SocketCreationFailed)
+}
+
+/// Used to create a new `P2PSpectatorSession` for a spectator.
+/// The session will receive inputs from all players from the given host directly.
+/// # Example
+///
+/// ```
+/// # use std::net::SocketAddr;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let local_port: u16 = 7777;
+/// let num_players : u32 = 2;
+/// let input_size : usize = std::mem::size_of::<u32>();
+/// let host_addr: SocketAddr = "127.0.0.1:8888".parse()?;
+/// let mut sess = ggrs::start_p2p_spectator_session(num_players, input_size, local_port, host_addr)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Errors
+/// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
+/// - Will return a `InvalidRequest` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
+/// - Will return `SocketCreationFailed` if the UPD socket could not be created.
+pub fn start_p2p_spectator_session(
+    num_players: u32,
+    input_size: usize,
+    local_port: u16,
+    host_addr: SocketAddr,
+) -> Result<P2PSpectatorSession, GGRSError> {
+    if num_players > MAX_PLAYERS {
+        return Err(GGRSError::InvalidRequest);
+    }
+    if input_size > MAX_INPUT_BYTES {
+        return Err(GGRSError::InvalidRequest);
+    }
+    P2PSpectatorSession::new(num_players, input_size, local_port, host_addr)
+        .map_err(|_| GGRSError::SocketCreationFailed)
 }

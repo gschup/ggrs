@@ -91,7 +91,11 @@ impl InputQueue {
 
         // move the tail to "delete inputs", wrap around if necessary
         if frame >= self.last_added_frame {
+            // delete all but most recent
             self.tail = self.head;
+        } else if frame <= self.inputs[self.tail].frame {
+            // we don't need to delete anything
+            return;
         } else {
             let offset = (frame - (self.inputs[self.tail].frame)) as usize;
             self.tail = (self.tail + offset) % INPUT_QUEUE_LENGTH;
