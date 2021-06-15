@@ -16,13 +16,7 @@ Taken from [the official GGPO website](https://ggpo.net/):
 For more information about GGPO, check out [the official website](http://ggpo.net/) or [the official github repository](https://github.com/pond3r/ggpo).
 
 ## Development Status
-GGRS is still in an early stage. Basic unit and integration tests, as well as a simple example hint towards a functional library, but testing over a range of network connections has yet to be performed. The library might unexpectedly crash, there are still various bugs to be fixed (I assume).
-
-### What is missing - Goals before a first release version
-- bug hunting
-- tests
-- more tests
-- improved documentation
+GGRS is still in an early stage. Basic unit and integration tests, as well as a simple example hint towards a functional and stable library, but testing over a range of network connections has yet to be performed. To the best of my knowledge, the library no longer panics at unexpected places.
 
 ## Other Rollback Implementations in Rust
 Take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)! 
