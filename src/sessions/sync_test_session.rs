@@ -58,7 +58,7 @@ impl SyncTestSession {
     }
 
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
-    /// #Errors
+    /// # Errors
     /// Will return `InvalidHandle` when the provided player handle is too big for the number of players.
     /// Will return `InvalidRequest` if a player with that handle has been added before.
     /// Will return `InvalidRequest` for any player type other than `Local`. `SyncTestSession` does not support remote players.
@@ -90,6 +90,11 @@ impl SyncTestSession {
         Ok(())
     }
 
+    /// Used to notify GGRS of inputs from local players. `add_local_input()` must be called once every frame for all players of type `PlayerType::Local`
+    /// before calling `advance_frame()`.
+    /// # Errors
+    /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
@@ -119,6 +124,9 @@ impl SyncTestSession {
     ///
     /// # Errors
     /// If checksums don't match, this will return a `MismatchedChecksumError`.
+    ///
+    /// # Panics
+    /// Will panic if there
     pub fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
         if !self.running {
             return Err(GGRSError::NotSynchronized);
@@ -183,7 +191,10 @@ impl SyncTestSession {
                 assert_eq!(self.sync_layer.current_frame(), old_frame_info.frame);
 
                 // compare the checksums
-                let last_saved_state = self.sync_layer.last_saved_state().unwrap();
+                let last_saved_state = self
+                    .sync_layer
+                    .last_saved_state()
+                    .ok_or(GGRSError::GeneralFailure)?;
                 if let (Some(cs1), Some(cs2)) =
                     (last_saved_state.checksum, old_frame_info.state.checksum)
                 {
@@ -209,7 +220,7 @@ impl SyncTestSession {
             self.sync_layer
                 .set_last_confirmed_frame(self.current_frame - self.check_distance as i32);
             // also, we update the dummy connect status
-            for con_stat in self.dummy_connect_status.iter_mut() {
+            for con_stat in &mut self.dummy_connect_status {
                 con_stat.last_frame = self.sync_layer.current_frame();
             }
         }
@@ -219,6 +230,10 @@ impl SyncTestSession {
         Ok(())
     }
 
+    /// Change the amount of frames GGRS will delay the inputs for a player.
+    /// # Errors
+    /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
+    /// Returns `InvalidRequest` if the provided player handle refers to a remote player.
     pub fn set_frame_delay(
         &mut self,
         frame_delay: u32,
@@ -235,7 +250,7 @@ impl SyncTestSession {
     /// Nothing happens here in `SyncTestSession`. There are no packets to be received or sent.
     pub fn idle(&mut self) {}
 
-    pub fn current_state(&self) -> SessionState {
+    pub const fn current_state(&self) -> SessionState {
         if self.running {
             SessionState::Running
         } else {

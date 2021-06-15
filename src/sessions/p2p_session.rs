@@ -49,32 +49,28 @@ impl Player {
     const fn remote_as_endpoint(&self) -> Option<&UdpProtocol> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
-            Player::Spectator(_) => None,
-            Player::Local => None,
+            Player::Spectator(_) | Player::Local => None,
         }
     }
 
     fn remote_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
-            Player::Spectator(_) => None,
-            Player::Local => None,
+            Player::Spectator(_) | Player::Local => None,
         }
     }
 
     const fn spectator_as_endpoint(&self) -> Option<&UdpProtocol> {
         match self {
             Player::Spectator(endpoint) => Some(endpoint),
-            Player::Remote(_) => None,
-            Player::Local => None,
+            Player::Remote(_) | Player::Local => None,
         }
     }
 
     fn spectator_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
         match self {
             Player::Spectator(endpoint) => Some(endpoint),
-            Player::Remote(_) => None,
-            Player::Local => None,
+            Player::Remote(_) | Player::Local => None,
         }
     }
 }
@@ -403,7 +399,7 @@ impl P2PSession {
     }
 
     /// Returns the current `SessionState` of a session.
-    pub fn current_state(&self) -> SessionState {
+    pub const fn current_state(&self) -> SessionState {
         self.state
     }
 
@@ -788,11 +784,13 @@ impl P2PSession {
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
-                let mut last_frame = NULL_FRAME;
                 // for remote players
-                if player_handle < self.num_players as PlayerHandle {
-                    last_frame = self.local_connect_status[player_handle].last_frame;
-                }
+                let last_frame = if player_handle < self.num_players as PlayerHandle {
+                    self.local_connect_status[player_handle].last_frame
+                } else {
+                    NULL_FRAME
+                };
+
                 self.disconnect_player_by_handle(player_handle, last_frame);
                 self.event_queue
                     .push_back(GGRSEvent::Disconnected { player_handle });

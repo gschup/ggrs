@@ -18,6 +18,8 @@ use super::p2p_session::Event;
 const SPECTATOR_BUFFER_SIZE: usize = 128;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
+/// A `P2PSpectatorSession` provides a UDP protocol to connect to a remote host in a peer-to-peer fashion. The host will broadcast all confirmed inputs to this session.
+/// This session can be used to spectate a session without contributing to the game input.
 #[derive(Debug)]
 pub struct P2PSpectatorSession {
     state: SessionState,
@@ -62,7 +64,7 @@ impl P2PSpectatorSession {
     }
 
     /// Returns the current `SessionState` of a session.
-    pub fn current_state(&self) -> SessionState {
+    pub const fn current_state(&self) -> SessionState {
         self.state
     }
 
