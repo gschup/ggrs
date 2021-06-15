@@ -1,5 +1,5 @@
 //! # GGRS
-//! GGRS (good game rollback system) is a reimagination of the GGPO network SDK written in Rust 🦀. It replaces the C-style callback API with a clearer control flow.
+//! GGRS (good game rollback system) is a reimagination of the GGPO network SDK written in 100% safe Rust 🦀. It replaces the C-style callback API with a clearer control flow.
 
 #![forbid(unsafe_code)] // let us try
 
