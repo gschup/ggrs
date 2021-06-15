@@ -33,7 +33,7 @@ impl Player {
     const fn as_endpoint(&self) -> Option<&UdpProtocol> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
-            Player::Spectator(_) => None,
+            Player::Spectator(endpoint) => Some(endpoint),
             Player::Local => None,
         }
     }
@@ -41,7 +41,7 @@ impl Player {
     fn as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
-            Player::Spectator(_) => None,
+            Player::Spectator(endpoint) => Some(endpoint),
             Player::Local => None,
         }
     }
@@ -62,7 +62,6 @@ impl Player {
         }
     }
 
-    #[allow(dead_code)]
     const fn spectator_as_endpoint(&self) -> Option<&UdpProtocol> {
         match self {
             Player::Spectator(endpoint) => Some(endpoint),
@@ -476,8 +475,12 @@ impl P2PSession {
         }
 
         // create a udp protocol endpoint that handles all the messaging to that remote spectator
-        let mut endpoint =
-            UdpProtocol::new(spectator_handle, addr, self.num_players, self.input_size);
+        let mut endpoint = UdpProtocol::new(
+            spectator_handle,
+            addr,
+            self.num_players,
+            self.input_size * self.num_players as usize,
+        );
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
         endpoint.set_disconnect_timeout(self.disconnect_timeout);
 
@@ -498,18 +501,21 @@ impl P2PSession {
             .get_mut(&player_handle)
             .expect("Invalid player handle")
         {
-            Player::Remote(endpoint) => endpoint.disconnect(),
-            Player::Spectator(endpoint) => endpoint.disconnect(),
+            Player::Remote(endpoint) => {
+                endpoint.disconnect();
+                // mark the player as disconnected
+                self.local_connect_status[player_handle].disconnected = true;
+
+                if self.sync_layer.current_frame() > last_frame {
+                    // TODO: pond3r/ggpo adjusts simulation to account for the fact that the player disconnected a few frames ago,
+                    // resimulating with correct disconnect flags (to account for user having some AI kick in).
+                    // For now, the game will have some frames with incorrect predictions instead.
+                }
+            }
+            Player::Spectator(endpoint) => {
+                endpoint.disconnect();
+            }
             Player::Local => (),
-        }
-
-        // mark the player as disconnected
-        self.local_connect_status[player_handle].disconnected = true;
-
-        if self.sync_layer.current_frame() > last_frame {
-            // TODO: pond3r/ggpo adjusts simulation to account for the fact that the player disconnected a few frames ago,
-            // resimulating with correct disconnect flags (to account for user having some AI kick in).
-            // For now, the game will have some frames with incorrect predictions instead.
         }
 
         // check if all remotes are synchronized now
@@ -523,14 +529,13 @@ impl P2PSession {
         }
 
         // if any remote player is not synchronized, we continue synchronizing
-        for player in self.players.values() {
-            match player {
-                Player::Remote(endpoint) | Player::Spectator(endpoint) => {
-                    if !endpoint.is_synchronized() {
-                        return;
-                    }
-                }
-                Player::Local => (),
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            if !endpoint.is_synchronized() {
+                return;
             }
         }
 
@@ -565,12 +570,12 @@ impl P2PSession {
             }
         }
 
-        // run enpoint poll and get events from remote players. This will trigger additional UDP packets to be sent.
+        // run enpoint poll and get events from players and spectators. This will trigger additional UDP packets to be sent.
         let mut events = VecDeque::new();
         for endpoint in self
             .players
             .values_mut()
-            .filter_map(Player::remote_as_endpoint_mut)
+            .filter_map(Player::as_endpoint_mut)
         {
             let player_handle = endpoint.player_handle();
             for event in endpoint.poll(&self.local_connect_status) {

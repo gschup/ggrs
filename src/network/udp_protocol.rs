@@ -25,8 +25,8 @@ use super::network_stats::NetworkStats;
 const UDP_HEADER_SIZE: usize = 28; // Size of IP + UDP headers
 const NUM_SYNC_PACKETS: u32 = 5;
 const UDP_SHUTDOWN_TIMER: u64 = 5000;
-const PENDING_OUTPUT_SIZE: usize = 64;
-const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(10);
+const PENDING_OUTPUT_SIZE: usize = 128;
+const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
@@ -266,7 +266,6 @@ impl UdpProtocol {
 
     pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event> {
         let now = Instant::now();
-
         match self.state {
             ProtocolState::Synchronizing => {
                 // some time has passed, let us send another sync request
@@ -367,7 +366,14 @@ impl UdpProtocol {
         self.pending_output.push_back(input);
         if self.pending_output.len() > PENDING_OUTPUT_SIZE {
             // TODO: do something when the output queue overflows
-            assert!(self.pending_output.len() <= PENDING_OUTPUT_SIZE);
+
+            if self.handle >= 1000 {
+                // if this is a spectator that didn't ack our input, we just disconnect them
+                self.event_queue.push_back(Event::Disconnected);
+            } else {
+                // we should never have so much pending input for a remote player (if they didn't ack, we should stop at MAX_PREDICTION_THRESHOLD)
+                assert!(self.pending_output.len() <= PENDING_OUTPUT_SIZE);
+            }
         }
         self.send_pending_output(connect_status);
     }
@@ -415,7 +421,6 @@ impl UdpProtocol {
         let body = SyncRequest {
             random_request: self.sync_random_request,
         };
-
         self.queue_message(MessageBody::SyncRequest(body));
     }
 

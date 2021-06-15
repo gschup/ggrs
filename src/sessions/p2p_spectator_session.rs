@@ -15,7 +15,7 @@ use crate::{
 use super::p2p_session::Event;
 
 // The amount of inputs a spectator can buffer
-const SPECTATOR_BUFFER_SIZE: usize = 64;
+const SPECTATOR_BUFFER_SIZE: usize = 128;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 #[derive(Debug)]
@@ -165,6 +165,9 @@ impl P2PSpectatorSession {
         for event in events.drain(..) {
             self.handle_event(event);
         }
+
+        // send out all pending UDP messages
+        self.host.send_all_messages(&self.socket);
     }
 
     fn handle_event(&mut self, event: Event) {

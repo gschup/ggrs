@@ -1,12 +1,8 @@
 use adler::Adler32;
 use ggrs::NULL_FRAME;
-use ggrs::{
-    GGRSError, GGRSEvent, GGRSInterface, GameInput, GameState, PlayerHandle, PlayerType,
-    SessionState,
-};
+use ggrs::{GGRSError, GGRSEvent, GGRSInterface, GameInput, GameState, SessionState};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-use sdl2::EventPump;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::hash::Hash;
@@ -141,28 +137,6 @@ impl BoxGameState {
     }
 }
 
-fn local_input(event_pump: &EventPump) -> Vec<u8> {
-    // Create a set of pressed Keys.
-    let keys: Vec<Keycode> = event_pump
-        .keyboard_state()
-        .pressed_scancodes()
-        .filter_map(Keycode::from_scancode)
-        .collect();
-
-    let mut input: u8 = 0;
-
-    for key in keys {
-        match key {
-            Keycode::W => input |= INPUT_UP,
-            Keycode::S => input |= INPUT_DOWN,
-            Keycode::A => input |= INPUT_LEFT,
-            Keycode::D => input |= INPUT_RIGHT,
-            _ => (),
-        }
-    }
-    bincode::serialize(&input).unwrap()
-}
-
 fn render_frame(
     canvas: &mut Canvas<Window>,
     game: &BoxGame,
@@ -188,28 +162,14 @@ fn render_frame(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments very clumsily
     let args: Vec<String> = env::args().collect();
-    assert_eq!(args.len(), 4);
+    assert_eq!(args.len(), 3);
 
     let port: u16 = args[1].parse()?;
-    let local_handle: PlayerHandle = args[2].parse()?;
-    let remote_handle: PlayerHandle = 1 - local_handle;
-    let remote_addr: SocketAddr = args[3].parse()?;
+    let host_addr: SocketAddr = args[2].parse()?;
 
-    // create a GGRS session with two players
-    let mut sess = ggrs::start_p2p_session(NUM_PLAYERS as u32, INPUT_SIZE, port)?;
-
-    // add players
-    sess.add_player(PlayerType::Local, local_handle)?;
-    sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
-
-    // add a spectator
-    if port == 7000 {
-        let spec_addr: SocketAddr = "127.0.0.1:7002".parse()?;
-        sess.add_player(PlayerType::Spectator(spec_addr), 2)?;
-    }
-
-    // set input delay for the local player - CURRENTLY CRASHES
-    sess.set_frame_delay(2, local_handle)?;
+    // create a GGRS session for a spectator
+    let mut sess =
+        ggrs::start_p2p_spectator_session(NUM_PLAYERS as u32, INPUT_SIZE, port, host_addr)?;
 
     // start the GGRS session
     sess.start_session()?;
@@ -256,7 +216,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // let ggrs do some internal work
-        sess.idle(&mut game);
+        sess.idle();
 
         // only process and render if it is time
         if Instant::now() < next {
@@ -271,18 +231,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 frames_to_skip -= 1;
                 println!("Skipping a frame.");
             } else {
-                // add local input and advance frame, if successful
-                let local_input = local_input(&event_pump);
-                match sess.add_local_input(local_handle, &local_input) {
-                    Ok(()) => {
-                        sess.advance_frame(&mut game)?;
-                    }
+                match sess.advance_frame(&mut game) {
                     Err(GGRSError::PredictionThreshold) => {
                         println!("PredictionThreshold reached, skipping a frame.");
                     }
                     Err(e) => {
                         return Err(Box::new(e));
                     }
+                    Ok(_) => (),
                 };
             }
         }
