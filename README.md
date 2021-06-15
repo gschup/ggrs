@@ -1,4 +1,4 @@
-[![crates.io](![Crates.io](https://img.shields.io/crates/v/ggrs?style=for-the-badge)](https://crates.io/crates/backroll)
+![Crates.io](https://img.shields.io/crates/v/ggrs?style=for-the-badge)](https://crates.io/crates/backroll)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/gschup/ggrs/Rust?style=for-the-badge) 
 ![GitHub top language](https://img.shields.io/github/languages/top/gschup/ggrs?style=for-the-badge) 
 ![GitHub](https://img.shields.io/github/license/gschup/ggrs?style=for-the-badge)
