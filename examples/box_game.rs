@@ -208,7 +208,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sess.add_player(PlayerType::Spectator(spec_addr), 2)?;
     }
 
-    // set input delay for the local player - CURRENTLY CRASHES
+    // set input delay for the local player
     sess.set_frame_delay(2, local_handle)?;
 
     // start the GGRS session
