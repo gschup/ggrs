@@ -178,9 +178,9 @@ impl SyncLayer {
                 self.input_queues[handle].first_incorrect_frame(),
             );
         }
-        if first_incorrect != NULL_FRAME && first_incorrect < frame {
-            println!("ITS GONNA CRASH, {}, {}", first_incorrect, frame);
-        }
+
+        // if we set the last confirmed frame beyond the first incorrect frame, we discard inputs that we need later for ajusting the gamestate.
+        assert!(first_incorrect == NULL_FRAME || first_incorrect >= frame);
 
         self.last_confirmed_frame = frame;
         if self.last_confirmed_frame > 0 {

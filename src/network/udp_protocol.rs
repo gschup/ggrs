@@ -365,8 +365,6 @@ impl UdpProtocol {
 
         self.pending_output.push_back(input);
         if self.pending_output.len() > PENDING_OUTPUT_SIZE {
-            // TODO: do something when the output queue overflows
-
             if self.handle >= 1000 {
                 // if this is a spectator that didn't ack our input, we just disconnect them
                 self.event_queue.push_back(Event::Disconnected);

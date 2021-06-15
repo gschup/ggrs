@@ -111,12 +111,7 @@ impl InputQueue {
         // Remember the last requested frame number for later. We'll need this in add_input() to drop out of prediction mode.
         self.last_requested_frame = requested_frame;
 
-        if requested_frame < self.inputs[self.tail].frame {
-            println!(
-                "REQUESTED {}, BUT LAST IS {}",
-                requested_frame, self.inputs[self.tail].frame
-            )
-        }
+        // assert that we request a frame that still exists
         assert!(requested_frame >= self.inputs[self.tail].frame);
 
         // We currently don't have a prediction frame
