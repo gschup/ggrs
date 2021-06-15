@@ -188,7 +188,7 @@ fn render_frame(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments very clumsily
     let args: Vec<String> = env::args().collect();
-    assert_eq!(args.len(), 4);
+    assert!(args.len() >= 4);
 
     let port: u16 = args[1].parse()?;
     let local_handle: PlayerHandle = args[2].parse()?;
@@ -202,9 +202,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     sess.add_player(PlayerType::Local, local_handle)?;
     sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
 
-    // add a spectator
-    if port == 7000 {
-        let spec_addr: SocketAddr = "127.0.0.1:7002".parse()?;
+    // optionally, add a spectator
+    if args.len() > 4 {
+        let spec_addr: SocketAddr = args[4].parse()?;
         sess.add_player(PlayerType::Spectator(spec_addr), 2)?;
     }
 
