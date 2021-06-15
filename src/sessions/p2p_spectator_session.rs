@@ -55,7 +55,7 @@ impl P2PSpectatorSession {
             inputs: [BLANK_INPUT; SPECTATOR_BUFFER_SIZE],
             host_connect_status,
             socket,
-            host: UdpProtocol::new(0, host_addr, num_players, input_size),
+            host: UdpProtocol::new(0, host_addr, num_players, input_size * num_players as usize),
             event_queue: VecDeque::new(),
             current_frame: NULL_FRAME,
         })

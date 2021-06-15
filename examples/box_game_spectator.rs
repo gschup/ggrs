@@ -209,8 +209,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // handle GGRS events
         for event in sess.events() {
-            if let GGRSEvent::WaitRecommendation { skip_frames } = event {
-                frames_to_skip += skip_frames
+            println!("Event: {:?}", event);
+            if let GGRSEvent::Disconnected { .. } = event {
+                break 'running;
             }
             println!("Event: {:?}", event);
         }
@@ -233,7 +234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 match sess.advance_frame(&mut game) {
                     Err(GGRSError::PredictionThreshold) => {
-                        println!("PredictionThreshold reached, skipping a frame.");
+                        println!("Waiting for input from host.");
                     }
                     Err(e) => {
                         return Err(Box::new(e));
