@@ -18,7 +18,7 @@ Taken from [the official GGPO website](https://ggpo.net/):
 
 >Don't worry if that sounds like a headache.  GGPO was designed specifically to implement the rollback algorithms and low-level networking logic in a way that's easy to integrate into your existing game loop.  If you simply implement the functionality to save your game state, load it back up, and execute a frame of game state without rendering its outcome, GGPO can take care of the rest.
 
-For more information about GGPO, check out [the official website](http://ggpo.net/) or [the official github repository](https://github.com/pond3r/ggpo).
+For more information about GGPO, check out [the official website](http://ggpo.net/) or [the official github repository](https://github.com/pond3r/ggpo). A very good pseudocode explanation for general rollback networking can be found [in this Gist](https://gist.github.com/rcmagic/f8d76bca32b5609e85ab156db38387e9).
 
 ## Development Status
 GGRS is still in an early stage. Basic unit and integration tests, as well as a simple example hint towards a functional and stable library, but testing over a range of network connections has yet to be performed. To the best of my knowledge, the library no longer panics at unexpected places.
