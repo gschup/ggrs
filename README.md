@@ -9,11 +9,11 @@ GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](ht
 For now, take a look at [the documentation](https://docs.rs/ggrs/0.1.0/ggrs/) or the `examples/box_game.rs` example in order to check it out!
 
 ## Other Rollback Implementations in Rust
-Since this library was more of a hobby project, it is unclear if I will continue working on it.
+Since this library was more of a hobby project developed for rust practice and without a specific application in mind, it is unclear if I will continue working on it.
 Take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)! It is (as of the time of writing) being actively maintained.
 
 ## Development Status
-GGRS is still in an early stage. Since I developed it mostly for practice reasons and without a specific application in mind, I currently have nothing to add. Basic unit and integration tests, as well as a simple example hint towards a functional and stable library. The example works at least for two computers on different machines in the same network, but testing over a range of network connections has yet to be performed. To the best of my knowledge, the library is quite stable and I fixed all the issues I could find. If you encounter any troubles, please let me know!
+I currently have nothing to add to the library. Basic unit and integration tests, as well as a simple example hint towards a functional and stable library. The example works at least for two clients on different machines in the same network, but testing over a range of network connections has yet to be performed. To the best of my knowledge, the library is quite stable and I fixed all the issues I could find. If you encounter any troubles, please let me know!
 
 ## What is GGPO / Rollback?
 
@@ -28,4 +28,4 @@ Taken from [the official GGPO website](https://ggpo.net/):
 For more information about GGPO, check out [the official website](http://ggpo.net/) or [the official github repository](https://github.com/pond3r/ggpo). A very good pseudocode explanation for general rollback networking can be found [in this Gist](https://gist.github.com/rcmagic/f8d76bca32b5609e85ab156db38387e9).
 
 ## Licensing
-GGRS is available under The MIT License. This means GGRS is free for commercial and non-commercial use. Attribution is not required, but appreciated.
+Just like the original GGPO, GGRS is available under The MIT License. This means GGRS is free for commercial and non-commercial use. Attribution is not required, but appreciated.
