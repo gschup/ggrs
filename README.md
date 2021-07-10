@@ -9,8 +9,8 @@ GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](ht
 For now, take a look at [the documentation](https://docs.rs/ggrs/0.1.0/ggrs/) or the `examples/box_game.rs` example in order to check it out!
 
 ## Other Rollback Implementations in Rust
-Since this library was more of a hobby project developed for rust practice and without a specific application in mind, it is unclear if I will continue working on it.
-Take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)! It is (as of the time of writing) being actively maintained.
+Since this library was more of a hobby project developed for rust practice and without a specific application in mind, it is unclear at what capacity I will continue working on it.
+Depending on your needs, also take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)!
 
 ## Development Status
 I currently have nothing to add to the library. Basic unit and integration tests, as well as a simple example hint towards a functional and stable library. The example works at least for two clients on different machines in the same network, but testing over a range of network connections has yet to be performed. To the best of my knowledge, the library is quite stable and I fixed all the issues I could find. If you encounter any troubles, please let me know!
