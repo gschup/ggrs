@@ -247,9 +247,6 @@ impl SyncTestSession {
         Ok(())
     }
 
-    /// Nothing happens here in `SyncTestSession`. There are no packets to be received or sent.
-    pub fn idle(&mut self) {}
-
     pub const fn current_state(&self) -> SessionState {
         if self.running {
             SessionState::Running
