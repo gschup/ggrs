@@ -213,7 +213,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // start the main loop
     let mut next = Instant::now();
-    let mut frames_to_skip = 0;
 
     'running: loop {
         // handle window events
@@ -236,22 +235,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // do stuff only when the session is ready
         if sess.current_state() == SessionState::Running {
-            // skip frames, if recommended
-            if frames_to_skip > 0 {
-                frames_to_skip -= 1;
-                println!("Skipping a frame.");
-            } else {
-                // add local input and advance frame, if successful
-                let local_input = local_input(&event_pump);
-                match sess.add_local_input(0, &local_input) {
-                    Ok(()) => {
-                        sess.advance_frame(&mut game)?;
-                    }
-                    Err(e) => {
-                        return Err(Box::new(e));
-                    }
-                };
-            }
+            // add local input and advance frame, if successful
+            let local_input = local_input(&event_pump);
+            sess.add_local_input(0, &local_input)?;
+            sess.advance_frame(&mut game)?;
         }
 
         // render the frame
