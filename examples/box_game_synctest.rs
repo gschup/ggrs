@@ -1,6 +1,6 @@
 use adler::Adler32;
 use ggrs::NULL_FRAME;
-use ggrs::{GGRSError, GGRSInterface, GameInput, GameState, PlayerType, SessionState};
+use ggrs::{GGRSInterface, GameInput, GameState, PlayerType, SessionState};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::EventPump;
@@ -246,9 +246,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match sess.add_local_input(0, &local_input) {
                     Ok(()) => {
                         sess.advance_frame(&mut game)?;
-                    }
-                    Err(GGRSError::PredictionThreshold) => {
-                        println!("PredictionThreshold reached, skipping a frame.");
                     }
                     Err(e) => {
                         return Err(Box::new(e));
