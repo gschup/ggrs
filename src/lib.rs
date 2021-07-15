@@ -47,7 +47,7 @@ pub const MAX_INPUT_BYTES: usize = 8;
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;
 
-pub type FrameNumber = i32;
+pub type Frame = i32;
 pub type PlayerHandle = usize;
 
 /// Defines the three types of players that GGRS considers:
@@ -108,16 +108,9 @@ pub enum GGRSEvent {
 
 #[derive(Debug)]
 pub enum GGRSRequest {
-    SaveGameState {
-        cell: GameStateCell,
-        frame: FrameNumber,
-    },
-    LoadGameState {
-        cell: GameStateCell,
-    },
-    AdvanceFrame {
-        inputs: Vec<GameInput>,
-    },
+    SaveGameState { cell: GameStateCell, frame: Frame },
+    LoadGameState { cell: GameStateCell },
+    AdvanceFrame { inputs: Vec<GameInput> },
 }
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.

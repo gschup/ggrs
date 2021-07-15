@@ -8,8 +8,7 @@ use crate::{
     network::{
         udp_msg::ConnectionStatus, udp_protocol::UdpProtocol, udp_socket::NonBlockingSocket,
     },
-    FrameNumber, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, SessionState,
-    NULL_FRAME,
+    Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, SessionState, NULL_FRAME,
 };
 
 use super::p2p_session::Event;
@@ -30,7 +29,7 @@ pub struct P2PSpectatorSession {
     socket: NonBlockingSocket,
     host: UdpProtocol,
     event_queue: VecDeque<GGRSEvent>,
-    current_frame: FrameNumber,
+    current_frame: Frame,
 }
 
 impl P2PSpectatorSession {

@@ -3,7 +3,7 @@ use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-use ggrs::{FrameNumber, GGRSRequest, GameInput, GameState, GameStateCell};
+use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell};
 
 pub const INPUT_SIZE: usize = std::mem::size_of::<u32>();
 
@@ -30,7 +30,7 @@ impl GameStub {
         }
     }
 
-    fn save_game_state(&mut self, cell: GameStateCell, frame: FrameNumber) {
+    fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
         assert_eq!(self.gs.frame, frame);
         let buffer = bincode::serialize(&self.gs).unwrap();
         let mut adler = Adler32::new();

@@ -1,4 +1,4 @@
-use crate::{FrameNumber, MAX_INPUT_BYTES, MAX_PLAYERS, NULL_FRAME};
+use crate::{Frame, MAX_INPUT_BYTES, MAX_PLAYERS, NULL_FRAME};
 
 /// The input buffer used to save the bytes from a player input. It is bigger than necessary by a factor `MAX_PLAYERS` to allow the same type of buffers to be used to transmit
 /// player inputs for all players to the spectators. This definitely isn't optimal and might be changed later.
@@ -15,7 +15,7 @@ pub const BLANK_INPUT: GameInput = GameInput {
 #[derive(Debug, Clone)]
 pub struct GameState {
     /// The frame to which this info belongs to.
-    pub frame: FrameNumber,
+    pub frame: Frame,
     /// The serialized gamestate in bytes.
     pub buffer: Option<Vec<u8>>,
     /// The checksum of the gamestate.
@@ -43,7 +43,7 @@ impl GameState {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct GameInput {
     /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
-    pub frame: FrameNumber,
+    pub frame: Frame,
     // The input size
     pub size: usize,
     /// An input buffer that will hold input data
@@ -61,7 +61,7 @@ impl Default for GameInput {
 }
 
 impl GameInput {
-    pub(crate) fn new(frame: FrameNumber, size: usize) -> Self {
+    pub(crate) fn new(frame: Frame, size: usize) -> Self {
         assert!(size > 0);
         Self {
             frame,

@@ -1,5 +1,5 @@
 use crate::frame_info::GameInput;
-use crate::{FrameNumber, PlayerHandle, NULL_FRAME};
+use crate::{Frame, PlayerHandle, NULL_FRAME};
 use std::cmp;
 
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
@@ -20,11 +20,11 @@ pub(crate) struct InputQueue {
     first_frame: bool,
 
     /// The last frame added by the user
-    last_added_frame: FrameNumber,
+    last_added_frame: Frame,
     /// The first frame in the queue that is known to be an incorrect prediction
-    first_incorrect_frame: FrameNumber,
+    first_incorrect_frame: Frame,
     /// The last frame that has been requested. We make sure to never delete anything after this, as we would throw away important data.
-    last_requested_frame: FrameNumber,
+    last_requested_frame: Frame,
 
     /// The delay in frames by which inputs are sent back to the user. This can be set during initialization.
     frame_delay: u32,
@@ -53,7 +53,7 @@ impl InputQueue {
         }
     }
 
-    pub(crate) const fn first_incorrect_frame(&self) -> FrameNumber {
+    pub(crate) const fn first_incorrect_frame(&self) -> Frame {
         self.first_incorrect_frame
     }
 
@@ -61,7 +61,7 @@ impl InputQueue {
         self.frame_delay = delay;
     }
 
-    pub(crate) fn reset_prediction(&mut self, frame: FrameNumber) {
+    pub(crate) fn reset_prediction(&mut self, frame: Frame) {
         assert!(self.first_incorrect_frame == NULL_FRAME || frame <= self.first_incorrect_frame);
 
         self.prediction.frame = NULL_FRAME;
@@ -83,7 +83,7 @@ impl InputQueue {
     }
 
     /// Discards confirmed frames up to given `frame` from the queue. All confirmed frames are guaranteed to be synchronized between players, so there is no need to save the inputs anymore.
-    pub(crate) fn discard_confirmed_frames(&mut self, mut frame: FrameNumber) {
+    pub(crate) fn discard_confirmed_frames(&mut self, mut frame: Frame) {
         // we only drop frames until the last frame that was requested, otherwise we might delete data still needed
         if self.last_requested_frame != NULL_FRAME {
             frame = cmp::min(frame, self.last_requested_frame);
@@ -103,7 +103,7 @@ impl InputQueue {
     }
 
     /// Returns the game input of a single player for a given frame, if that input does not exist, we return a prediction instead.
-    pub(crate) fn input(&mut self, requested_frame: FrameNumber) -> GameInput {
+    pub(crate) fn input(&mut self, requested_frame: Frame) -> GameInput {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
         assert!(self.first_incorrect_frame == NULL_FRAME);
@@ -150,7 +150,7 @@ impl InputQueue {
     }
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
-    pub(crate) fn add_input(&mut self, input: GameInput) -> FrameNumber {
+    pub(crate) fn add_input(&mut self, input: GameInput) -> Frame {
         // Verify that inputs are passed in sequentially by the user, regardless of frame delay.
         assert!(
             self.last_added_frame == NULL_FRAME
@@ -168,7 +168,7 @@ impl InputQueue {
 
     /// Adds an input frame to the queue at the given frame number. If there are predicted inputs, we will check those and mark them as incorrect, if necessary.
     /// Returns the frame number
-    fn add_input_by_frame(&mut self, input: GameInput, frame_number: FrameNumber) {
+    fn add_input_by_frame(&mut self, input: GameInput, frame_number: Frame) {
         let previous_position: usize;
         match self.head {
             0 => previous_position = INPUT_QUEUE_LENGTH - 1,
@@ -210,7 +210,7 @@ impl InputQueue {
     }
 
     /// Advances the queue head to the next frame and either drops inputs or fills the queue if the input delay has changed since the last frame.
-    fn advance_queue_head(&mut self, mut input_frame: FrameNumber) -> FrameNumber {
+    fn advance_queue_head(&mut self, mut input_frame: Frame) -> Frame {
         let mut previous_position: usize;
         match self.head {
             0 => previous_position = INPUT_QUEUE_LENGTH - 1,

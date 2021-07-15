@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{FrameNumber, NULL_FRAME};
+use crate::{Frame, NULL_FRAME};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct ConnectionStatus {
     pub disconnected: bool,
-    pub last_frame: FrameNumber,
+    pub last_frame: Frame,
 }
 
 impl Default for ConnectionStatus {
@@ -31,8 +31,8 @@ pub(crate) struct SyncReply {
 pub(crate) struct Input {
     pub peer_connect_status: Vec<ConnectionStatus>,
     pub disconnect_requested: bool,
-    pub start_frame: FrameNumber,
-    pub ack_frame: FrameNumber,
+    pub start_frame: Frame,
+    pub ack_frame: Frame,
     pub bytes: Vec<u8>,
 }
 
@@ -50,7 +50,7 @@ impl Default for Input {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct InputAck {
-    pub ack_frame: FrameNumber,
+    pub ack_frame: Frame,
 }
 
 impl Default for InputAck {

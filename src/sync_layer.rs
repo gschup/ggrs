@@ -5,13 +5,13 @@ use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState, BLANK_INPUT};
 use crate::input_queue::InputQueue;
 use crate::network::udp_msg::ConnectionStatus;
-use crate::{FrameNumber, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
+use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
 
 #[derive(Debug)]
 pub struct GameStateCell(Rc<RefCell<GameState>>);
 
 impl GameStateCell {
-    pub fn reset(&self, frame: FrameNumber) {
+    pub fn reset(&self, frame: Frame) {
         *self.0.borrow_mut() = GameState {
             frame,
             ..Default::default()
@@ -67,7 +67,7 @@ impl Default for SavedStates {
 }
 
 impl SavedStates {
-    fn push(&mut self, frame: FrameNumber) -> GameStateCell {
+    fn push(&mut self, frame: Frame) -> GameStateCell {
         let saved_frame = self.states[self.head].clone();
         saved_frame.reset(frame);
         self.head = (self.head + 1) % self.states.len();
@@ -75,7 +75,7 @@ impl SavedStates {
         saved_frame
     }
 
-    fn find_index(&self, frame: FrameNumber) -> Option<usize> {
+    fn find_index(&self, frame: Frame) -> Option<usize> {
         self.states
             .iter()
             .enumerate()
@@ -83,7 +83,7 @@ impl SavedStates {
             .map(|(i, _)| i)
     }
 
-    fn reset_to(&mut self, frame: FrameNumber) -> GameStateCell {
+    fn reset_to(&mut self, frame: Frame) -> GameStateCell {
         self.head = self
             .find_index(frame)
             .unwrap_or_else(|| panic!("Could not find saved frame index for frame: {}", frame));
@@ -106,8 +106,8 @@ pub(crate) struct SyncLayer {
     input_size: usize,
     saved_states: SavedStates,
     rolling_back: bool,
-    last_confirmed_frame: FrameNumber,
-    current_frame: FrameNumber,
+    last_confirmed_frame: Frame,
+    current_frame: Frame,
     input_queues: Vec<InputQueue>,
 }
 
@@ -133,7 +133,7 @@ impl SyncLayer {
         }
     }
 
-    pub(crate) const fn current_frame(&self) -> FrameNumber {
+    pub(crate) const fn current_frame(&self) -> Frame {
         self.current_frame
     }
 
@@ -154,14 +154,14 @@ impl SyncLayer {
         self.input_queues[player_handle as usize].set_frame_delay(delay);
     }
 
-    pub(crate) fn reset_prediction(&mut self, frame: FrameNumber) {
+    pub(crate) fn reset_prediction(&mut self, frame: Frame) {
         for i in 0..self.num_players {
             self.input_queues[i as usize].reset_prediction(frame);
         }
     }
 
     /// Loads the gamestate indicated by `frame_to_load`. After execution, `self.saved_states.head` is set one position after the loaded state.
-    pub(crate) fn load_frame(&mut self, frame_to_load: FrameNumber) -> GGRSRequest {
+    pub(crate) fn load_frame(&mut self, frame_to_load: Frame) -> GGRSRequest {
         // The state should not be the current state or the state should not be in the future or too far away in the past
         assert!(
             frame_to_load != NULL_FRAME
@@ -186,7 +186,7 @@ impl SyncLayer {
         &mut self,
         player_handle: PlayerHandle,
         input: GameInput,
-    ) -> Result<FrameNumber, GGRSError> {
+    ) -> Result<Frame, GGRSError> {
         let frames_ahead = self.current_frame - self.last_confirmed_frame;
         if frames_ahead >= MAX_PREDICTION_FRAMES as i32 {
             return Err(GGRSError::PredictionThreshold);
@@ -222,7 +222,7 @@ impl SyncLayer {
     /// Returns confirmed inputs for all players for the current frame of the sync layer.
     pub(crate) fn confirmed_inputs(
         &self,
-        frame: FrameNumber,
+        frame: Frame,
         connect_status: &[ConnectionStatus],
     ) -> Vec<GameInput> {
         let mut inputs = Vec::new();
@@ -237,9 +237,9 @@ impl SyncLayer {
     }
 
     /// Sets the last confirmed frame to a given frame. By raising the last confirmed frame, we can discard all previous frames, as they are no longer necessary.
-    pub(crate) fn set_last_confirmed_frame(&mut self, frame: FrameNumber) {
+    pub(crate) fn set_last_confirmed_frame(&mut self, frame: Frame) {
         // dont set the last confirmed frame after the first incorrect frame before a rollback has happened
-        let mut first_incorrect: FrameNumber = NULL_FRAME;
+        let mut first_incorrect: Frame = NULL_FRAME;
         for handle in 0..self.num_players as usize {
             first_incorrect = std::cmp::max(
                 first_incorrect,
@@ -258,8 +258,8 @@ impl SyncLayer {
         }
     }
 
-    pub(crate) fn check_simulation_consistency(&self) -> Option<FrameNumber> {
-        let mut first_incorrect: FrameNumber = NULL_FRAME;
+    pub(crate) fn check_simulation_consistency(&self) -> Option<Frame> {
+        let mut first_incorrect: Frame = NULL_FRAME;
         for handle in 0..self.num_players as usize {
             first_incorrect = std::cmp::max(
                 first_incorrect,

@@ -1,5 +1,5 @@
 use adler::Adler32;
-use ggrs::{FrameNumber, GGRSRequest, GameStateCell, NULL_FRAME};
+use ggrs::{Frame, GGRSRequest, GameStateCell, NULL_FRAME};
 use ggrs::{GGRSError, GGRSEvent, GameInput, GameState, PlayerHandle, PlayerType, SessionState};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -53,7 +53,7 @@ impl BoxGame {
         }
     }
 
-    fn save_game_state(&mut self, cell: GameStateCell, frame: FrameNumber) {
+    fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let mut adler = Adler32::new();

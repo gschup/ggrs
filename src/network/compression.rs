@@ -1,4 +1,4 @@
-use crate::{FrameNumber, GameInput, NULL_FRAME};
+use crate::{Frame, GameInput, NULL_FRAME};
 
 pub(crate) fn encode<'a>(
     reference: &GameInput,
@@ -32,7 +32,7 @@ pub(crate) fn delta_encode<'a>(
 
 pub(crate) fn decode(
     reference: &GameInput,
-    start_frame: FrameNumber,
+    start_frame: Frame,
     data: impl AsRef<[u8]>,
 ) -> Result<Vec<GameInput>, Box<dyn std::error::Error>> {
     // decode the RLE encoding first
@@ -44,7 +44,7 @@ pub(crate) fn decode(
 
 pub(crate) fn delta_decode(
     reference: &GameInput,
-    start_frame: FrameNumber,
+    start_frame: Frame,
     data: Vec<u8>,
 ) -> Vec<GameInput> {
     assert!(data.len() % reference.size == 0);

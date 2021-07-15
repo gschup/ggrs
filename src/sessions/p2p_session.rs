@@ -5,9 +5,7 @@ use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::UdpProtocol;
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
-use crate::{
-    FrameNumber, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
-};
+use crate::{Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
 
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
@@ -16,7 +14,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
-const RECOMMENDATION_INTERVAL: FrameNumber = 10;
+const RECOMMENDATION_INTERVAL: Frame = 10;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
 pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
@@ -106,7 +104,7 @@ pub struct P2PSession {
     /// The time until the client will get a notification that a remote player is about to be disconnected.
     disconnect_notify_start: Duration,
     /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
-    next_recommended_sleep: FrameNumber,
+    next_recommended_sleep: Frame,
 
     /// Internal State of the Session.
     state: SessionState,
@@ -118,7 +116,7 @@ pub struct P2PSession {
     /// This struct contains information about remote players, like connection status and the frame of last received input.
     local_connect_status: Vec<ConnectionStatus>,
     /// notes which inputs have already been sent to the spectators
-    next_spectator_frame: FrameNumber,
+    next_spectator_frame: Frame,
 
     ///Contains all events to be forwarded to the user.
     event_queue: VecDeque<GGRSEvent>,
@@ -502,11 +500,7 @@ impl P2PSession {
         Ok(spectator_handle)
     }
 
-    fn disconnect_player_by_handle(
-        &mut self,
-        player_handle: PlayerHandle,
-        last_frame: FrameNumber,
-    ) {
+    fn disconnect_player_by_handle(&mut self, player_handle: PlayerHandle, last_frame: Frame) {
         // disconnect the remote player
         match self
             .players
@@ -610,7 +604,7 @@ impl P2PSession {
         }
     }
 
-    fn adjust_gamestate(&mut self, first_incorrect: FrameNumber, requests: &mut Vec<GGRSRequest>) {
+    fn adjust_gamestate(&mut self, first_incorrect: Frame, requests: &mut Vec<GGRSRequest>) {
         let current_frame = self.sync_layer.current_frame();
         let count = current_frame - first_incorrect;
 
@@ -632,7 +626,7 @@ impl P2PSession {
     }
 
     /// For each spectator, send them all confirmed input up until the minimum confirmed frame
-    fn send_confirmed_inputs_to_spectators(&mut self, min_confirmed_frame: FrameNumber) {
+    fn send_confirmed_inputs_to_spectators(&mut self, min_confirmed_frame: Frame) {
         if self.num_spectators() == 0 {
             return;
         }
@@ -673,7 +667,7 @@ impl P2PSession {
 
     /// For each player, find out if they are still connected and what their minimum confirmed frame is.
     /// Disconnects players if the remote clients have disconnected them already.
-    fn min_confirmed_frame(&mut self) -> FrameNumber {
+    fn min_confirmed_frame(&mut self) -> Frame {
         let mut total_min_confirmed = i32::MAX;
 
         for handle in 0..self.num_players as usize {

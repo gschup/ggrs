@@ -9,7 +9,7 @@ use crate::sessions::p2p_session::{
     Event, DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT,
 };
 use crate::time_sync::TimeSync;
-use crate::{FrameNumber, PlayerHandle, NULL_FRAME};
+use crate::{Frame, PlayerHandle, NULL_FRAME};
 
 use rand::prelude::ThreadRng;
 use rand::Rng;
@@ -181,7 +181,7 @@ impl UdpProtocol {
         self.handle
     }
 
-    pub(crate) fn update_local_frame_advantage(&mut self, local_frame: FrameNumber) {
+    pub(crate) fn update_local_frame_advantage(&mut self, local_frame: Frame) {
         if local_frame == NULL_FRAME {
             return;
         }
@@ -319,7 +319,7 @@ impl UdpProtocol {
         self.event_queue.drain(..)
     }
 
-    fn pop_pending_output(&mut self, ack_frame: FrameNumber) {
+    fn pop_pending_output(&mut self, ack_frame: Frame) {
         while let Some(input) = self.pending_output.front() {
             if input.frame <= ack_frame {
                 self.last_acked_input = *input;
