@@ -221,7 +221,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
-        .window("Box Game", WINDOW_WIDTH, WINDOW_HEIGHT)
+        .window("Box Game P2P", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .opengl()
         .build()
@@ -256,7 +256,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // let ggrs do some internal work
-        sess.idle(&mut game);
+        sess.poll_remote_clients();
 
         // only process and render if it is time
         if Instant::now() < next {
@@ -273,10 +273,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 // add local input and advance frame, if successful
                 let local_input = local_input(&event_pump);
-                match sess.add_local_input(local_handle, &local_input) {
-                    Ok(()) => {
-                        sess.advance_frame(&mut game)?;
-                    }
+                match sess.advance_frame(local_handle, &local_input, &mut game) {
+                    Ok(()) => (),
                     Err(GGRSError::PredictionThreshold) => {
                         println!("PredictionThreshold reached, skipping a frame.");
                     }

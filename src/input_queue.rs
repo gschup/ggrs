@@ -151,7 +151,7 @@ impl InputQueue {
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
     pub(crate) fn add_input(&mut self, input: GameInput) -> FrameNumber {
-        // These next two lines simply verify that inputs are passed in sequentially by the user, regardless of frame delay.
+        // Verify that inputs are passed in sequentially by the user, regardless of frame delay.
         assert!(
             self.last_added_frame == NULL_FRAME
                 || input.frame + self.frame_delay as i32 == self.last_added_frame + 1

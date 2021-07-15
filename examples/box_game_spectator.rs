@@ -181,7 +181,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
-        .window("Box Game", WINDOW_WIDTH, WINDOW_HEIGHT)
+        .window("Box Game P2P Spectator", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .opengl()
         .build()
@@ -192,7 +192,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // start the main loop
     let mut next = Instant::now();
-    let mut frames_to_skip = 0;
 
     'running: loop {
         // handle window events
@@ -213,11 +212,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let GGRSEvent::Disconnected { .. } = event {
                 break 'running;
             }
-            println!("Event: {:?}", event);
         }
 
         // let ggrs do some internal work
-        sess.idle();
+        sess.poll_remote_clients();
 
         // only process and render if it is time
         if Instant::now() < next {
@@ -227,21 +225,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // do stuff only when the session is ready
         if sess.current_state() == SessionState::Running {
-            // skip frames, if recommended
-            if frames_to_skip > 0 {
-                frames_to_skip -= 1;
-                println!("Skipping a frame.");
-            } else {
-                match sess.advance_frame(&mut game) {
-                    Err(GGRSError::PredictionThreshold) => {
-                        println!("Waiting for input from host.");
-                    }
-                    Err(e) => {
-                        return Err(Box::new(e));
-                    }
-                    Ok(_) => (),
-                };
-            }
+            match sess.advance_frame(&mut game) {
+                Err(GGRSError::PredictionThreshold) => {
+                    println!("Waiting for input from host.");
+                }
+                Err(e) => {
+                    return Err(Box::new(e));
+                }
+                Ok(_) => (),
+            };
         }
 
         // render the frame

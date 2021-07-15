@@ -235,17 +235,20 @@ impl P2PSession {
         }
     }
 
-    /// Used to notify GGRS of inputs that should be transmitted to remote players. `add_local_input()` must be called once every frame for all player of type `PlayerType::Local`
-    /// before calling `advance_frame()`.
+    /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
     /// # Errors
     /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
     /// - Returns `InvalidRequest` if the provided player handle refers to a remote player.
     /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
-    pub fn add_local_input(
+    pub fn advance_frame(
         &mut self,
         player_handle: PlayerHandle,
         input: &[u8],
+        interface: &mut impl GGRSInterface,
     ) -> Result<(), GGRSError> {
+        // receive info from remote players, trigger events and send messages
+        self.poll_endpoints();
+
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
@@ -260,6 +263,32 @@ impl P2PSession {
         // session is not running and synchronzied
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
+        }
+
+        // check game consistency and rollback, if necessary
+        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
+            self.adjust_gamestate(first_incorrect, interface);
+        }
+
+        // find the total minimum confirmed frame and propagate disconnects
+        let min_confirmed_frame = self.min_confirmed_frame();
+
+        // send confirmed inputs to remotes
+        self.send_confirmed_inputs_to_spectators(min_confirmed_frame);
+
+        // set the last confirmed frame and discard all saved inputs before that frame
+        self.sync_layer
+            .set_last_confirmed_frame(min_confirmed_frame);
+
+        // check time sync between clients and wait, if appropriate
+        if self.sync_layer.current_frame() > self.next_recommended_sleep {
+            let skip_frames = self.max_delay_recommendation(true);
+            if skip_frames > 0 {
+                self.next_recommended_sleep =
+                    self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
+                self.event_queue
+                    .push_back(GGRSEvent::WaitRecommendation { skip_frames });
+            }
         }
 
         //create an input struct for current frame
@@ -285,19 +314,6 @@ impl P2PSession {
                 endpoint.send_input(game_input, &self.local_connect_status);
                 endpoint.send_all_messages(&self.socket);
             }
-        }
-        Ok(())
-    }
-
-    /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
-    /// # Errors
-    /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
-    pub fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
-        // receive info from remote players, trigger events and send messages
-        self.poll_endpoints(interface);
-
-        if self.state != SessionState::Running {
-            return Err(GGRSError::NotSynchronized);
         }
 
         // save the current frame in the syncronization layer
@@ -394,8 +410,8 @@ impl P2PSession {
     }
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
-    pub fn idle(&mut self, interface: &mut impl GGRSInterface) {
-        self.poll_endpoints(interface);
+    pub fn poll_remote_clients(&mut self) {
+        self.poll_endpoints();
     }
 
     /// Returns the current `SessionState` of a session.
@@ -539,7 +555,7 @@ impl P2PSession {
         self.state = SessionState::Running;
     }
 
-    fn poll_endpoints(&mut self, interface: &mut impl GGRSInterface) {
+    fn poll_endpoints(&mut self) {
         // Get all udp packets and distribute them to associated endpoints.
         // The endpoints will handle their packets, which will trigger both events and UPD replies.
         for (from, msg) in &self.socket.receive_all_messages() {
@@ -582,32 +598,6 @@ impl P2PSession {
         // handle all events locally
         for (event, handle) in events.drain(..) {
             self.handle_event(event, handle);
-        }
-
-        // check game consistency and rollback, if necessary
-        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
-            self.adjust_gamestate(first_incorrect, interface);
-        }
-
-        // find the total minimum confirmed frame and propagate disconnects
-        let min_confirmed_frame = self.min_confirmed_frame();
-
-        // send confirmed inputs to remotes
-        self.send_confirmed_inputs_to_spectators(min_confirmed_frame);
-
-        // set the last confirmed frame and discard all saved inputs before that frame
-        self.sync_layer
-            .set_last_confirmed_frame(min_confirmed_frame);
-
-        // check time sync and wait, if appropriate
-        if self.sync_layer.current_frame() > self.next_recommended_sleep {
-            let skip_frames = self.max_delay_recommendation(true);
-            if skip_frames > 0 {
-                self.next_recommended_sleep =
-                    self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
-                self.event_queue
-                    .push_back(GGRSEvent::WaitRecommendation { skip_frames });
-            }
         }
 
         // send all queued UDP packets

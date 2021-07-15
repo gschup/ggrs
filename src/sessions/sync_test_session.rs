@@ -90,15 +90,17 @@ impl SyncTestSession {
         Ok(())
     }
 
-    /// Used to notify GGRS of inputs from local players. `add_local_input()` must be called once every frame for all players of type `PlayerType::Local`
-    /// before calling `advance_frame()`.
+    /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
+    /// resimulate and compare checksums with the original states.
+    ///
     /// # Errors
     /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
-    /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
-    pub fn add_local_input(
+    /// - Returns `MismatchedChecksumError`, if checksums don't match after resimulation.
+    pub fn advance_frame(
         &mut self,
         player_handle: PlayerHandle,
         input: &[u8],
+        interface: &mut impl GGRSInterface,
     ) -> Result<(), GGRSError> {
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
@@ -108,6 +110,7 @@ impl SyncTestSession {
         if !self.running {
             return Err(GGRSError::NotSynchronized);
         }
+
         // copy the local input bits into the current input
         self.current_input.copy_input(input);
         // update the current input to the right frame
@@ -116,21 +119,6 @@ impl SyncTestSession {
         // send the input into the sync layer
         self.sync_layer
             .add_local_input(player_handle, self.current_input)?;
-        Ok(())
-    }
-
-    /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
-    /// resimulate and compare checksums with the original states.
-    ///
-    /// # Errors
-    /// If checksums don't match, this will return a `MismatchedChecksumError`.
-    ///
-    /// # Panics
-    /// Will panic if there
-    pub fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
-        if !self.running {
-            return Err(GGRSError::NotSynchronized);
-        }
 
         // save the current frame in the syncronization layer
         self.sync_layer

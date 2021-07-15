@@ -138,7 +138,7 @@ impl P2PSpectatorSession {
     }
 
     /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
-    pub fn idle(&mut self) {
+    pub fn poll_remote_clients(&mut self) {
         self.poll_endpoints();
     }
 

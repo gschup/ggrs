@@ -202,7 +202,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
-        .window("Box Game", WINDOW_WIDTH, WINDOW_HEIGHT)
+        .window("Box Game Synctest", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .opengl()
         .build()
@@ -237,8 +237,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if sess.current_state() == SessionState::Running {
             // add local input and advance frame, if successful
             let local_input = local_input(&event_pump);
-            sess.add_local_input(0, &local_input)?;
-            sess.advance_frame(&mut game)?;
+            sess.advance_frame(0, &local_input, &mut game)?;
         }
 
         // render the frame
