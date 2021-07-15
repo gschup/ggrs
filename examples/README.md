@@ -13,13 +13,12 @@ depending on your machine, you might need to install SDL2 yourself first.
 An emergent side effect of my shoddy window handling: You can simulate network interruptions by 
 dragging and holding the window in order to stop it from processing events.
 
-### Launching BoxGame
+### Launching BoxGame P2P and Spectator
 The example is properly launched by command-line arguments 
 (with the spectator address in brackets being optional):
 ```
 cargo run --example box_game -- local_port local_player_handle remote_adress [spectator_address]
 ```
-
 
 To run two instances of the game and a spectator on your local machine, 
 run these commands in separate terminals:
