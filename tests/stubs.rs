@@ -3,7 +3,7 @@ use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-use ggrs::{GGRSInterface, GameInput, GameState};
+use ggrs::{FrameNumber, GGRSRequest, GameInput, GameState, GameStateCell};
 
 pub const INPUT_SIZE: usize = std::mem::size_of::<u32>();
 
@@ -17,6 +17,40 @@ impl GameStub {
         GameStub {
             gs: GameStateStub { frame: 0, state: 0 },
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
+        for request in requests {
+            match request {
+                GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
+                GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+            }
+        }
+    }
+
+    fn save_game_state(&mut self, cell: GameStateCell, frame: FrameNumber) {
+        assert_eq!(self.gs.frame, frame);
+        let buffer = bincode::serialize(&self.gs).unwrap();
+        let mut adler = Adler32::new();
+        self.gs.hash(&mut adler);
+        let checksum = adler.checksum();
+
+        cell.save(GameState {
+            frame: self.gs.frame,
+            buffer: Some(buffer),
+            checksum: Some(checksum),
+        });
+    }
+
+    fn load_game_state(&mut self, cell: GameStateCell) {
+        let game_state = cell.load();
+        self.gs = bincode::deserialize(&game_state.buffer.unwrap()).unwrap();
+    }
+
+    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
+        self.gs.advance_frame(inputs);
     }
 }
 
@@ -37,27 +71,5 @@ impl GameStateStub {
             self.state -= 1;
         }
         self.frame += 1;
-    }
-}
-
-impl GGRSInterface for GameStub {
-    fn save_game_state(&self) -> GameState {
-        let buffer = bincode::serialize(&self.gs).unwrap();
-        let mut adler = Adler32::new();
-        self.gs.hash(&mut adler);
-        let checksum = adler.checksum();
-        GameState {
-            frame: self.gs.frame,
-            buffer,
-            checksum: Some(checksum),
-        }
-    }
-
-    fn load_game_state(&mut self, state: &GameState) {
-        self.gs = bincode::deserialize(&state.buffer).unwrap();
-    }
-
-    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
-        self.gs.advance_frame(inputs);
     }
 }

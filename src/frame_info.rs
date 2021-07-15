@@ -4,12 +4,6 @@ use crate::{FrameNumber, MAX_INPUT_BYTES, MAX_PLAYERS, NULL_FRAME};
 /// player inputs for all players to the spectators. This definitely isn't optimal and might be changed later.
 pub type InputBuffer = [u8; MAX_INPUT_BYTES * MAX_PLAYERS as usize];
 
-pub(crate) const BLANK_STATE: GameState = GameState {
-    frame: NULL_FRAME,
-    buffer: Vec::new(),
-    checksum: None,
-};
-
 pub const BLANK_INPUT: GameInput = GameInput {
     frame: NULL_FRAME,
     buffer: [0; MAX_INPUT_BYTES * MAX_PLAYERS as usize],
@@ -23,7 +17,7 @@ pub struct GameState {
     /// The frame to which this info belongs to.
     pub frame: FrameNumber,
     /// The serialized gamestate in bytes.
-    pub buffer: Vec<u8>,
+    pub buffer: Option<Vec<u8>>,
     /// The checksum of the gamestate.
     pub checksum: Option<u32>,
 }
@@ -32,7 +26,7 @@ impl Default for GameState {
     fn default() -> Self {
         Self {
             frame: NULL_FRAME,
-            buffer: Vec::new(),
+            buffer: None,
             checksum: None,
         }
     }
@@ -46,7 +40,7 @@ impl GameState {
 
 /// Represents a serialized input for a single player in a single frame. This struct holds a `buffer` where the first `size` bytes represent the encoded input of a single player.
 /// The associated frame is denoted with `frame`. You do not need to create this struct, but the sessions will provide a `Vec<GameInput>` for you during `advance_frame()`.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct GameInput {
     /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
     pub frame: FrameNumber,
@@ -56,20 +50,23 @@ pub struct GameInput {
     pub buffer: InputBuffer,
 }
 
+impl Default for GameInput {
+    fn default() -> Self {
+        Self {
+            frame: NULL_FRAME,
+            size: 0,
+            buffer: Default::default(),
+        }
+    }
+}
+
 impl GameInput {
-    pub(crate) fn new(frame: FrameNumber, bytes: Option<&InputBuffer>, size: usize) -> Self {
+    pub(crate) fn new(frame: FrameNumber, size: usize) -> Self {
         assert!(size > 0);
-        match bytes {
-            Some(i_bytes) => Self {
-                frame,
-                size,
-                buffer: *i_bytes,
-            },
-            None => Self {
-                frame,
-                size,
-                buffer: [0; MAX_INPUT_BYTES * MAX_PLAYERS as usize],
-            },
+        Self {
+            frame,
+            size,
+            buffer: Default::default(),
         }
     }
 }
@@ -110,9 +107,9 @@ mod game_input_tests {
         let fake_inputs: u32 = 5;
         let input_size = std::mem::size_of::<u32>();
         let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
-        let mut input1 = GameInput::new(0, None, input_size);
+        let mut input1 = GameInput::new(0, input_size);
         input1.copy_input(&serialized_inputs);
-        let mut input2 = GameInput::new(5, None, input_size);
+        let mut input2 = GameInput::new(5, input_size);
         input2.copy_input(&serialized_inputs);
         assert!(input1.equal(&input2, true)); // different frames, but does not matter
     }
@@ -123,12 +120,12 @@ mod game_input_tests {
 
         let fake_inputs: u32 = 5;
         let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
-        let mut input1 = GameInput::new(0, None, input_size);
+        let mut input1 = GameInput::new(0, input_size);
         input1.copy_input(&serialized_inputs);
 
         let fake_inputs: u32 = 7;
         let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
-        let mut input2 = GameInput::new(0, None, input_size);
+        let mut input2 = GameInput::new(0, input_size);
         input2.copy_input(&serialized_inputs);
 
         assert!(!input1.equal(&input2, false)); // different bits

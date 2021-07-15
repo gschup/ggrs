@@ -1,6 +1,6 @@
 use adler::Adler32;
-use ggrs::NULL_FRAME;
-use ggrs::{GGRSError, GGRSEvent, GGRSInterface, GameInput, GameState, SessionState};
+use ggrs::{FrameNumber, GGRSRequest, GameStateCell, NULL_FRAME};
+use ggrs::{GGRSError, GGRSEvent, GameInput, GameState, SessionState};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use serde::{Deserialize, Serialize};
@@ -41,24 +41,34 @@ impl BoxGame {
             game_state: BoxGameState::new(),
         }
     }
-}
 
-impl GGRSInterface for BoxGame {
-    fn save_game_state(&self) -> GameState {
+    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
+        for request in requests {
+            match request {
+                GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
+                GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+            }
+        }
+    }
+
+    fn save_game_state(&mut self, cell: GameStateCell, frame: FrameNumber) {
+        assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let mut adler = Adler32::new();
         self.game_state.hash(&mut adler);
         let checksum = adler.checksum();
 
-        GameState {
+        cell.save(GameState {
             frame: self.game_state.frame,
-            buffer,
+            buffer: Some(buffer),
             checksum: Some(checksum),
-        }
+        });
     }
 
-    fn load_game_state(&mut self, state: &GameState) {
-        self.game_state = bincode::deserialize(&state.buffer).unwrap();
+    fn load_game_state(&mut self, cell: GameStateCell) {
+        let state_to_load = cell.load();
+        self.game_state = bincode::deserialize(&state_to_load.buffer.unwrap()).unwrap();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
@@ -225,14 +235,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // do stuff only when the session is ready
         if sess.current_state() == SessionState::Running {
-            match sess.advance_frame(&mut game) {
+            match sess.advance_frame() {
+                Ok(requests) => game.handle_requests(requests),
                 Err(GGRSError::PredictionThreshold) => {
                     println!("Waiting for input from host.");
                 }
                 Err(e) => {
                     return Err(Box::new(e));
                 }
-                Ok(_) => (),
             };
         }
 

@@ -48,8 +48,8 @@ impl InputQueue {
             first_incorrect_frame: NULL_FRAME,
             last_requested_frame: NULL_FRAME,
 
-            prediction: GameInput::new(NULL_FRAME, None, input_size),
-            inputs: [GameInput::new(NULL_FRAME, None, input_size); INPUT_QUEUE_LENGTH],
+            prediction: GameInput::new(NULL_FRAME, input_size),
+            inputs: [GameInput::new(NULL_FRAME, input_size); INPUT_QUEUE_LENGTH],
         }
     }
 
@@ -259,9 +259,9 @@ mod input_queue_tests {
     #[should_panic]
     fn test_add_input_wrong_frame() {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
-        let input = GameInput::new(0, None, std::mem::size_of::<u32>());
+        let input = GameInput::new(0, std::mem::size_of::<u32>());
         queue.add_input(input); // fine
-        let input_wrong_frame = GameInput::new(3, None, std::mem::size_of::<u32>());
+        let input_wrong_frame = GameInput::new(3, std::mem::size_of::<u32>());
         queue.add_input(input_wrong_frame); // not fine
     }
 
@@ -269,7 +269,7 @@ mod input_queue_tests {
     #[should_panic]
     fn test_add_input_twice() {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
-        let input = GameInput::new(0, None, std::mem::size_of::<u32>());
+        let input = GameInput::new(0, std::mem::size_of::<u32>());
         queue.add_input(input); // fine
         queue.add_input(input); // not fine
     }
@@ -278,7 +278,7 @@ mod input_queue_tests {
     fn test_add_input_sequentially() {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
         for i in 0..10 {
-            let input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            let input = GameInput::new(i, std::mem::size_of::<u32>());
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
@@ -289,7 +289,7 @@ mod input_queue_tests {
     fn test_input_sequentially() {
         let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
         for i in 0..10 {
-            let mut input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            let mut input = GameInput::new(i, std::mem::size_of::<u32>());
             let fake_inputs: u32 = i as u32;
             let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
             input.copy_input(&serialized_inputs);
@@ -307,7 +307,7 @@ mod input_queue_tests {
         let delay: i32 = 2;
         queue.set_frame_delay(delay as u32);
         for i in 0..10 {
-            let mut input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            let mut input = GameInput::new(i, std::mem::size_of::<u32>());
             let fake_inputs: u32 = i as u32;
             let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
             input.copy_input(&serialized_inputs);

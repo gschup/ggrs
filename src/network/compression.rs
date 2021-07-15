@@ -52,7 +52,7 @@ pub(crate) fn delta_decode(
     let mut output = Vec::with_capacity(out_size);
 
     for inp in 0..out_size {
-        let mut game_input = GameInput::new(start_frame + inp as i32, None, reference.size);
+        let mut game_input = GameInput::new(start_frame + inp as i32, reference.size);
         for (i, byte) in reference.input().iter().enumerate() {
             game_input.buffer[i] = byte ^ data[reference.size * inp + i];
         }
@@ -72,13 +72,14 @@ mod compression_tests {
 
     #[test]
     fn test_encode_decode() {
-        let mut ref_input = GameInput::new(5, None, 4);
+        let size = 4;
+        let mut ref_input = GameInput::new(5, size);
         ref_input.buffer[3] = 1;
-        let inp0 = GameInput::new(6, None, 4);
-        let inp1 = GameInput::new(7, None, 4);
-        let inp2 = GameInput::new(8, None, 4);
-        let inp3 = GameInput::new(9, None, 4);
-        let inp4 = GameInput::new(10, None, 4);
+        let inp0 = GameInput::new(6, size);
+        let inp1 = GameInput::new(7, size);
+        let inp2 = GameInput::new(8, size);
+        let inp3 = GameInput::new(9, size);
+        let inp4 = GameInput::new(10, size);
 
         let pend_inp = vec![inp0, inp1, inp2, inp3, inp4];
 

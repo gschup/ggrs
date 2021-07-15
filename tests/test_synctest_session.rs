@@ -39,9 +39,8 @@ fn test_advance_frame() {
     for i in 0..200 {
         let input: u32 = i;
         let serialized_input = bincode::serialize(&input).unwrap();
-        assert!(sess
-            .advance_frame(handle, &serialized_input, &mut stub)
-            .is_ok());
+        let requests = sess.advance_frame(handle, &serialized_input).unwrap();
+        stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
 }
@@ -59,9 +58,8 @@ fn test_advance_frames_with_delayed_input() {
     for i in 0..200 {
         let input: u32 = i;
         let serialized_input = bincode::serialize(&input).unwrap();
-        assert!(sess
-            .advance_frame(handle, &serialized_input, &mut stub)
-            .is_ok());
+        let requests = sess.advance_frame(handle, &serialized_input).unwrap();
+        stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
 }

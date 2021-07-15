@@ -1,6 +1,6 @@
 use adler::Adler32;
-use ggrs::NULL_FRAME;
-use ggrs::{GGRSInterface, GameInput, GameState, PlayerType, SessionState};
+use ggrs::{FrameNumber, GGRSRequest, GameStateCell, NULL_FRAME};
+use ggrs::{GameInput, GameState, PlayerType, SessionState};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::EventPump;
@@ -40,24 +40,34 @@ impl BoxGame {
             game_state: BoxGameState::new(),
         }
     }
-}
 
-impl GGRSInterface for BoxGame {
-    fn save_game_state(&self) -> GameState {
+    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
+        for request in requests {
+            match request {
+                GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
+                GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+            }
+        }
+    }
+
+    fn save_game_state(&mut self, cell: GameStateCell, frame: FrameNumber) {
+        assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let mut adler = Adler32::new();
         self.game_state.hash(&mut adler);
         let checksum = adler.checksum();
 
-        GameState {
+        cell.save(GameState {
             frame: self.game_state.frame,
-            buffer,
+            buffer: Some(buffer),
             checksum: Some(checksum),
-        }
+        });
     }
 
-    fn load_game_state(&mut self, state: &GameState) {
-        self.game_state = bincode::deserialize(&state.buffer).unwrap();
+    fn load_game_state(&mut self, cell: GameStateCell) {
+        let state_to_load = cell.load();
+        self.game_state = bincode::deserialize(&state_to_load.buffer.unwrap()).unwrap();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
@@ -237,7 +247,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if sess.current_state() == SessionState::Running {
             // add local input and advance frame, if successful
             let local_input = local_input(&event_pump);
-            sess.advance_frame(0, &local_input, &mut game)?;
+            let requests = sess.advance_frame(0, &local_input)?;
+            game.handle_requests(requests);
         }
 
         // render the frame

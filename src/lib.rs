@@ -13,6 +13,7 @@ pub use network::network_stats::NetworkStats;
 pub use sessions::p2p_session::P2PSession;
 pub use sessions::p2p_spectator_session::P2PSpectatorSession;
 pub use sessions::sync_test_session::SyncTestSession;
+pub use sync_layer::GameStateCell;
 
 pub(crate) mod error;
 pub(crate) mod frame_info;
@@ -105,25 +106,18 @@ pub enum GGRSEvent {
     WaitRecommendation { skip_frames: u32 },
 }
 
-/// The `GGRSInterface` trait describes the functions that your application interface must provide.
-/// GGRS might call multiple of these functions after you called `advance_frame()` of a session.
-pub trait GGRSInterface {
-    /// The client should serialize the entire contents of the current game state, wrap it into a `GameState` instance and return it.
-    /// Additionally, the client can compute a checksum of the data and store it in the checksum field. The checksums will help detecting desyncs.
-    fn save_game_state(&self) -> GameState;
-
-    /// GGRS will call this function at the beginning of a rollback. The buffer contains a previously saved state returned from the `save_game_state()` function.
-    /// The client should deserializing the contents and make the current game state match the state.
-    ///
-    /// Do not call this function yourself.
-    fn load_game_state(&mut self, state: &GameState);
-
-    /// You should advance your game state by exactly one frame using the provided inputs. You should never advance your gamestate through other means than this function.
-    /// if for some player `i` the `input[i].frame` is the `NULL_FRAME`, then that player has disconnected from the session. In that case, the byte buffer does not contain
-    /// a useful input. Instead of using the provided input, you should let the player be controlled by the CPU or let them stay idle.
-    ///
-    /// GGRS will call it at least once after each `advance_frame()` call, but possibly multiple times when a rollback occurs. Do not call this function yourself.
-    fn advance_frame(&mut self, inputs: Vec<GameInput>);
+#[derive(Debug)]
+pub enum GGRSRequest {
+    SaveGameState {
+        cell: GameStateCell,
+        frame: FrameNumber,
+    },
+    LoadGameState {
+        cell: GameStateCell,
+    },
+    AdvanceFrame {
+        inputs: Vec<GameInput>,
+    },
 }
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.

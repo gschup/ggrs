@@ -6,7 +6,7 @@ use crate::network::udp_protocol::UdpProtocol;
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
 use crate::{
-    FrameNumber, GGRSEvent, GGRSInterface, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
+    FrameNumber, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, NULL_FRAME,
 };
 
 use std::collections::vec_deque::Drain;
@@ -244,8 +244,7 @@ impl P2PSession {
         &mut self,
         player_handle: PlayerHandle,
         input: &[u8],
-        interface: &mut impl GGRSInterface,
-    ) -> Result<(), GGRSError> {
+    ) -> Result<Vec<GGRSRequest>, GGRSError> {
         // receive info from remote players, trigger events and send messages
         self.poll_endpoints();
 
@@ -265,9 +264,11 @@ impl P2PSession {
             return Err(GGRSError::NotSynchronized);
         }
 
+        let mut requests = Vec::new();
+
         // check game consistency and rollback, if necessary
         if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
-            self.adjust_gamestate(first_incorrect, interface);
+            self.adjust_gamestate(first_incorrect, &mut requests);
         }
 
         // find the total minimum confirmed frame and propagate disconnects
@@ -293,7 +294,7 @@ impl P2PSession {
 
         //create an input struct for current frame
         let mut game_input: GameInput =
-            GameInput::new(self.sync_layer.current_frame(), None, self.input_size);
+            GameInput::new(self.sync_layer.current_frame(), self.input_size);
         game_input.copy_input(input);
 
         // send the input into the sync layer
@@ -317,21 +318,20 @@ impl P2PSession {
         }
 
         // save the current frame in the syncronization layer
-        self.sync_layer
-            .save_current_state(interface.save_game_state());
+        requests.push(self.sync_layer.save_current_state());
         // get correct inputs for the current frame
-        let sync_inputs = self
+        let inputs = self
             .sync_layer
             .synchronized_inputs(&self.local_connect_status);
-        for input in &sync_inputs {
+        for input in &inputs {
             // check if input is correct or represents a disconnected player (by NULL_FRAME)
             assert!(input.frame == NULL_FRAME || input.frame == self.sync_layer.current_frame());
         }
         // advance the frame
         self.sync_layer.advance_frame();
-        interface.advance_frame(sync_inputs);
+        requests.push(GGRSRequest::AdvanceFrame { inputs });
 
-        Ok(())
+        Ok(requests)
     }
 
     /// Used to fetch some statistics about the quality of the network connection.
@@ -610,17 +610,12 @@ impl P2PSession {
         }
     }
 
-    fn adjust_gamestate(
-        &mut self,
-        first_incorrect: FrameNumber,
-        interface: &mut impl GGRSInterface,
-    ) {
+    fn adjust_gamestate(&mut self, first_incorrect: FrameNumber, requests: &mut Vec<GGRSRequest>) {
         let current_frame = self.sync_layer.current_frame();
         let count = current_frame - first_incorrect;
 
         // rollback to the first incorrect state
-        let state_to_load = self.sync_layer.load_frame(first_incorrect);
-        interface.load_game_state(state_to_load);
+        requests.push(self.sync_layer.load_frame(first_incorrect));
         self.sync_layer.reset_prediction(first_incorrect);
         assert_eq!(self.sync_layer.current_frame(), first_incorrect);
 
@@ -630,9 +625,8 @@ impl P2PSession {
                 .sync_layer
                 .synchronized_inputs(&self.local_connect_status);
             self.sync_layer.advance_frame();
-            interface.advance_frame(inputs);
-            self.sync_layer
-                .save_current_state(interface.save_game_state());
+            requests.push(GGRSRequest::AdvanceFrame { inputs });
+            requests.push(self.sync_layer.save_current_state());
         }
         assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
@@ -651,7 +645,6 @@ impl P2PSession {
             // construct a pseudo input containing input of all players for the spectators
             let mut spectator_input = GameInput::new(
                 self.next_spectator_frame,
-                None,
                 self.input_size * self.num_players as usize,
             );
             for (i, input) in inputs.iter().enumerate() {

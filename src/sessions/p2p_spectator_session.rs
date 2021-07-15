@@ -8,7 +8,7 @@ use crate::{
     network::{
         udp_msg::ConnectionStatus, udp_protocol::UdpProtocol, udp_socket::NonBlockingSocket,
     },
-    FrameNumber, GGRSError, GGRSEvent, GGRSInterface, GameInput, NetworkStats, SessionState,
+    FrameNumber, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, SessionState,
     NULL_FRAME,
 };
 
@@ -87,13 +87,15 @@ impl P2PSpectatorSession {
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
     /// # Errors
     /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
-    pub fn advance_frame(&mut self, interface: &mut impl GGRSInterface) -> Result<(), GGRSError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest>, GGRSError> {
         // receive info from host, trigger events and send messages
         self.poll_endpoints();
 
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
         }
+
+        let mut requests = Vec::new();
 
         // split the inputs
         let frame_to_grab = self.current_frame + 1;
@@ -113,7 +115,7 @@ impl P2PSpectatorSession {
         assert!(merged_input.size % self.input_size == 0);
         let mut synced_inputs = Vec::new();
         for i in 0..self.num_players as usize {
-            let mut input = GameInput::new(self.current_frame, None, self.input_size);
+            let mut input = GameInput::new(self.current_frame, self.input_size);
             let start = i * input.size;
             let end = (i + 1) * input.size;
             input.copy_input(&merged_input.buffer[start..end]);
@@ -122,9 +124,11 @@ impl P2PSpectatorSession {
 
         // advance the frame
         self.current_frame += 1;
-        interface.advance_frame(synced_inputs);
+        requests.push(GGRSRequest::AdvanceFrame {
+            inputs: synced_inputs,
+        });
 
-        Ok(())
+        Ok(requests)
     }
 
     /// Used to fetch some statistics about the quality of the network connection.

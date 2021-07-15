@@ -122,12 +122,10 @@ fn test_advance_frame_p2p_sessions() {
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
 
-        assert!(sess1
-            .advance_frame(0, &serialized_input, &mut stub1)
-            .is_ok());
-        assert!(sess2
-            .advance_frame(1, &serialized_input, &mut stub2)
-            .is_ok());
+        let requests1 = sess1.advance_frame(0, &serialized_input).unwrap();
+        stub1.handle_requests(requests1);
+        let requests2 = sess2.advance_frame(1, &serialized_input).unwrap();
+        stub2.handle_requests(requests2);
 
         // gamestate evolves
         assert_eq!(stub1.gs.frame, i as i32 + 1);

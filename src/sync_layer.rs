@@ -1,29 +1,102 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::error::GGRSError;
-use crate::frame_info::{GameInput, GameState, BLANK_INPUT, BLANK_STATE};
+use crate::frame_info::{GameInput, GameState, BLANK_INPUT};
 use crate::input_queue::InputQueue;
 use crate::network::udp_msg::ConnectionStatus;
-use crate::{FrameNumber, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
+use crate::{FrameNumber, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
+
+#[derive(Debug)]
+pub struct GameStateCell(Rc<RefCell<GameState>>);
+
+impl GameStateCell {
+    pub fn reset(&self, frame: FrameNumber) {
+        *self.0.borrow_mut() = GameState {
+            frame,
+            ..Default::default()
+        }
+    }
+
+    pub fn save(&self, new_state: GameState) {
+        assert!(new_state.buffer.is_some());
+        let mut saved_state = self.0.borrow_mut();
+        *saved_state = new_state;
+    }
+
+    pub fn load(&self) -> GameState {
+        let state = self.0.borrow();
+        if self.is_valid() {
+            state.clone()
+        } else {
+            panic!("Trying to load data that wasn't saved to.")
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        let state = self.0.borrow();
+        state.buffer.is_some() && state.frame != NULL_FRAME
+    }
+}
+
+impl Default for GameStateCell {
+    fn default() -> Self {
+        Self(Rc::new(RefCell::new(GameState::default())))
+    }
+}
+
+impl Clone for GameStateCell {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 #[derive(Debug, Clone)]
-pub(crate) struct SavedStates<T> {
-    pub states: [T; MAX_PREDICTION_FRAMES as usize],
+pub(crate) struct SavedStates {
+    pub states: [GameStateCell; MAX_PREDICTION_FRAMES as usize],
     pub head: usize,
 }
 
-impl<T> SavedStates<T> {
-    pub(crate) fn save_state(&mut self, state_to_save: T) {
+impl Default for SavedStates {
+    fn default() -> Self {
+        Self {
+            head: 0,
+            states: Default::default(),
+        }
+    }
+}
+
+impl SavedStates {
+    fn push(&mut self, frame: FrameNumber) -> GameStateCell {
+        let saved_frame = self.states[self.head].clone();
+        saved_frame.reset(frame);
         self.head = (self.head + 1) % self.states.len();
-        self.states[self.head] = state_to_save;
+        debug_assert!(self.head < self.states.len());
+        saved_frame
     }
 
-    pub(crate) const fn state_at_head(&self) -> &T {
-        &self.states[self.head]
+    fn find_index(&self, frame: FrameNumber) -> Option<usize> {
+        self.states
+            .iter()
+            .enumerate()
+            .find(|(_, saved)| saved.0.borrow().frame == frame)
+            .map(|(i, _)| i)
     }
 
-    pub(crate) fn state_in_past(&self, frames_in_past: usize) -> &T {
-        let pos =
-            (self.head as i64 - frames_in_past as i64).rem_euclid(MAX_PREDICTION_FRAMES as i64);
-        assert!(pos >= 0);
-        &self.states[pos as usize]
+    fn reset_to(&mut self, frame: FrameNumber) -> GameStateCell {
+        self.head = self
+            .find_index(frame)
+            .unwrap_or_else(|| panic!("Could not find saved frame index for frame: {}", frame));
+        self.states[self.head].clone()
+    }
+
+    #[allow(dead_code)]
+    fn latest(&self) -> Option<GameStateCell> {
+        self.states
+            .iter()
+            .filter(|saved| saved.0.borrow().frame != NULL_FRAME)
+            .max_by_key(|saved| saved.0.borrow().frame)
+            .cloned()
     }
 }
 
@@ -31,7 +104,7 @@ impl<T> SavedStates<T> {
 pub(crate) struct SyncLayer {
     num_players: u32,
     input_size: usize,
-    saved_states: SavedStates<GameState>,
+    saved_states: SavedStates,
     rolling_back: bool,
     last_confirmed_frame: FrameNumber,
     current_frame: FrameNumber,
@@ -54,7 +127,7 @@ impl SyncLayer {
             current_frame: 0,
             saved_states: SavedStates {
                 head: 0,
-                states: [BLANK_STATE; MAX_PREDICTION_FRAMES as usize],
+                states: Default::default(),
             },
             input_queues,
         }
@@ -68,15 +141,11 @@ impl SyncLayer {
         self.current_frame += 1;
     }
 
-    pub(crate) fn save_current_state(&mut self, state_to_save: GameState) {
-        assert!(state_to_save.frame != NULL_FRAME);
-        self.saved_states.save_state(state_to_save)
-    }
-
-    pub(crate) const fn last_saved_state(&self) -> Option<&GameState> {
-        match self.saved_states.state_at_head().frame {
-            NULL_FRAME => None,
-            _ => Some(self.saved_states.state_at_head()),
+    pub(crate) fn save_current_state(&mut self) -> GGRSRequest {
+        let cell = self.saved_states.push(self.current_frame);
+        GGRSRequest::SaveGameState {
+            cell,
+            frame: self.current_frame,
         }
     }
 
@@ -92,7 +161,7 @@ impl SyncLayer {
     }
 
     /// Loads the gamestate indicated by `frame_to_load`. After execution, `self.saved_states.head` is set one position after the loaded state.
-    pub(crate) fn load_frame(&mut self, frame_to_load: FrameNumber) -> &GameState {
+    pub(crate) fn load_frame(&mut self, frame_to_load: FrameNumber) -> GGRSRequest {
         // The state should not be the current state or the state should not be in the future or too far away in the past
         assert!(
             frame_to_load != NULL_FRAME
@@ -100,16 +169,15 @@ impl SyncLayer {
                 && frame_to_load >= self.current_frame - MAX_PREDICTION_FRAMES as i32
         );
 
-        self.saved_states.head = self.find_saved_frame_index(frame_to_load);
-        let state_to_load = &self.saved_states.states[self.saved_states.head];
-        assert_eq!(state_to_load.frame, frame_to_load);
+        // Reset the head of the state ring-buffer to point in advance of the current frame (as if we had just finished executing it).
+        let cell = self.saved_states.reset_to(frame_to_load);
+        let loaded_frame = cell.0.borrow().frame;
+        assert_eq!(loaded_frame, frame_to_load);
 
-        // Reset framecount and the head of the state ring-buffer to point in
-        // advance of the current frame (as if we had just finished executing it).
         self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES as usize;
-        self.current_frame = frame_to_load;
+        self.current_frame = loaded_frame;
 
-        state_to_load
+        GGRSRequest::LoadGameState { cell }
     }
 
     /// Adds local input to the corresponding input queue. Checks if the prediction threshold has been reached. Returns the frame number where the input is actually added to.
@@ -203,16 +271,6 @@ impl SyncLayer {
             _ => Some(first_incorrect),
         }
     }
-
-    /// Searches the saved states and returns the index of the state that matches the given frame number.
-    fn find_saved_frame_index(&self, frame: FrameNumber) -> usize {
-        for i in 0..MAX_PREDICTION_FRAMES as usize {
-            if self.saved_states.states[i].frame == frame {
-                return i;
-            }
-        }
-        panic!("SyncLayer::find_saved_frame_index(): requested state could not be found");
-    }
 }
 
 // #########
@@ -230,7 +288,7 @@ mod sync_layer_tests {
         let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>());
         for i in 0..20 {
             let serialized_input = bincode::serialize(&i).unwrap();
-            let mut game_input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            let mut game_input = GameInput::new(i, std::mem::size_of::<u32>());
             game_input.copy_input(&serialized_input);
             sync_layer.add_local_input(0, game_input).unwrap(); // should crash at frame 7
         }
@@ -250,7 +308,7 @@ mod sync_layer_tests {
 
         for i in 0..20 {
             let serialized_input = bincode::serialize(&i).unwrap();
-            let mut game_input = GameInput::new(i, None, std::mem::size_of::<u32>());
+            let mut game_input = GameInput::new(i, std::mem::size_of::<u32>());
             game_input.copy_input(&serialized_input);
             // adding input as remote to avoid prediction threshold detection
             sync_layer.add_remote_input(0, game_input);
