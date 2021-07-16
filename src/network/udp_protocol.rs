@@ -11,8 +11,6 @@ use crate::sessions::p2p_session::{
 use crate::time_sync::TimeSync;
 use crate::{Frame, PlayerHandle, NULL_FRAME};
 
-use rand::prelude::ThreadRng;
-use rand::Rng;
 use std::collections::vec_deque::Drain;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
@@ -52,7 +50,6 @@ enum ProtocolState {
 #[derive(Debug)]
 pub(crate) struct UdpProtocol {
     handle: PlayerHandle,
-    rng: ThreadRng,
     magic: u16,
     send_queue: VecDeque<UdpMessage>,
     event_queue: VecDeque<Event>,
@@ -112,10 +109,9 @@ impl UdpProtocol {
         num_players: u32,
         input_size: usize,
     ) -> Self {
-        let mut rng = rand::thread_rng();
-        let mut magic = rng.gen();
+        let mut magic = rand::random::<u16>();
         while magic == 0 {
-            magic = rng.gen();
+            magic = rand::random::<u16>();
         }
 
         // peer connection status
@@ -130,7 +126,6 @@ impl UdpProtocol {
 
         Self {
             handle,
-            rng: rand::thread_rng(),
             magic,
             send_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
@@ -138,7 +133,7 @@ impl UdpProtocol {
             // state
             state: ProtocolState::Initializing,
             sync_remaining_roundtrips: NUM_SYNC_PACKETS,
-            sync_random_request: rng.gen(),
+            sync_random_request: rand::random::<u32>(),
             running_last_quality_report: Instant::now(),
             running_last_input_recv: Instant::now(),
             disconnect_notify_sent: false,
@@ -415,7 +410,7 @@ impl UdpProtocol {
     }
 
     fn send_sync_request(&mut self) {
-        self.sync_random_request = self.rng.gen();
+        self.sync_random_request = rand::random::<u32>();
         let body = SyncRequest {
             random_request: self.sync_random_request,
         };

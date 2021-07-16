@@ -1,5 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState, BLANK_INPUT};
@@ -9,11 +8,11 @@ use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME}
 
 /// An `Rc<RefCell<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
 #[derive(Debug)]
-pub struct GameStateCell(Rc<RefCell<GameState>>);
+pub struct GameStateCell(Arc<Mutex<GameState>>);
 
 impl GameStateCell {
     pub(crate) fn reset(&self, frame: Frame) {
-        *self.0.borrow_mut() = GameState {
+        *self.0.lock().unwrap() = GameState {
             frame,
             ..Default::default()
         }
@@ -22,7 +21,7 @@ impl GameStateCell {
     /// Saves a `GameState` the user creates into the cell.
     pub fn save(&self, new_state: GameState) {
         assert!(new_state.buffer.is_some());
-        let mut saved_state = self.0.borrow_mut();
+        let mut saved_state = self.0.lock().unwrap();
         *saved_state = new_state;
     }
 
@@ -31,7 +30,7 @@ impl GameStateCell {
     /// # Panics
     /// Will panic if the data has previously not been saved to.
     pub fn load(&self) -> GameState {
-        let state = self.0.borrow();
+        let state = self.0.lock().unwrap();
         if self.is_valid() {
             state.clone()
         } else {
@@ -40,14 +39,14 @@ impl GameStateCell {
     }
 
     pub(crate) fn is_valid(&self) -> bool {
-        let state = self.0.borrow();
+        let state = self.0.lock().unwrap();
         state.buffer.is_some() && state.frame != NULL_FRAME
     }
 }
 
 impl Default for GameStateCell {
     fn default() -> Self {
-        Self(Rc::new(RefCell::new(GameState::default())))
+        Self(Arc::new(Mutex::new(GameState::default())))
     }
 }
 
@@ -85,7 +84,7 @@ impl SavedStates {
         self.states
             .iter()
             .enumerate()
-            .find(|(_, saved)| saved.0.borrow().frame == frame)
+            .find(|(_, saved)| saved.0.lock().unwrap().frame == frame)
             .map(|(i, _)| i)
     }
 
@@ -100,8 +99,8 @@ impl SavedStates {
     fn latest(&self) -> Option<GameStateCell> {
         self.states
             .iter()
-            .filter(|saved| saved.0.borrow().frame != NULL_FRAME)
-            .max_by_key(|saved| saved.0.borrow().frame)
+            .filter(|saved| saved.0.lock().unwrap().frame != NULL_FRAME)
+            .max_by_key(|saved| saved.0.lock().unwrap().frame)
             .cloned()
     }
 }
@@ -177,7 +176,7 @@ impl SyncLayer {
 
         // Reset the head of the state ring-buffer to point in advance of the current frame (as if we had just finished executing it).
         let cell = self.saved_states.reset_to(frame_to_load);
-        let loaded_frame = cell.0.borrow().frame;
+        let loaded_frame = cell.0.lock().unwrap().frame;
         assert_eq!(loaded_frame, frame_to_load);
 
         self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES as usize;
