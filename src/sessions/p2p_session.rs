@@ -233,26 +233,29 @@ impl P2PSession {
         }
     }
 
-    /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame. Don't advance your game state through any other means than this.
+    /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
+    /// Returns an order-sensitive `Vec<GGRSRequest>`. You should fulfill all requests in the exact order they are provided.
+    /// Failure to do so will cause panics later.
+    ///
     /// # Errors
     /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
     /// - Returns `InvalidRequest` if the provided player handle refers to a remote player.
     /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
     pub fn advance_frame(
         &mut self,
-        player_handle: PlayerHandle,
-        input: &[u8],
+        local_player_handle: PlayerHandle,
+        local_input: &[u8],
     ) -> Result<Vec<GGRSRequest>, GGRSError> {
         // receive info from remote players, trigger events and send messages
         self.poll_endpoints();
 
         // player handle is invalid
-        if player_handle > self.num_players as PlayerHandle {
+        if local_player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
         }
 
         // player is not a local player
-        match self.players.get(&player_handle) {
+        match self.players.get(&local_player_handle) {
             Some(Player::Local) => (),
             _ => return Err(GGRSError::InvalidRequest),
         }
@@ -293,16 +296,18 @@ impl P2PSession {
         //create an input struct for current frame
         let mut game_input: GameInput =
             GameInput::new(self.sync_layer.current_frame(), self.input_size);
-        game_input.copy_input(input);
+        game_input.copy_input(local_input);
 
         // send the input into the sync layer
-        let actual_frame = self.sync_layer.add_local_input(player_handle, game_input)?;
+        let actual_frame = self
+            .sync_layer
+            .add_local_input(local_player_handle, game_input)?;
 
         // if the actual frame is the null frame, the frame has been dropped by the input queues (for example due to changed input delay)
         if actual_frame != NULL_FRAME {
             // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
             game_input.frame = actual_frame;
-            self.local_connect_status[player_handle].last_frame = actual_frame;
+            self.local_connect_status[local_player_handle].last_frame = actual_frame;
 
             for endpoint in self
                 .players

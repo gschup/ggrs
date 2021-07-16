@@ -82,7 +82,7 @@ pub enum SessionState {
     Running,
 }
 
-/// These are the notifications that you can receive from the session.
+/// Notifications that you can receive from the session. Handling them is up to the user.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum GGRSEvent {
     /// The session made progress in synchronizing. After `total` roundtrips, the session are synchronized.
@@ -106,10 +106,14 @@ pub enum GGRSEvent {
     WaitRecommendation { skip_frames: u32 },
 }
 
+/// Requests that you can receive from the session. Handling them is mandatory.
 #[derive(Debug)]
 pub enum GGRSRequest {
+    /// You should save the current gamestate in the `cell` provided to you. The given `frame` is a sanity check: The gamestate you save should be from that frame.
     SaveGameState { cell: GameStateCell, frame: Frame },
+    /// You should load the gamestate in the `cell` provided to you.
     LoadGameState { cell: GameStateCell },
+    /// You should advance the gamestate with the `inputs` provided to you.
     AdvanceFrame { inputs: Vec<GameInput> },
 }
 

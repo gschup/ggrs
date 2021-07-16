@@ -7,23 +7,29 @@ use crate::input_queue::InputQueue;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
 
+/// An `Rc<RefCell<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
 #[derive(Debug)]
 pub struct GameStateCell(Rc<RefCell<GameState>>);
 
 impl GameStateCell {
-    pub fn reset(&self, frame: Frame) {
+    pub(crate) fn reset(&self, frame: Frame) {
         *self.0.borrow_mut() = GameState {
             frame,
             ..Default::default()
         }
     }
 
+    /// Saves a `GameState` the user creates into the cell.
     pub fn save(&self, new_state: GameState) {
         assert!(new_state.buffer.is_some());
         let mut saved_state = self.0.borrow_mut();
         *saved_state = new_state;
     }
 
+    /// Loads a `GameState` that the user previously saved into it.
+    ///
+    /// # Panics
+    /// Will panic if the data has previously not been saved to.
     pub fn load(&self) -> GameState {
         let state = self.0.borrow();
         if self.is_valid() {
@@ -33,7 +39,7 @@ impl GameStateCell {
         }
     }
 
-    pub fn is_valid(&self) -> bool {
+    pub(crate) fn is_valid(&self) -> bool {
         let state = self.0.borrow();
         state.buffer.is_some() && state.frame != NULL_FRAME
     }

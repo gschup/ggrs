@@ -67,11 +67,13 @@ impl SyncTestSession {
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
-    /// resimulate and compare checksums with the original states.
+    /// resimulate and compare checksums with the original states. Returns an order-sensitive `Vec<GGRSRequest>`. 
+    /// You should fulfill all requests in the exact order they are provided. Failure to do so will cause panics later.
     ///
     /// # Errors
     /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
-    /// - Returns `MismatchedChecksumError`, if checksums don't match after resimulation.
+    /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
+    /// - Returns `NotSynchronized` if the session has not been started yet.
     pub fn advance_frame(
         &mut self,
         player_handle: PlayerHandle,
