@@ -4,7 +4,7 @@
 ![GitHub](https://img.shields.io/github/license/gschup/ggrs?style=for-the-badge)
 
 # GGRS - P2P Rollback Networking in Rust
-GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](https://www.ggpo.net/) written in 100% safe [Rust 🦀](https://www.rust-lang.org/). The callback-style API from the original library has been replaced with a much saner, simpler control flow. 
+GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](https://www.ggpo.net/) written in 100% safe [Rust 🦀](https://www.rust-lang.org/). The callback-style API from the original library has been replaced with a much saner, simpler control flow. Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.
 
 For now, take a look at [the documentation](https://docs.rs/ggrs/0.1.0/ggrs/) or the `examples/box_game.rs` example in order to check it out!
 
