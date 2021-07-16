@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState, BLANK_INPUT};
@@ -12,7 +13,7 @@ pub struct GameStateCell(Arc<Mutex<GameState>>);
 
 impl GameStateCell {
     pub(crate) fn reset(&self, frame: Frame) {
-        *self.0.lock().unwrap() = GameState {
+        *self.0.lock() = GameState {
             frame,
             ..Default::default()
         }
@@ -20,9 +21,11 @@ impl GameStateCell {
 
     /// Saves a `GameState` the user creates into the cell.
     pub fn save(&self, new_state: GameState) {
+        let mut state = self.0.lock();
         assert!(new_state.buffer.is_some());
-        let mut saved_state = self.0.lock().unwrap();
-        *saved_state = new_state;
+        assert_eq!(state.frame, new_state.frame);
+        state.checksum = new_state.checksum;
+        state.buffer = new_state.buffer;
     }
 
     /// Loads a `GameState` that the user previously saved into it.
@@ -30,17 +33,12 @@ impl GameStateCell {
     /// # Panics
     /// Will panic if the data has previously not been saved to.
     pub fn load(&self) -> GameState {
-        let state = self.0.lock().unwrap();
-        if self.is_valid() {
+        let state = self.0.lock();
+        if state.buffer.is_some() && state.frame != NULL_FRAME {
             state.clone()
         } else {
             panic!("Trying to load data that wasn't saved to.")
         }
-    }
-
-    pub(crate) fn is_valid(&self) -> bool {
-        let state = self.0.lock().unwrap();
-        state.buffer.is_some() && state.frame != NULL_FRAME
     }
 }
 
@@ -73,18 +71,18 @@ impl Default for SavedStates {
 
 impl SavedStates {
     fn push(&mut self, frame: Frame) -> GameStateCell {
-        let saved_frame = self.states[self.head].clone();
-        saved_frame.reset(frame);
+        let saved_state = self.states[self.head].clone();
+        saved_state.reset(frame);
         self.head = (self.head + 1) % self.states.len();
-        debug_assert!(self.head < self.states.len());
-        saved_frame
+        assert!(self.head < self.states.len());
+        saved_state
     }
 
     fn find_index(&self, frame: Frame) -> Option<usize> {
         self.states
             .iter()
             .enumerate()
-            .find(|(_, saved)| saved.0.lock().unwrap().frame == frame)
+            .find(|(_, saved)| saved.0.lock().frame == frame)
             .map(|(i, _)| i)
     }
 
@@ -99,8 +97,8 @@ impl SavedStates {
     fn latest(&self) -> Option<GameStateCell> {
         self.states
             .iter()
-            .filter(|saved| saved.0.lock().unwrap().frame != NULL_FRAME)
-            .max_by_key(|saved| saved.0.lock().unwrap().frame)
+            .filter(|saved| saved.0.lock().frame != NULL_FRAME)
+            .max_by_key(|saved| saved.0.lock().frame)
             .cloned()
     }
 }
@@ -176,7 +174,7 @@ impl SyncLayer {
 
         // Reset the head of the state ring-buffer to point in advance of the current frame (as if we had just finished executing it).
         let cell = self.saved_states.reset_to(frame_to_load);
-        let loaded_frame = cell.0.lock().unwrap().frame;
+        let loaded_frame = cell.0.lock().frame;
         assert_eq!(loaded_frame, frame_to_load);
 
         self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES as usize;

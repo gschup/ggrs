@@ -5,6 +5,7 @@
 
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
+use std::fmt::Display;
 use std::net::SocketAddr;
 
 pub use error::GGRSError;
@@ -117,6 +118,16 @@ pub enum GGRSRequest {
     AdvanceFrame { inputs: Vec<GameInput> },
 }
 
+impl Display for GGRSRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GGRSRequest::SaveGameState { .. } => write!(f, "SaveGameState"),
+            GGRSRequest::LoadGameState { .. } => write!(f, "LoadGameState"),
+            &GGRSRequest::AdvanceFrame { .. } => write!(f, "AdvanceFrame"),
+        }
+    }
+}
+
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
 /// If checksums are provided with the saved states, the `SyncTestSession` will compare the checksums from resimulated states to the original states.
 /// This is a great way to test if your system runs deterministically. After creating the session, add local players, set input delay for them and then start the session.
@@ -126,7 +137,7 @@ pub enum GGRSRequest {
 /// ```
 /// # use ggrs::GGRSError;
 /// # fn main() -> Result<(), GGRSError> {
-/// let check_distance : u32 = 6;
+/// let check_distance : u32 = 7;
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
 /// let mut sess = ggrs::start_synctest_session(num_players, input_size, check_distance)?;
@@ -149,7 +160,7 @@ pub fn start_synctest_session(
     if input_size > MAX_INPUT_BYTES {
         return Err(GGRSError::InvalidRequest);
     }
-    if check_distance > MAX_PREDICTION_FRAMES - 2 {
+    if check_distance > MAX_PREDICTION_FRAMES - 1 {
         return Err(GGRSError::InvalidRequest);
     }
     Ok(SyncTestSession::new(

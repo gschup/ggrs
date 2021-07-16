@@ -192,7 +192,8 @@ fn render_frame(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session with two players
-    let mut sess = ggrs::start_synctest_session(NUM_PLAYERS as u32, INPUT_SIZE, 6)?;
+    let check_distance = 7;
+    let mut sess = ggrs::start_synctest_session(NUM_PLAYERS as u32, INPUT_SIZE, check_distance)?;
 
     // add players
     sess.add_player(PlayerType::Local, 0)?;

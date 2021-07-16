@@ -2,7 +2,7 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::GGRSRequest;
+use crate::{Frame, GGRSRequest};
 use crate::{PlayerHandle, PlayerType, SessionState};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
@@ -67,7 +67,7 @@ impl SyncTestSession {
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
-    /// resimulate and compare checksums with the original states. Returns an order-sensitive `Vec<GGRSRequest>`. 
+    /// resimulate and compare checksums with the original states. Returns an order-sensitive `Vec<GGRSRequest>`.
     /// You should fulfill all requests in the exact order they are provided. Failure to do so will cause panics later.
     ///
     /// # Errors
@@ -89,6 +89,12 @@ impl SyncTestSession {
         }
 
         let mut requests = Vec::new();
+
+        // manual simulated rollbacks without using the sync_layer, but only if we have enough frames in the past
+        if self.check_distance > 0 && self.sync_layer.current_frame() > self.check_distance as i32 {
+            let frame_to = self.sync_layer.current_frame() - self.check_distance as i32;
+            self.adjust_gamestate(frame_to, &mut requests);
+        }
 
         //create an input struct for current frame
         let mut current_input: GameInput =
@@ -114,39 +120,13 @@ impl SyncTestSession {
         requests.push(GGRSRequest::AdvanceFrame { inputs });
         self.sync_layer.advance_frame();
 
-        // manual simulated rollbacks without using the sync_layer, but only if we have enough frames in the past
-        if self.sync_layer.current_frame() > self.check_distance as i32 {
-            let start_frame = self.sync_layer.current_frame();
-            // load the frame that lies `check_distance` frames in the past
-            let frame_to_load = self.sync_layer.current_frame() - self.check_distance as i32;
-            requests.push(self.sync_layer.load_frame(frame_to_load));
-
-            // resimulate the last frames
-            for _ in (0..self.check_distance).rev() {
-                // let the sync layer save
-                requests.push(self.sync_layer.save_current_state());
-
-                // TODO: compare the checksums
-
-                // advance the frame
-                let inputs = self
-                    .sync_layer
-                    .synchronized_inputs(&self.dummy_connect_status);
-                self.sync_layer.advance_frame();
-                requests.push(GGRSRequest::AdvanceFrame { inputs });
-            }
-            // we should have arrived back at the current frame
-            assert_eq!(self.sync_layer.current_frame(), start_frame);
-
-            // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer wont complain about missing
-            // inputs from other players
-            self.sync_layer.set_last_confirmed_frame(
-                self.sync_layer.current_frame() - self.check_distance as i32,
-            );
-            // also, we update the dummy connect status
-            for con_stat in &mut self.dummy_connect_status {
-                con_stat.last_frame = self.sync_layer.current_frame();
-            }
+        // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer wont complain about missing
+        // inputs from other players
+        self.sync_layer
+            .set_last_confirmed_frame(self.sync_layer.current_frame() - self.check_distance as i32);
+        // also, we update the dummy connect status
+        for con_stat in &mut self.dummy_connect_status {
+            con_stat.last_frame = self.sync_layer.current_frame();
         }
 
         Ok(requests)
@@ -175,5 +155,30 @@ impl SyncTestSession {
         } else {
             SessionState::Initializing
         }
+    }
+
+    fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GGRSRequest>) {
+        let current_frame = self.sync_layer.current_frame();
+        let count = current_frame - frame_to;
+
+        // rollback to the first incorrect state
+        requests.push(self.sync_layer.load_frame(frame_to));
+        self.sync_layer.reset_prediction(frame_to);
+        assert_eq!(self.sync_layer.current_frame(), frame_to);
+
+        // step forward to the previous current state
+        for i in 0..count {
+            let inputs = self
+                .sync_layer
+                .synchronized_inputs(&self.dummy_connect_status);
+
+            if i > 0 {
+                requests.push(self.sync_layer.save_current_state());
+            }
+
+            self.sync_layer.advance_frame();
+            requests.push(GGRSRequest::AdvanceFrame { inputs });
+        }
+        assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
 }

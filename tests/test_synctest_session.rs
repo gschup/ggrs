@@ -30,7 +30,7 @@ fn test_start_synctest_session() {
 #[test]
 fn test_advance_frame() {
     let handle = 1;
-    let check_distance = 6;
+    let check_distance = 7;
     let mut stub = stubs::GameStub::new();
     let mut sess = ggrs::start_synctest_session(2, stubs::INPUT_SIZE, check_distance).unwrap();
     assert!(sess.add_player(PlayerType::Local, handle).is_ok());
@@ -48,7 +48,7 @@ fn test_advance_frame() {
 #[test]
 fn test_advance_frames_with_delayed_input() {
     let handle = 1;
-    let check_distance = 6;
+    let check_distance = 7;
     let mut stub = stubs::GameStub::new();
     let mut sess = ggrs::start_synctest_session(2, stubs::INPUT_SIZE, check_distance).unwrap();
     assert!(sess.add_player(PlayerType::Local, handle).is_ok());
