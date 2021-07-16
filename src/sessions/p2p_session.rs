@@ -619,13 +619,17 @@ impl P2PSession {
         assert_eq!(self.sync_layer.current_frame(), first_incorrect);
 
         // step forward to the previous current state
-        for _ in 0..count {
+        for i in 0..count {
             let inputs = self
                 .sync_layer
                 .synchronized_inputs(&self.local_connect_status);
+
+            if i > 0 {
+                requests.push(self.sync_layer.save_current_state());
+            }
+
             self.sync_layer.advance_frame();
             requests.push(GGRSRequest::AdvanceFrame { inputs });
-            requests.push(self.sync_layer.save_current_state());
         }
         assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
