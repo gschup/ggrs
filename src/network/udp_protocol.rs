@@ -494,7 +494,7 @@ impl UdpProtocol {
         }
     }
 
-    /// Upon receiving a `SyncReply`, answer with a `SyncReply` with the proper data
+    /// Upon receiving a `SyncRequest`, answer with a `SyncReply` with the proper data
     fn on_sync_request(&mut self, body: SyncRequest) {
         let reply_body = SyncReply {
             random_reply: body.random_request,
