@@ -5,7 +5,7 @@ use std::fmt::Display;
 /// This enum contains all error messages this library can return. Most API functions will generally return a `Result<(),GGRSError>`.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGRSError {
-    /// A catch-all error if something breaks internally. You should normally never get this error.
+    /// A catch-all error if something breaks horribly.
     GeneralFailure,
     /// The given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
     InvalidHandle,
