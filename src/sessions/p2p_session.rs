@@ -247,7 +247,7 @@ impl P2PSession {
         local_input: &[u8],
     ) -> Result<Vec<GGRSRequest>, GGRSError> {
         // receive info from remote players, trigger events and send messages
-        self.poll_endpoints();
+        self.poll_remote_clients();
 
         // player handle is invalid
         if local_player_handle > self.num_players as PlayerHandle {
@@ -412,11 +412,6 @@ impl P2PSession {
         }
     }
 
-    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
-    pub fn poll_remote_clients(&mut self) {
-        self.poll_endpoints();
-    }
-
     /// Returns the current `SessionState` of a session.
     pub const fn current_state(&self) -> SessionState {
         self.state
@@ -556,7 +551,8 @@ impl P2PSession {
     }
 
     /// Receive UDP packages, distribute them to corresponding UDP endpoints, handle all occurring events and send all outgoing UDP packages.
-    fn poll_endpoints(&mut self) {
+    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
+    pub fn poll_remote_clients(&mut self) {
         // Get all udp packets and distribute them to associated endpoints.
         // The endpoints will handle their packets, which will trigger both events and UPD replies.
         for (from, msg) in &self.socket.receive_all_messages() {
