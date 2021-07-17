@@ -1,4 +1,3 @@
-use adler::Adler32;
 use bincode;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -33,15 +32,8 @@ impl GameStub {
     fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
         assert_eq!(self.gs.frame, frame);
         let buffer = bincode::serialize(&self.gs).unwrap();
-        let mut adler = Adler32::new();
-        self.gs.hash(&mut adler);
-        let checksum = adler.checksum();
 
-        cell.save(GameState {
-            frame: self.gs.frame,
-            buffer: Some(buffer),
-            checksum: Some(checksum),
-        });
+        cell.save(GameState::new(frame, Some(buffer), None));
     }
 
     fn load_game_state(&mut self, cell: GameStateCell) {

@@ -1,4 +1,3 @@
-use adler::Adler32;
 use ggrs::{Frame, GGRSRequest, GameStateCell, NULL_FRAME};
 use ggrs::{GGRSError, GGRSEvent, GameInput, GameState, SessionState};
 use sdl2::event::Event;
@@ -53,15 +52,8 @@ impl BoxGame {
     fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
-        let mut adler = Adler32::new();
-        self.game_state.hash(&mut adler);
-        let checksum = adler.checksum();
 
-        cell.save(GameState {
-            frame: self.game_state.frame,
-            buffer: Some(buffer),
-            checksum: Some(checksum),
-        });
+        cell.save(GameState::new(frame, Some(buffer), None));
     }
 
     fn load_game_state(&mut self, cell: GameStateCell) {

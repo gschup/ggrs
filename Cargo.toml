@@ -21,7 +21,6 @@ bitfield-rle = "0.2"
 parking_lot = "0.11"
 
 [dev-dependencies]
-adler = "1.0"
 serial_test = "0.5"
 sdl2 = { version = "0.34.5", features = ["bundled", "static-link"] }
 

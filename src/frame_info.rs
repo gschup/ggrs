@@ -10,6 +10,19 @@ pub const BLANK_INPUT: GameInput = GameInput {
     size: 0,
 };
 
+/// Computes the fletcher16 checksum, copied from wikipedia: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+fn fletcher16(data: &[u8]) -> u16 {
+    let mut sum1: u16 = 0;
+    let mut sum2: u16 = 0;
+
+    for index in 0..data.len() {
+        sum1 = (sum1 + data[index] as u16) % 255;
+        sum2 = (sum2 + sum1) % 255;
+    }
+
+    return (sum2 << 8) | sum1;
+}
+
 /// Represents a serialized game state of your game for a single frame. The buffer `buffer` holds your state, `frame` indicates the associated frame number
 /// and `checksum` can additionally be provided for use during a `SyncTestSession`. You are expected to return this during `save_game_state()` and use them during `load_game_state()`.
 #[derive(Debug, Clone)]
@@ -19,7 +32,7 @@ pub struct GameState {
     /// The serialized gamestate in bytes.
     pub buffer: Option<Vec<u8>>,
     /// The checksum of the gamestate.
-    pub checksum: Option<u32>,
+    pub checksum: Option<usize>,
 }
 
 impl Default for GameState {
@@ -33,8 +46,21 @@ impl Default for GameState {
 }
 
 impl GameState {
-    pub fn new() -> Self {
-        GameState::default()
+    pub fn new(frame: Frame, buffer: Option<Vec<u8>>, check: Option<usize>) -> Self {
+        let checksum = if check.is_none() {
+            match &buffer {
+                Some(data) => Some(fletcher16(data) as usize),
+                None => None,
+            }
+        } else {
+            check
+        };
+
+        GameState {
+            frame,
+            buffer,
+            checksum,
+        }
     }
 }
 
