@@ -1,6 +1,10 @@
 use adler::Adler32;
 use ggrs::{Frame, GGRSRequest, GameStateCell, NULL_FRAME};
 use ggrs::{GGRSError, GGRSEvent, GameInput, GameState, SessionState};
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use serde::{Deserialize, Serialize};
@@ -8,11 +12,6 @@ use std::env;
 use std::hash::Hash;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
-
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
 
 const FPS: i32 = 60;
 const NUM_PLAYERS: usize = 2;
@@ -231,7 +230,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if Instant::now() < next {
             continue;
         }
-        next = Instant::now() + Duration::from_micros(16667); // 60 fps
+        next = Instant::now() + Duration::from_micros(1000000 / FPS as u64); // 60 fps
 
         // do stuff only when the session is ready
         if sess.current_state() == SessionState::Running {

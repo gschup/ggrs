@@ -1,6 +1,10 @@
 use adler::Adler32;
 use ggrs::{Frame, GGRSRequest, GameStateCell, NULL_FRAME};
 use ggrs::{GameInput, GameState, PlayerType, SessionState};
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::EventPump;
@@ -8,14 +12,10 @@ use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::time::{Duration, Instant};
 
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-
 const FPS: i32 = 60;
 const NUM_PLAYERS: usize = 2;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+const CHECK_DISTANCE: u32 = 7;
 
 const PLAYER_SIZE: u32 = 50;
 const PLAYER_COLORS: [Color; 2] = [Color::RGB(0, 90, 200), Color::RGB(200, 150, 50)];
@@ -192,8 +192,7 @@ fn render_frame(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session with two players
-    let check_distance = 7;
-    let mut sess = ggrs::start_synctest_session(2, INPUT_SIZE, check_distance)?;
+    let mut sess = ggrs::start_synctest_session(NUM_PLAYERS as u32, INPUT_SIZE, CHECK_DISTANCE)?;
 
     // add player - this is a synctest, we skip the second player
     sess.add_player(PlayerType::Local, 0)?;
@@ -240,7 +239,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if Instant::now() < next {
             continue;
         }
-        next = Instant::now() + Duration::from_micros(16667); // 60 fps
+        next = Instant::now() + Duration::from_micros(1000000 / FPS as u64); // 60 fps
 
         // do stuff only when the session is ready
         if sess.current_state() == SessionState::Running {
