@@ -30,9 +30,8 @@ const INPUT_RIGHT: u8 = 1 << 3;
 
 const PLAYER_SPEED: i32 = 240;
 
-// BoxGame holds the gamestate and acts as an interface for GGRS
 struct BoxGame {
-    pub game_state: BoxGameState, // the game state
+    pub game_state: BoxGameState,
 }
 
 impl BoxGame {
