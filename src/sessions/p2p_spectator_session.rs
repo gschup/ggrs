@@ -91,7 +91,7 @@ impl P2PSpectatorSession {
     /// In this case, you either need to start the session or wait for synchronization between clients.
     pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest>, GGRSError> {
         // receive info from host, trigger events and send messages
-        self.poll_endpoints();
+        self.poll_remote_clients();
 
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
@@ -110,7 +110,7 @@ impl P2PSpectatorSession {
 
         // The host is more than `SPECTATOR_BUFFER_SIZE` frames ahead of the spectator. The input we need is gone forever.
         if merged_input.frame > frame_to_grab {
-            return Err(GGRSError::GeneralFailure);
+            return Err(GGRSError::SpectatorTooFarBehind);
         }
 
         // split the inputs back into an input for each player
@@ -143,23 +143,19 @@ impl P2PSpectatorSession {
         }
     }
 
-    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
-    pub fn poll_remote_clients(&mut self) {
-        self.poll_endpoints();
-    }
-
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
     pub fn events(&mut self) -> Drain<GGRSEvent> {
         self.event_queue.drain(..)
     }
 
-    fn poll_endpoints(&mut self) {
+    /// Receive UDP packages, distribute them to corresponding UDP endpoints, handle all occurring events and send all outgoing UDP packages.
+    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
+    pub fn poll_remote_clients(&mut self) {
         // Get all udp packets and distribute them to associated endpoints.
         // The endpoints will handle their packets, which will trigger both events and UPD replies.
         for (from, msg) in &self.socket.receive_all_messages() {
             if self.host.is_handling_message(from) {
                 self.host.handle_message(msg);
-                break;
             }
         }
 
