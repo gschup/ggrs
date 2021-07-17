@@ -13,6 +13,8 @@ Since this library was more of a hobby project developed for rust practice and w
 Depending on your needs, also take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)!
 
 ## Development Status
+Currently: Writing more unit/integration tests
+
 Basic unit and integration tests, as well as a simple example hint towards a functional and stable library. The example works at least for two clients on different machines in the same network, but testing over a range of network connections has yet to be performed. To the best of my knowledge, the library is quite stable and I fixed all the issues I could find. If you encounter any troubles, please let me know!
 
 ## What is GGPO / Rollback?
