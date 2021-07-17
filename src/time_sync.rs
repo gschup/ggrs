@@ -4,7 +4,7 @@ use crate::GameInput;
 const FRAME_WINDOW_SIZE: usize = 30;
 const MIN_UNIQUE_FRAMES: usize = 10;
 const MIN_FRAME_ADVANTAGE: i32 = 3;
-const MAX_FRAME_ADVANTAGE: i32 = 30;
+const MAX_FRAME_ADVANTAGE: i32 = 10;
 
 #[derive(Debug)]
 pub(crate) struct TimeSync {
@@ -13,13 +13,19 @@ pub(crate) struct TimeSync {
     last_inputs: [GameInput; MIN_UNIQUE_FRAMES],
 }
 
-impl TimeSync {
-    pub(crate) fn new() -> Self {
+impl Default for TimeSync {
+    fn default() -> Self {
         Self {
             local: [0; FRAME_WINDOW_SIZE],
             remote: [0; FRAME_WINDOW_SIZE],
             last_inputs: [BLANK_INPUT; MIN_UNIQUE_FRAMES],
         }
+    }
+}
+
+impl TimeSync {
+    pub(crate) fn new() -> Self {
+        Self::default()
     }
 
     pub(crate) fn advance_frame(&mut self, input: GameInput, local_adv: i32, remote_adv: i32) {
@@ -62,5 +68,31 @@ impl TimeSync {
 
         // never recommend beyond maximum wait
         std::cmp::min(sleep_frames, MAX_FRAME_ADVANTAGE) as u32
+    }
+}
+
+// #########
+// # TESTS #
+// #########
+
+#[cfg(test)]
+mod sync_layer_tests {
+
+    use super::*;
+
+    #[test]
+    fn test_advance_frame() {
+        let input_size = std::mem::size_of::<u32>();
+        let require_idle = false;
+        let mut time_sync = TimeSync::default();
+
+        for i in 0..60 {
+            let input = GameInput::new(i, input_size);
+            let local_adv = 0;
+            let remote_adv = 0;
+            time_sync.advance_frame(input, local_adv, remote_adv)
+        }
+
+        assert_eq!(time_sync.recommend_frame_delay(require_idle), 0);
     }
 }
