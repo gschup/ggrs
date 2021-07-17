@@ -533,6 +533,7 @@ impl P2PSession {
         self.check_initial_sync();
     }
 
+    /// Change the session state to `SessionState::Running` if all UDP endpoints are synchronized.
     fn check_initial_sync(&mut self) {
         // if we are not synchronizing, we don't need to do anything
         if self.state != SessionState::Synchronizing {
@@ -554,6 +555,7 @@ impl P2PSession {
         self.state = SessionState::Running;
     }
 
+    /// Receive UDP packages, distribute them to corresponding UDP endpoints, handle all occurring events and send all outgoing UDP packages.
     fn poll_endpoints(&mut self) {
         // Get all udp packets and distribute them to associated endpoints.
         // The endpoints will handle their packets, which will trigger both events and UPD replies.
@@ -609,6 +611,7 @@ impl P2PSession {
         }
     }
 
+    /// Roll back to `first_incorrect` frame and resimulate the game with most up-to-date input data.
     fn adjust_gamestate(&mut self, first_incorrect: Frame, requests: &mut Vec<GGRSRequest>) {
         let current_frame = self.sync_layer.current_frame();
         let count = current_frame - first_incorrect;
@@ -634,7 +637,7 @@ impl P2PSession {
         assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
 
-    /// For each spectator, send them all confirmed input up until the minimum confirmed frame
+    /// For each spectator, send all confirmed input up until the minimum confirmed frame.
     fn send_confirmed_inputs_to_spectators(&mut self, min_confirmed_frame: Frame) {
         if self.num_spectators() == 0 {
             return;
@@ -724,6 +727,7 @@ impl P2PSession {
         total_min_confirmed
     }
 
+    /// Gather delay recommendations from each remote client and return the maximum.
     fn max_delay_recommendation(&self, require_idle_input: bool) -> u32 {
         let mut interval = 0;
         for (player_handle, endpoint) in self
@@ -740,6 +744,7 @@ impl P2PSession {
         interval
     }
 
+    /// Handle events received from the UDP endpoints. Most events are being forwarded to the user for notification, but some require action.
     fn handle_event(&mut self, event: Event, player_handle: PlayerHandle) {
         match event {
             // forward to user
@@ -806,6 +811,7 @@ impl P2PSession {
         }
     }
 
+    /// Return the number of spectators currently registered
     fn num_spectators(&self) -> usize {
         self.players
             .values()
