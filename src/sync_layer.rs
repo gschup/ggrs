@@ -93,7 +93,6 @@ impl SavedStates {
         self.states[self.head].clone()
     }
 
-    #[allow(dead_code)]
     fn latest(&self) -> Option<GameStateCell> {
         self.states
             .iter()
@@ -261,7 +260,7 @@ impl SyncLayer {
         }
     }
 
-    ///
+    /// Finds the earliest incorrect frame detected by the individual input queues
     pub(crate) fn check_simulation_consistency(&self) -> Option<Frame> {
         let mut first_incorrect: Frame = NULL_FRAME;
         for handle in 0..self.num_players as usize {
@@ -276,6 +275,11 @@ impl SyncLayer {
             NULL_FRAME => None,
             _ => Some(first_incorrect),
         }
+    }
+
+    /// Returns the latest saved gamestate
+    pub(crate) fn latest_game_state(&self) -> Option<GameStateCell> {
+        self.saved_states.latest()
     }
 }
 
