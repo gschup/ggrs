@@ -122,9 +122,11 @@ impl SyncTestSession {
 
         // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer wont complain about missing
         // inputs from other players
-        self.sync_layer
-            .set_last_confirmed_frame(self.sync_layer.current_frame() - self.check_distance as i32);
-        // also, we update the dummy connect status
+        let safe_frame = self.sync_layer.current_frame() - self.check_distance as i32;
+
+        self.sync_layer.set_last_confirmed_frame(safe_frame);
+
+        // also, we update the dummy connect status to pretend that we received inputs from all players
         for con_stat in &mut self.dummy_connect_status {
             con_stat.last_frame = self.sync_layer.current_frame();
         }

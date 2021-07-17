@@ -93,6 +93,7 @@ impl InputQueue {
         if frame >= self.last_added_frame {
             // delete all but most recent
             self.tail = self.head;
+            self.length = 1;
         } else if frame <= self.inputs[self.tail].frame {
             // we don't need to delete anything
         } else {
