@@ -40,7 +40,3 @@ path = "examples/box_game/box_game_spectator.rs"
 [[example]]
 name = "box_game_synctest"
 path = "examples/box_game/box_game_synctest.rs"
-
-[[example]]
-name = "bevy_synctest"
-path = "examples/bevy/bevy_synctest.rs"
