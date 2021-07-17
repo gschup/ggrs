@@ -7,7 +7,7 @@ use crate::input_queue::InputQueue;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
 
-/// An `Rc<RefCell<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
+/// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
 #[derive(Debug)]
 pub struct GameStateCell(Arc<Mutex<GameState>>);
 

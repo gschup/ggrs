@@ -130,8 +130,7 @@ impl Display for GGRSRequest {
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
 /// If checksums are provided with the saved states, the `SyncTestSession` will compare the checksums from resimulated states to the original states.
-/// This is a great way to test if your system runs deterministically. After creating the session, add local players, set input delay for them and then start the session.
-/// Currently, 6 is the maximum allowed `check_distance`.
+/// This is a great way to test if your system runs deterministically. After creating the session, add a local player, set input delay for them and then start the session.
 /// # Example
 ///
 /// ```
@@ -148,7 +147,7 @@ impl Display for GGRSRequest {
 /// # Errors
 /// - Will return a `InvalidRequestError` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequestError` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
-/// - Will return a `InvalidRequestError` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
+/// - Will return a `InvalidRequestError` if the `check_distance is` higher than or equal to `MAX_PREDICTION_FRAMES`.
 pub fn start_synctest_session(
     num_players: u32,
     input_size: usize,
