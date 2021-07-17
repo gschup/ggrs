@@ -21,6 +21,8 @@ pub enum GGRSError {
     NotSynchronized,
     /// The player you are trying to disconnect is already disconnected.
     PlayerDisconnected,
+    /// The spectator got so far behind the host that catching up is impossible.
+    SpectatorTooFarBehind,
 }
 
 impl Display for GGRSError {
@@ -54,6 +56,12 @@ impl Display for GGRSError {
                 write!(
                     f,
                     "The player you are trying to disconnect is already disconnected."
+                )
+            }
+            GGRSError::SpectatorTooFarBehind => {
+                write!(
+                    f,
+                    "The spectator got so far behind the host that catching up is impossible."
                 )
             }
         }
