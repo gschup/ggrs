@@ -1,6 +1,6 @@
 [package]
 name = "ggrs"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
 edition = "2018"
 description = "GGRS (good game rollback system) is a reimagination of the GGPO network SDK"
