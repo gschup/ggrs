@@ -81,7 +81,7 @@ mod sync_layer_tests {
     use super::*;
 
     #[test]
-    fn test_advance_frame() {
+    fn test_advance_frame_no_advantage() {
         let input_size = std::mem::size_of::<u32>();
         let require_idle = false;
         let mut time_sync = TimeSync::default();
@@ -90,6 +90,89 @@ mod sync_layer_tests {
             let input = GameInput::new(i, input_size);
             let local_adv = 0;
             let remote_adv = 0;
+            time_sync.advance_frame(input, local_adv, remote_adv)
+        }
+
+        assert_eq!(time_sync.recommend_frame_delay(require_idle), 0);
+    }
+
+    #[test]
+    fn test_advance_frame_local_advantage() {
+        let input_size = std::mem::size_of::<u32>();
+        let require_idle = false;
+        let mut time_sync = TimeSync::default();
+
+        for i in 0..60 {
+            let input = GameInput::new(i, input_size);
+            let local_adv = 5;
+            let remote_adv = -5;
+            time_sync.advance_frame(input, local_adv, remote_adv)
+        }
+
+        assert_eq!(time_sync.recommend_frame_delay(require_idle), 0);
+    }
+
+    #[test]
+    fn test_advance_frame_small_remote_advantage() {
+        let input_size = std::mem::size_of::<u32>();
+        let require_idle = false;
+        let mut time_sync = TimeSync::default();
+
+        for i in 0..60 {
+            let input = GameInput::new(i, input_size);
+            let local_adv = -1;
+            let remote_adv = 1;
+            time_sync.advance_frame(input, local_adv, remote_adv)
+        }
+
+        assert_eq!(time_sync.recommend_frame_delay(require_idle), 0);
+    }
+
+    #[test]
+    fn test_advance_frame_remote_advantage() {
+        let input_size = std::mem::size_of::<u32>();
+        let require_idle = false;
+        let mut time_sync = TimeSync::default();
+
+        for i in 0..60 {
+            let input = GameInput::new(i, input_size);
+            let local_adv = -4;
+            let remote_adv = 4;
+            time_sync.advance_frame(input, local_adv, remote_adv)
+        }
+
+        assert_eq!(time_sync.recommend_frame_delay(require_idle), 4);
+    }
+
+    #[test]
+    fn test_advance_frame_big_remote_advantage() {
+        let input_size = std::mem::size_of::<u32>();
+        let require_idle = false;
+        let mut time_sync = TimeSync::default();
+
+        for i in 0..60 {
+            let input = GameInput::new(i, input_size);
+            let local_adv = -40;
+            let remote_adv = 40;
+            time_sync.advance_frame(input, local_adv, remote_adv)
+        }
+
+        assert_eq!(time_sync.recommend_frame_delay(require_idle), 10);
+    }
+
+    #[test]
+    fn test_advance_frame_remote_advantage_but_inputs_not_idle() {
+        let input_size = std::mem::size_of::<u32>();
+        let require_idle = true;
+        let mut time_sync = TimeSync::default();
+
+        for i in 0..60 {
+            let mut input = GameInput::new(i, input_size);
+            let mut bytes = [0u8; 4];
+            bytes[0] = i as u8;
+            input.copy_input(&bytes);
+            let local_adv = -4;
+            let remote_adv = 4;
             time_sync.advance_frame(input, local_adv, remote_adv)
         }
 
