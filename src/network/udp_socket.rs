@@ -40,6 +40,7 @@ impl NonBlockingSocket {
                 Err(ref err) if err.kind() == ErrorKind::ConnectionReset => {
                     return received_messages
                 }
+                // all other errors cause a panic
                 Err(err) => panic!("{:?}: {} on {:?}", err.kind(), err, &self.socket),
             }
         }
