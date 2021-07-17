@@ -2,6 +2,8 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 
+use crate::Frame;
+
 /// This enum contains all error messages this library can return. Most API functions will generally return a `Result<(),GGRSError>`.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGRSError {
@@ -14,7 +16,7 @@ pub enum GGRSError {
     /// You made an invalid request, usually by using wrong parameters for function calls or starting a session that is already started.
     InvalidRequest,
     /// In a `SyncTestSession`, this error is returned if checksums of resimulated frames do not match up with the original checksum.
-    MismatchedChecksum,
+    MismatchedChecksum { frame: Frame },
     /// A problem occured during creation of the UDP socket.
     SocketCreationFailed,
     /// The Session is not synchronized yet. Please start the session and wait a few ms to let the clients synchronize.
@@ -46,8 +48,12 @@ impl Display for GGRSError {
                 f,
                 "The session is not yet synchronized with all remote sessions."
             ),
-            GGRSError::MismatchedChecksum => {
-                write!(f, "Detected checksum mismatch during rollback.")
+            GGRSError::MismatchedChecksum { frame } => {
+                write!(
+                    f,
+                    "Detected checksum mismatch during rollback on frame {}.",
+                    frame
+                )
             }
             GGRSError::SocketCreationFailed => {
                 write!(f, "UPD Socket creation failed.")

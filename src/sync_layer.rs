@@ -93,11 +93,10 @@ impl SavedStates {
         self.states[self.head].clone()
     }
 
-    fn latest(&self) -> Option<GameStateCell> {
+    fn by_frame(&self, frame: Frame) -> Option<GameStateCell> {
         self.states
             .iter()
-            .filter(|saved| saved.0.lock().frame != NULL_FRAME)
-            .max_by_key(|saved| saved.0.lock().frame)
+            .find(|saved| saved.0.lock().frame == frame)
             .cloned()
     }
 }
@@ -278,8 +277,8 @@ impl SyncLayer {
     }
 
     /// Returns the latest saved gamestate
-    pub(crate) fn latest_game_state(&self) -> Option<GameStateCell> {
-        self.saved_states.latest()
+    pub(crate) fn saved_state_by_frame(&self, frame: Frame) -> Option<GameStateCell> {
+        self.saved_states.by_frame(frame)
     }
 }
 

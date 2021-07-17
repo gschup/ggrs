@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
@@ -5,8 +7,8 @@ use crate::sync_layer::SyncLayer;
 use crate::{Frame, GGRSRequest};
 use crate::{PlayerHandle, PlayerType, SessionState};
 
-/// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. If you provide checksums
-/// in your `save_game_state()` function, the `SyncTestSession` will compare the resimulated checksums with the original checksums and report if there was a mismatch.
+/// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. 
+/// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
 #[derive(Debug)]
 pub struct SyncTestSession {
     num_players: u32,
@@ -15,6 +17,7 @@ pub struct SyncTestSession {
     running: bool,
     sync_layer: SyncLayer,
     dummy_connect_status: Vec<ConnectionStatus>,
+    checksum_history: HashMap<Frame, usize>,
 }
 
 impl SyncTestSession {
@@ -31,6 +34,7 @@ impl SyncTestSession {
             running: false,
             sync_layer: SyncLayer::new(num_players, input_size),
             dummy_connect_status,
+            checksum_history: HashMap::default(),
         }
     }
 
@@ -90,8 +94,19 @@ impl SyncTestSession {
 
         let mut requests = Vec::new();
 
-        // manual simulated rollbacks without using the sync_layer, but only if we have enough frames in the past
+        // if we advanced far enough into the game do comparisons and rollbacks
         if self.check_distance > 0 && self.sync_layer.current_frame() > self.check_distance as i32 {
+            // compare checksums of older frames to our checksum history (where only the first version of any checksum is allowed)
+            for i in 0..self.check_distance as i32 + 1 {
+                let frame_to_check = self.sync_layer.current_frame() - i;
+                if !self.checksums_consistent(frame_to_check) {
+                    return Err(GGRSError::MismatchedChecksum {
+                        frame: frame_to_check,
+                    });
+                }
+            }
+
+            // simulate rollbacks according to the check_distance
             let frame_to = self.sync_layer.current_frame() - self.check_distance as i32;
             self.adjust_gamestate(frame_to, &mut requests);
         }
@@ -151,11 +166,38 @@ impl SyncTestSession {
         Ok(())
     }
 
+    /// Returns the current state of the `SynctestSession`.
     pub const fn current_state(&self) -> SessionState {
         if self.running {
             SessionState::Running
         } else {
             SessionState::Initializing
+        }
+    }
+
+    /// Updates the checksum_history and checks
+    fn checksums_consistent(&mut self, frame_to_check: Frame) -> bool {
+        // remove entries older than the check_distance
+        let oldest_allowed_frame = self.sync_layer.current_frame() - self.check_distance as i32;
+        self.checksum_history
+            .retain(|&k, _| k >= oldest_allowed_frame);
+
+        match self.sync_layer.saved_state_by_frame(frame_to_check) {
+            Some(latest_cell) => {
+                let latest_state = latest_cell.load();
+
+                match self.checksum_history.get(&latest_state.frame) {
+                    Some(cs) => {
+                        return *cs == latest_state.checksum;
+                    }
+                    None => {
+                        self.checksum_history
+                            .insert(latest_state.frame, latest_state.checksum.clone());
+                        return true;
+                    }
+                }
+            }
+            None => return true,
         }
     }
 

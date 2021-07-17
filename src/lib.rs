@@ -129,7 +129,9 @@ impl Display for GGRSRequest {
 }
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
-/// If checksums are provided with the saved states, the `SyncTestSession` will compare the checksums from resimulated states to the original states.
+/// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
+/// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
+/// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
 /// This is a great way to test if your system runs deterministically. After creating the session, add a local player, set input delay for them and then start the session.
 /// # Example
 ///
