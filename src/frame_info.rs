@@ -32,7 +32,7 @@ pub struct GameState {
     /// The serialized gamestate in bytes.
     pub buffer: Option<Vec<u8>>,
     /// The checksum of the gamestate.
-    pub checksum: usize,
+    pub checksum: u64,
 }
 
 impl Default for GameState {
@@ -46,11 +46,11 @@ impl Default for GameState {
 }
 
 impl GameState {
-    pub fn new(frame: Frame, buffer: Option<Vec<u8>>, check: Option<usize>) -> Self {
+    pub fn new(frame: Frame, buffer: Option<Vec<u8>>, check: Option<u64>) -> Self {
         let checksum = match check {
             Some(cs) => cs,
             None => match &buffer {
-                Some(data) => fletcher16(data) as usize,
+                Some(data) => fletcher16(data) as u64,
                 None => 0,
             },
         };

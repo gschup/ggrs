@@ -7,7 +7,7 @@ use crate::sync_layer::SyncLayer;
 use crate::{Frame, GGRSRequest};
 use crate::{PlayerHandle, PlayerType, SessionState};
 
-/// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance. 
+/// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
 #[derive(Debug)]
 pub struct SyncTestSession {
@@ -17,7 +17,7 @@ pub struct SyncTestSession {
     running: bool,
     sync_layer: SyncLayer,
     dummy_connect_status: Vec<ConnectionStatus>,
-    checksum_history: HashMap<Frame, usize>,
+    checksum_history: HashMap<Frame, u64>,
 }
 
 impl SyncTestSession {
