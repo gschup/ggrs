@@ -218,8 +218,6 @@ impl BoxGame {
                 let transform = c.transform.trans(x as f64, y as f64).rot_rad(rotation);
                 rectangle(PLAYER_COLORS[i], square, transform, gl);
             }
-
-            // Draw a box rotating around the middle of the screen.
         });
     }
 
