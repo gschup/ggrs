@@ -16,7 +16,7 @@ Depending on your needs, also take a look at the awesome [backroll-rs](https://g
 ## Development Status
 Currently: Finding a problem in the encoding/decoding of inputs, leading to desyncs.
 
-GGRS is in an early stage. I am constantly tinkering with it and breaking changes will happen every now and then.
+GGRS is in an early stage and problems are to be expected. I am constantly tinkering with it and breaking changes will happen every now and then.
 
 ## What is GGPO / Rollback?
 
