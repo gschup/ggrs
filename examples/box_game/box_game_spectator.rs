@@ -1,23 +1,33 @@
-use ggrs::{Frame, GGRSRequest, GameStateCell, NULL_FRAME};
-use ggrs::{GGRSError, GGRSEvent, GameInput, GameState, SessionState};
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
+extern crate freetype as ft;
+
+use ft::Library;
+use ggrs::{
+    Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, GameState, GameStateCell, SessionState,
+    NULL_FRAME,
+};
+use glutin_window::GlutinWindow as Window;
+use graphics::{Context, Graphics, ImageSize};
+use opengl_graphics::{GlGraphics, OpenGL, Texture, TextureSettings};
+use piston::event_loop::{EventSettings, Events};
+use piston::input::{RenderArgs, RenderEvent, UpdateEvent};
+use piston::window::WindowSettings;
+use piston::{EventLoop, IdleEvent};
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::hash::Hash;
 use std::net::SocketAddr;
-use std::time::{Duration, Instant};
+use std::path::PathBuf;
 
-const FPS: i32 = 60;
+const FPS: u64 = 60;
 const NUM_PLAYERS: usize = 2;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+const CHECKSUM_PERIOD: i32 = 100;
 
-const PLAYER_SIZE: u32 = 50;
-const PLAYER_COLORS: [Color; 2] = [Color::RGB(0, 90, 200), Color::RGB(200, 150, 50)];
+const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+const BLUE: [f32; 4] = [0.0, 0.35, 0.78, 1.0];
+const ORANGE: [f32; 4] = [0.78, 0.59, 0.2, 1.0];
+const PLAYER_COLORS: [[f32; 4]; 2] = [BLUE, ORANGE];
+
+const PLAYER_SIZE: f64 = 50.0;
 const WINDOW_HEIGHT: u32 = 800;
 const WINDOW_WIDTH: u32 = 600;
 
@@ -28,14 +38,73 @@ const INPUT_RIGHT: u8 = 1 << 3;
 
 const PLAYER_SPEED: i32 = 240;
 
-struct BoxGame {
-    pub game_state: BoxGameState,
+/// Computes the fletcher16 checksum, copied from wikipedia: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+fn fletcher16(data: &[u8]) -> u16 {
+    let mut sum1: u16 = 0;
+    let mut sum2: u16 = 0;
+
+    for index in 0..data.len() {
+        sum1 = (sum1 + data[index] as u16) % 255;
+        sum2 = (sum2 + sum1) % 255;
+    }
+
+    return (sum2 << 8) | sum1;
+}
+
+fn glyphs(face: &mut ft::Face, text: &str) -> Vec<(Texture, [f64; 2])> {
+    let mut x = 10;
+    let mut y = 0;
+    let mut res = vec![];
+    for ch in text.chars() {
+        face.load_char(ch as usize, ft::face::LoadFlag::RENDER)
+            .unwrap();
+        let g = face.glyph();
+
+        let bitmap = g.bitmap();
+        let texture = Texture::from_memory_alpha(
+            bitmap.buffer(),
+            bitmap.width() as u32,
+            bitmap.rows() as u32,
+            &TextureSettings::new(),
+        )
+        .unwrap();
+        res.push((
+            texture,
+            [(x + g.bitmap_left()) as f64, (y - g.bitmap_top()) as f64],
+        ));
+
+        x += (g.advance().x >> 6) as i32;
+        y += (g.advance().y >> 6) as i32;
+    }
+    res
+}
+
+fn render_text<G, T>(glyphs: &[(T, [f64; 2])], c: &Context, gl: &mut G)
+where
+    G: Graphics<Texture = T>,
+    T: ImageSize,
+{
+    for &(ref texture, [x, y]) in glyphs {
+        use graphics::*;
+
+        Image::new_color(color::WHITE).draw(texture, &c.draw_state, c.transform.trans(x, y), gl);
+    }
+}
+
+pub struct BoxGame {
+    game_state: BoxGameState,
+    font: PathBuf,
+    last_checksum: (Frame, u64),
+    periodic_checksum: (Frame, u64),
 }
 
 impl BoxGame {
-    pub fn new() -> Self {
-        BoxGame {
+    pub fn new(font: PathBuf) -> Self {
+        Self {
             game_state: BoxGameState::new(),
+            font,
+            last_checksum: (NULL_FRAME, 0),
+            periodic_checksum: (NULL_FRAME, 0),
         }
     }
 
@@ -52,8 +121,15 @@ impl BoxGame {
     fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
+        let checksum = fletcher16(&buffer) as u64;
 
-        cell.save(GameState::new(frame, Some(buffer), None));
+        // remember checksum to render it later
+        self.last_checksum = (frame, checksum);
+        if frame % CHECKSUM_PERIOD == 0 {
+            self.periodic_checksum = (frame, checksum);
+        }
+
+        cell.save(GameState::new(frame, Some(buffer), Some(checksum)));
     }
 
     fn load_game_state(&mut self, cell: GameStateCell) {
@@ -62,6 +138,15 @@ impl BoxGame {
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
+        let buffer = bincode::serialize(&self.game_state).unwrap();
+        let checksum = fletcher16(&buffer) as u64;
+
+        // remember checksum to render it later
+        self.last_checksum = (self.game_state.frame, checksum);
+        if self.game_state.frame % CHECKSUM_PERIOD == 0 {
+            self.periodic_checksum = (self.game_state.frame, checksum);
+        }
+
         // increase the frame counter
         self.game_state.frame += 1;
 
@@ -95,18 +180,54 @@ impl BoxGame {
                 vel_x = PLAYER_SPEED;
             }
             // compute new values
-            let mut x = old_x + vel_x / FPS;
-            let mut y = old_y + vel_y / FPS;
+            let mut x = old_x + vel_x / FPS as i32;
+            let mut y = old_y + vel_y / FPS as i32;
 
             //constrain boxes to canvas borders
-            x = std::cmp::max(x, 0 + PLAYER_SIZE as i32 / 2);
-            x = std::cmp::min(x, WINDOW_WIDTH as i32 - PLAYER_SIZE as i32 / 2);
-            y = std::cmp::max(y, 0 + PLAYER_SIZE as i32 / 2);
-            y = std::cmp::min(y, WINDOW_HEIGHT as i32 - PLAYER_SIZE as i32 / 2);
+            x = std::cmp::max(x, 0);
+            x = std::cmp::min(x, WINDOW_WIDTH as i32 - PLAYER_SIZE as i32);
+            y = std::cmp::max(y, 0);
+            y = std::cmp::min(y, WINDOW_HEIGHT as i32 - PLAYER_SIZE as i32);
 
             self.game_state.positions[i] = (x as i32, y as i32);
             self.game_state.velocities[i] = (vel_x as i32, vel_y as i32);
         }
+    }
+
+    fn render(&mut self, gl: &mut GlGraphics, freetype: &Library, args: &RenderArgs) {
+        use graphics::*;
+
+        let mut face = freetype.new_face(&self.font, 0).unwrap();
+        face.set_pixel_sizes(0, 40).unwrap();
+        let checksum_string = format!(
+            "Frame {}: Checksum {}",
+            self.last_checksum.0, self.last_checksum.1
+        );
+        let checksum_glyphs = glyphs(&mut face, &checksum_string);
+        let periodic_string = format!(
+            "Frame {}: Checksum {}",
+            self.periodic_checksum.0, self.periodic_checksum.1
+        );
+        let periodic_glyphs = glyphs(&mut face, &periodic_string);
+
+        gl.draw(args.viewport(), |c, gl| {
+            // Clear the screen.
+            clear(BLACK, gl);
+            render_text(&checksum_glyphs, &c.trans(0.0, 40.0), gl);
+            render_text(&periodic_glyphs, &c.trans(0.0, 80.0), gl);
+
+            // draw the player rectangles
+            for i in 0..NUM_PLAYERS {
+                let square = rectangle::square(0.0, 0.0, PLAYER_SIZE);
+                let rotation = 0.0;
+                let (x, y) = self.game_state.positions[i];
+
+                let transform = c.transform.trans(x as f64, y as f64).rot_rad(rotation);
+                rectangle(PLAYER_COLORS[i], square, transform, gl);
+            }
+
+            // Draw a box rotating around the middle of the screen.
+        });
     }
 }
 
@@ -137,28 +258,6 @@ impl BoxGameState {
     }
 }
 
-fn render_frame(
-    canvas: &mut Canvas<Window>,
-    game: &BoxGame,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // reset frame to be black
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
-    canvas.clear();
-
-    // draw the player rectangles
-    for i in 0..NUM_PLAYERS {
-        canvas.set_draw_color(PLAYER_COLORS[i]);
-        let (x, y) = game.game_state.positions[i];
-        let canvas_x = x - PLAYER_SIZE as i32 / 2;
-        let canvas_y = y - PLAYER_SIZE as i32 / 2;
-        canvas.fill_rect(Rect::new(canvas_x, canvas_y, PLAYER_SIZE, PLAYER_SIZE))?;
-    }
-
-    // flip the buffer
-    canvas.present();
-    Ok(())
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments very clumsily
     let args: Vec<String> = env::args().collect();
@@ -174,70 +273,73 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start the GGRS session
     sess.start_session()?;
 
-    // create the game
-    let mut game = BoxGame::new();
+    // Change this to OpenGL::V2_1 if not working
+    let opengl = OpenGL::V3_2;
 
-    // create a window and canvas with sdl2
-    let sdl_context = sdl2::init()?;
-    let video_subsystem = sdl_context.video()?;
-    let window = video_subsystem
-        .window("Box Game P2P Spectator", WINDOW_WIDTH, WINDOW_HEIGHT)
-        .position_centered()
-        .opengl()
-        .build()
-        .map_err(|e| e.to_string())?;
+    // Create a Glutin window
+    let mut window: Window =
+        WindowSettings::new("Box Game Spectator", [WINDOW_WIDTH, WINDOW_HEIGHT])
+            .graphics_api(opengl)
+            .exit_on_esc(true)
+            .build()
+            .unwrap();
 
-    let mut canvas = window.into_canvas().build()?;
-    let mut event_pump = sdl_context.event_pump()?;
+    // load a font to render text
+    let assets = find_folder::Search::ParentsThenKids(3, 3)
+        .for_folder("assets")
+        .unwrap();
+    let freetype = ft::Library::init().unwrap();
+    let font = assets.join("FiraSans-Regular.ttf");
 
-    // start the main loop
-    let mut next = Instant::now();
+    // Create a new box game
+    let mut game = BoxGame::new(font);
+    let mut gl = GlGraphics::new(opengl);
 
-    'running: loop {
-        // handle window events
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-                _ => {}
+    // event settings
+    let mut event_settings = EventSettings::new();
+    event_settings.set_ups(FPS);
+    event_settings.set_max_fps(FPS);
+    let mut events = Events::new(event_settings);
+
+    let mut frames_to_skip = 0;
+
+    // event loop
+    while let Some(e) = events.next(&mut window) {
+        // render
+        if let Some(args) = e.render_args() {
+            game.render(&mut gl, &freetype, &args);
+        }
+
+        // game update
+        if let Some(_) = e.update_args() {
+            if frames_to_skip > 0 {
+                frames_to_skip -= 1;
+                println!("Skipping a frame.");
+            } else if sess.current_state() == SessionState::Running {
+                // tell GGRS it is time to advance the frame and handle the requests
+                match sess.advance_frame() {
+                    Ok(requests) => game.handle_requests(requests),
+                    Err(GGRSError::PredictionThreshold) => {
+                        println!("Waiting for input from host.");
+                    }
+                    Err(e) => return Err(Box::new(e)),
+                }
+
+                // handle GGRS events
+                for event in sess.events() {
+                    println!("Event: {:?}", event);
+                    if let GGRSEvent::Disconnected { .. } = event {
+                        println!("Disconnected from host.");
+                        return Ok(());
+                    }
+                }
             }
         }
 
-        // handle GGRS events
-        for event in sess.events() {
-            println!("Event: {:?}", event);
-            if let GGRSEvent::Disconnected { .. } = event {
-                break 'running;
-            }
+        // idle
+        if let Some(_args) = e.idle_args() {
+            sess.poll_remote_clients();
         }
-
-        // let ggrs do some internal work
-        sess.poll_remote_clients();
-
-        // only process and render if it is time
-        if Instant::now() < next {
-            continue;
-        }
-        next = Instant::now() + Duration::from_micros(1000000 / FPS as u64); // 60 fps
-
-        // do stuff only when the session is ready
-        if sess.current_state() == SessionState::Running {
-            match sess.advance_frame() {
-                Ok(requests) => game.handle_requests(requests),
-                Err(GGRSError::PredictionThreshold) => {
-                    println!("Waiting for input from host.");
-                }
-                Err(e) => {
-                    return Err(Box::new(e));
-                }
-            };
-        }
-
-        // render the frame
-        render_frame(&mut canvas, &game)?;
     }
 
     Ok(())

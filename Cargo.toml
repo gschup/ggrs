@@ -22,7 +22,12 @@ parking_lot = "0.11"
 
 [dev-dependencies]
 serial_test = "0.5"
-sdl2 = { version = "0.34.5", features = ["bundled", "static-link"] }
+piston = "0.53.0"
+piston2d-graphics = "0.40.0"
+pistoncore-glutin_window = "0.69.0"
+piston2d-opengl_graphics = "0.78.0"
+freetype-rs = "0.27.0"
+find_folder = "0.3.0"
 
 # Examples
 [[example]]
