@@ -27,7 +27,7 @@ const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 
 const PLAYER_SPEED: f64 = 240.0;
-const FRICTION: f64 = 0.95;
+const FRICTION: f64 = 0.98;
 
 /// Computes the fletcher16 checksum, copied from wikipedia: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
 fn fletcher16(data: &[u8]) -> u16 {
@@ -116,12 +116,6 @@ impl BoxGame {
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
 
-        // remember checksum to render it later
-        self.last_checksum = (frame, checksum);
-        if frame % CHECKSUM_PERIOD == 0 {
-            self.periodic_checksum = (frame, checksum);
-        }
-
         cell.save(GameState::new(frame, Some(buffer), Some(checksum)));
     }
 
@@ -175,6 +169,15 @@ impl BoxGame {
 
             self.game_state.positions[i] = (x, y);
             self.game_state.velocities[i] = (vel_x, vel_y);
+        }
+
+        // inefficient to serialize the gamestate here
+        // remember checksum to render it later
+        let buffer = bincode::serialize(&self.game_state).unwrap();
+        let checksum = fletcher16(&buffer) as u64;
+        self.last_checksum = (self.game_state.frame, checksum);
+        if self.game_state.frame % CHECKSUM_PERIOD == 0 {
+            self.periodic_checksum = (self.game_state.frame, checksum);
         }
     }
 
