@@ -534,6 +534,10 @@ impl UdpProtocol {
     }
 
     fn on_input(&mut self, body: &Input) {
+        // drop pending outputs until the ack frame
+        self.pop_pending_output(body.ack_frame);
+
+        // update the peer connection status
         if body.disconnect_requested {
             // if a disconnect is requested, disconnect now
             if self.state != ProtocolState::Disconnected && !self.disconnect_event_sent {
@@ -547,13 +551,22 @@ impl UdpProtocol {
                     body.peer_connect_status[i].last_frame
                         >= self.peer_connect_status[i].last_frame
                 );
-                // self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected || self.peer_connect_status[i].disconnected;
-                self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected;
+                self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected
+                    || self.peer_connect_status[i].disconnected;
                 self.peer_connect_status[i].last_frame = body.peer_connect_status[i].last_frame;
             }
         }
 
-        // process the inputs
+        // this input has not been encoded with what we expect, so we drop the whole thing
+        // TODO: this could be made so much more efficient if we kept more received input history
+        // so we can properly decode with the right reference
+        if self.last_received_input.frame != NULL_FRAME
+            && self.last_received_input.frame + 1 != body.start_frame
+        {
+            return;
+        }
+
+        // we know everything is correct, so we decode
         let recv_inputs = decode(&self.last_received_input, body.start_frame, &body.bytes)
             .expect("decoding failed");
 
@@ -571,9 +584,6 @@ impl UdpProtocol {
 
         // send an input ack
         self.send_input_ack();
-
-        // drop pending outputs until the ack frame
-        self.pop_pending_output(body.ack_frame);
     }
 
     /// Upon receiving a `InputAck`, discard the oldest buffered input including the acked input.
