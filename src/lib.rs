@@ -189,7 +189,6 @@ pub fn start_synctest_session(
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
-/// - Will return a `InvalidRequest` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
 /// - Will return `SocketCreationFailed` if the UPD socket could not be created.
 pub fn start_p2p_session(
     num_players: u32,
@@ -225,7 +224,6 @@ pub fn start_p2p_session(
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
-/// - Will return a `InvalidRequest` if the `check_distance is` higher than the allowed maximum (see `MAX_PREDICTION_FRAMES`).
 /// - Will return `SocketCreationFailed` if the UPD socket could not be created.
 pub fn start_p2p_spectator_session(
     num_players: u32,
