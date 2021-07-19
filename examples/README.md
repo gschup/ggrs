@@ -17,15 +17,16 @@ The example is properly launched by command-line arguments
 (with the spectator address in brackets being optional):
 
 ```shell
-cargo run --example box_game -- local_port local_player_handle remote_adress [spectator_address]
+cargo run --example box_game_p2p -- local_port local_player_handle remote_adress [spectator_address]
+cargo run --example box_game_spectator -- local_port host_adress
 ```
 
 To run two instances of the game and a spectator on your local machine,
 run these commands in separate terminals:
 
 ```shell
-cargo run --example box_game -- 7000 0 127.0.0.1:7001 127.0.0.1:7002
-cargo run --example box_game -- 7001 1 127.0.0.1:7000 
+cargo run --example box_game_p2p -- 7000 0 127.0.0.1:7001 127.0.0.1:7002
+cargo run --example box_game_p2p -- 7001 1 127.0.0.1:7000 
 cargo run --example box_game_spectator -- 7002 127.0.0.1:7000 
 ```
 

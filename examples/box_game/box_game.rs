@@ -1,25 +1,15 @@
 extern crate freetype as ft;
 
 use ft::Library;
-use ggrs::{
-    Frame, GGRSEvent, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, PlayerType,
-    SessionState, NULL_FRAME,
-};
-use glutin_window::GlutinWindow as Window;
+use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell, NULL_FRAME};
 use graphics::{Context, Graphics, ImageSize};
-use opengl_graphics::{GlGraphics, OpenGL, Texture, TextureSettings};
-use piston::event_loop::{EventSettings, Events};
-use piston::input::{RenderArgs, RenderEvent, UpdateEvent};
-use piston::window::WindowSettings;
-use piston::{Button, EventLoop, IdleEvent, Key, PressEvent, ReleaseEvent};
+use opengl_graphics::{GlGraphics, Texture, TextureSettings};
+use piston::input::RenderArgs;
 use serde::{Deserialize, Serialize};
-use std::env;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 
 const FPS: u64 = 60;
 const NUM_PLAYERS: usize = 2;
-const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 const CHECKSUM_PERIOD: i32 = 100;
 
 const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
@@ -36,7 +26,8 @@ const INPUT_DOWN: u8 = 1 << 1;
 const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 
-const PLAYER_SPEED: i32 = 240;
+const PLAYER_SPEED: f64 = 240.0;
+const FRICTION: f64 = 0.95;
 
 /// Computes the fletcher16 checksum, copied from wikipedia: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
 fn fletcher16(data: &[u8]) -> u16 {
@@ -93,7 +84,7 @@ where
 
 pub struct BoxGame {
     game_state: BoxGameState,
-    wasd_pressed: [bool; 4],
+    pub wasd_pressed: [bool; 4],
     font: PathBuf,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
@@ -157,8 +148,8 @@ impl BoxGame {
             let (old_x, old_y) = self.game_state.positions[i];
             let (old_vel_x, old_vel_y) = self.game_state.velocities[i];
             // slow down
-            let mut vel_x = (9 * old_vel_x) / 10;
-            let mut vel_y = (9 * old_vel_y) / 10;
+            let mut vel_x = old_vel_x * FRICTION;
+            let mut vel_y = old_vel_y * FRICTION;
             // apply input
             if input & INPUT_UP != 0 {
                 vel_y = -PLAYER_SPEED;
@@ -173,21 +164,21 @@ impl BoxGame {
                 vel_x = PLAYER_SPEED;
             }
             // compute new values
-            let mut x = old_x + vel_x / FPS as i32;
-            let mut y = old_y + vel_y / FPS as i32;
+            let mut x = old_x + vel_x / FPS as f64;
+            let mut y = old_y + vel_y / FPS as f64;
 
             //constrain boxes to canvas borders
-            x = std::cmp::max(x, 0);
-            x = std::cmp::min(x, WINDOW_WIDTH as i32 - PLAYER_SIZE as i32);
-            y = std::cmp::max(y, 0);
-            y = std::cmp::min(y, WINDOW_HEIGHT as i32 - PLAYER_SIZE as i32);
+            x = x.max(0.0);
+            x = x.min(WINDOW_WIDTH as f64 - PLAYER_SIZE);
+            y = y.max(0.0);
+            y = y.min(WINDOW_HEIGHT as f64 - PLAYER_SIZE);
 
-            self.game_state.positions[i] = (x as i32, y as i32);
-            self.game_state.velocities[i] = (vel_x as i32, vel_y as i32);
+            self.game_state.positions[i] = (x, y);
+            self.game_state.velocities[i] = (vel_x, vel_y);
         }
     }
 
-    fn render(&mut self, gl: &mut GlGraphics, freetype: &Library, args: &RenderArgs) {
+    pub fn render(&mut self, gl: &mut GlGraphics, freetype: &Library, args: &RenderArgs) {
         use graphics::*;
 
         let mut face = freetype.new_face(&self.font, 0).unwrap();
@@ -221,7 +212,8 @@ impl BoxGame {
         });
     }
 
-    fn local_input(&self) -> Vec<u8> {
+    #[allow(dead_code)]
+    pub fn local_input(&self) -> Vec<u8> {
         // Create a set of pressed Keys.
         let mut input: u8 = 0;
 
@@ -244,22 +236,22 @@ impl BoxGame {
 }
 
 // BoxGameState holds all relevant information about the game state
-#[derive(Hash, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct BoxGameState {
     pub frame: i32,
-    pub positions: Vec<(i32, i32)>,
-    pub velocities: Vec<(i32, i32)>,
+    pub positions: Vec<(f64, f64)>,
+    pub velocities: Vec<(f64, f64)>,
 }
 
 impl BoxGameState {
     pub fn new() -> Self {
         let mut positions = Vec::new();
         let mut velocities = Vec::new();
-        for i in 0..NUM_PLAYERS {
-            let x = WINDOW_WIDTH as i32 / 2 + (2 * i as i32 - 1) * (WINDOW_WIDTH as i32 / 4);
+        for i in 0..NUM_PLAYERS as i32 {
+            let x = WINDOW_WIDTH as i32 / 2 + (2 * i - 1) * (WINDOW_WIDTH as i32 / 4);
             let y = WINDOW_HEIGHT as i32 / 2;
-            positions.push((x, y));
-            velocities.push((0, 0));
+            positions.push((x as f64, y as f64));
+            velocities.push((0.0, 0.0));
         }
 
         Self {
@@ -268,127 +260,4 @@ impl BoxGameState {
             velocities,
         }
     }
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // read cmd line arguments very clumsily
-    let args: Vec<String> = env::args().collect();
-    assert!(args.len() >= 4);
-
-    let port: u16 = args[1].parse()?;
-    let local_handle: PlayerHandle = args[2].parse()?;
-    let remote_handle: PlayerHandle = 1 - local_handle;
-    let remote_addr: SocketAddr = args[3].parse()?;
-
-    // create a GGRS session with two players
-    let mut sess = ggrs::start_p2p_session(NUM_PLAYERS as u32, INPUT_SIZE, port)?;
-
-    // add players
-    sess.add_player(PlayerType::Local, local_handle)?;
-    sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
-
-    // optionally, add a spectator
-    if args.len() > 4 {
-        let spec_addr: SocketAddr = args[4].parse()?;
-        sess.add_player(PlayerType::Spectator(spec_addr), 2)?;
-    }
-
-    // set input delay for the local player
-    sess.set_frame_delay(2, local_handle)?;
-
-    // start the GGRS session
-    sess.start_session()?;
-
-    // Change this to OpenGL::V2_1 if not working
-    let opengl = OpenGL::V3_2;
-
-    // Create a Glutin window
-    let mut window: Window = WindowSettings::new("Box Game", [WINDOW_WIDTH, WINDOW_HEIGHT])
-        .graphics_api(opengl)
-        .exit_on_esc(true)
-        .build()
-        .unwrap();
-
-    // load a font to render text
-    let assets = find_folder::Search::ParentsThenKids(3, 3)
-        .for_folder("assets")
-        .unwrap();
-    let freetype = ft::Library::init().unwrap();
-    let font = assets.join("FiraSans-Regular.ttf");
-
-    // Create a new box game
-    let mut game = BoxGame::new(font);
-    let mut gl = GlGraphics::new(opengl);
-
-    // event settings
-    let mut event_settings = EventSettings::new();
-    event_settings.set_ups(FPS);
-    event_settings.set_max_fps(FPS);
-    let mut events = Events::new(event_settings);
-
-    let mut frames_to_skip = 0;
-
-    // event loop
-    while let Some(e) = events.next(&mut window) {
-        // render
-        if let Some(args) = e.render_args() {
-            game.render(&mut gl, &freetype, &args);
-        }
-
-        // game update
-        if let Some(_) = e.update_args() {
-            if frames_to_skip > 0 {
-                frames_to_skip -= 1;
-                println!("Skipping a frame.");
-            } else if sess.current_state() == SessionState::Running {
-                // tell GGRS it is time to advance the frame and handle the requests
-                let local_input = game.local_input();
-
-                match sess.advance_frame(local_handle, &local_input) {
-                    Ok(requests) => game.handle_requests(requests),
-                    Err(ggrs::GGRSError::PredictionThreshold) => {
-                        println!("PredictionThreshold reached, skipping a frame.")
-                    }
-                    Err(e) => return Err(Box::new(e)),
-                }
-
-                // handle GGRS events
-                for event in sess.events() {
-                    if let GGRSEvent::WaitRecommendation { skip_frames } = event {
-                        frames_to_skip += skip_frames
-                    }
-                    println!("Event: {:?}", event);
-                }
-            }
-        }
-
-        // idle
-        if let Some(_args) = e.idle_args() {
-            sess.poll_remote_clients();
-        }
-
-        // update key state
-        if let Some(Button::Keyboard(key)) = e.press_args() {
-            match key {
-                Key::W => game.wasd_pressed[0] = true,
-                Key::A => game.wasd_pressed[1] = true,
-                Key::S => game.wasd_pressed[2] = true,
-                Key::D => game.wasd_pressed[3] = true,
-                _ => (),
-            }
-        }
-
-        // update key state
-        if let Some(Button::Keyboard(key)) = e.release_args() {
-            match key {
-                Key::W => game.wasd_pressed[0] = false,
-                Key::A => game.wasd_pressed[1] = false,
-                Key::S => game.wasd_pressed[2] = false,
-                Key::D => game.wasd_pressed[3] = false,
-                _ => (),
-            }
-        }
-    }
-
-    Ok(())
 }

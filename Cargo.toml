@@ -31,8 +31,8 @@ find_folder = "0.3.0"
 
 # Examples
 [[example]]
-name = "box_game"
-path = "examples/box_game/box_game.rs"
+name = "box_game_p2p"
+path = "examples/box_game/box_game_p2p.rs"
 
 [[example]]
 name = "box_game_spectator"

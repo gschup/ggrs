@@ -1,12 +1,12 @@
 extern crate freetype as ft;
 
-use ggrs::{GGRSError, GGRSEvent, SessionState};
+use ggrs::{GGRSEvent, PlayerHandle, PlayerType, SessionState};
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderEvent, UpdateEvent};
 use piston::window::WindowSettings;
-use piston::{EventLoop, IdleEvent};
+use piston::{Button, EventLoop, IdleEvent, Key, PressEvent, ReleaseEvent};
 use std::env;
 use std::net::SocketAddr;
 
@@ -22,14 +22,28 @@ mod box_game;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments very clumsily
     let args: Vec<String> = env::args().collect();
-    assert_eq!(args.len(), 3);
+    assert!(args.len() >= 4);
 
     let port: u16 = args[1].parse()?;
-    let host_addr: SocketAddr = args[2].parse()?;
+    let local_handle: PlayerHandle = args[2].parse()?;
+    let remote_handle: PlayerHandle = 1 - local_handle;
+    let remote_addr: SocketAddr = args[3].parse()?;
 
-    // create a GGRS session for a spectator
-    let mut sess =
-        ggrs::start_p2p_spectator_session(NUM_PLAYERS as u32, INPUT_SIZE, port, host_addr)?;
+    // create a GGRS session with two players
+    let mut sess = ggrs::start_p2p_session(NUM_PLAYERS as u32, INPUT_SIZE, port)?;
+
+    // add players
+    sess.add_player(PlayerType::Local, local_handle)?;
+    sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
+
+    // optionally, add a spectator
+    if args.len() > 4 {
+        let spec_addr: SocketAddr = args[4].parse()?;
+        sess.add_player(PlayerType::Spectator(spec_addr), 2)?;
+    }
+
+    // set input delay for the local player
+    sess.set_frame_delay(2, local_handle)?;
 
     // start the GGRS session
     sess.start_session()?;
@@ -38,12 +52,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opengl = OpenGL::V3_2;
 
     // Create a Glutin window
-    let mut window: Window =
-        WindowSettings::new("Box Game Spectator", [WINDOW_WIDTH, WINDOW_HEIGHT])
-            .graphics_api(opengl)
-            .exit_on_esc(true)
-            .build()
-            .unwrap();
+    let mut window: Window = WindowSettings::new("Box Game", [WINDOW_WIDTH, WINDOW_HEIGHT])
+        .graphics_api(opengl)
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
 
     // load a font to render text
     let assets = find_folder::Search::ParentsThenKids(3, 3)
@@ -78,21 +91,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Skipping a frame.");
             } else if sess.current_state() == SessionState::Running {
                 // tell GGRS it is time to advance the frame and handle the requests
-                match sess.advance_frame() {
+                let local_input = game.local_input();
+
+                match sess.advance_frame(local_handle, &local_input) {
                     Ok(requests) => game.handle_requests(requests),
-                    Err(GGRSError::PredictionThreshold) => {
-                        println!("Waiting for input from host.");
+                    Err(ggrs::GGRSError::PredictionThreshold) => {
+                        println!("PredictionThreshold reached, skipping a frame.")
                     }
                     Err(e) => return Err(Box::new(e)),
                 }
 
                 // handle GGRS events
                 for event in sess.events() {
-                    println!("Event: {:?}", event);
-                    if let GGRSEvent::Disconnected { .. } = event {
-                        println!("Disconnected from host.");
-                        return Ok(());
+                    if let GGRSEvent::WaitRecommendation { skip_frames } = event {
+                        frames_to_skip += skip_frames
                     }
+                    println!("Event: {:?}", event);
                 }
             }
         }
@@ -100,6 +114,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // idle
         if let Some(_args) = e.idle_args() {
             sess.poll_remote_clients();
+        }
+
+        // update key state
+        if let Some(Button::Keyboard(key)) = e.press_args() {
+            match key {
+                Key::W => game.wasd_pressed[0] = true,
+                Key::A => game.wasd_pressed[1] = true,
+                Key::S => game.wasd_pressed[2] = true,
+                Key::D => game.wasd_pressed[3] = true,
+                _ => (),
+            }
+        }
+
+        // update key state
+        if let Some(Button::Keyboard(key)) = e.release_args() {
+            match key {
+                Key::W => game.wasd_pressed[0] = false,
+                Key::A => game.wasd_pressed[1] = false,
+                Key::S => game.wasd_pressed[2] = false,
+                Key::D => game.wasd_pressed[3] = false,
+                _ => (),
+            }
         }
     }
 
