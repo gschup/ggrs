@@ -84,7 +84,7 @@ where
 
 pub struct BoxGame {
     game_state: BoxGameState,
-    pub wasd_pressed: [bool; 4],
+    pub key_states: [bool; 4],
     font: PathBuf,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
@@ -94,7 +94,7 @@ impl BoxGame {
     pub fn new(font: PathBuf) -> Self {
         Self {
             game_state: BoxGameState::new(),
-            wasd_pressed: [false; 4],
+            key_states: [false; 4],
             font,
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
@@ -206,8 +206,8 @@ impl BoxGame {
             // draw the player rectangles
             for i in 0..NUM_PLAYERS {
                 let square = rectangle::square(0.0, 0.0, PLAYER_SIZE);
-                let rotation = 0.0;
                 let (x, y) = self.game_state.positions[i];
+                let rotation = self.game_state.rotations[i];
 
                 let transform = c.transform.trans(x as f64, y as f64).rot_rad(rotation);
                 rectangle(PLAYER_COLORS[i], square, transform, gl);
@@ -221,16 +221,16 @@ impl BoxGame {
         let mut input: u8 = 0;
 
         // ugly, but it works...
-        if self.wasd_pressed[0] {
+        if self.key_states[0] {
             input |= INPUT_UP;
         }
-        if self.wasd_pressed[1] {
+        if self.key_states[1] {
             input |= INPUT_LEFT;
         }
-        if self.wasd_pressed[2] {
+        if self.key_states[2] {
             input |= INPUT_DOWN;
         }
-        if self.wasd_pressed[3] {
+        if self.key_states[3] {
             input |= INPUT_RIGHT;
         }
 
@@ -244,23 +244,27 @@ struct BoxGameState {
     pub frame: i32,
     pub positions: Vec<(f64, f64)>,
     pub velocities: Vec<(f64, f64)>,
+    pub rotations: Vec<f64>,
 }
 
 impl BoxGameState {
     pub fn new() -> Self {
         let mut positions = Vec::new();
         let mut velocities = Vec::new();
+        let mut rotations = Vec::new();
         for i in 0..NUM_PLAYERS as i32 {
             let x = WINDOW_WIDTH as i32 / 2 + (2 * i - 1) * (WINDOW_WIDTH as i32 / 4);
             let y = WINDOW_HEIGHT as i32 / 2;
             positions.push((x as f64, y as f64));
             velocities.push((0.0, 0.0));
+            rotations.push(0.0);
         }
 
         Self {
             frame: 0,
             positions,
             velocities,
+            rotations,
         }
     }
 }

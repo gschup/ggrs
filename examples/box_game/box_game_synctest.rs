@@ -87,10 +87,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // update key state
         if let Some(Button::Keyboard(key)) = e.press_args() {
             match key {
-                Key::W => game.wasd_pressed[0] = true,
-                Key::A => game.wasd_pressed[1] = true,
-                Key::S => game.wasd_pressed[2] = true,
-                Key::D => game.wasd_pressed[3] = true,
+                Key::W => game.key_states[0] = true,
+                Key::A => game.key_states[1] = true,
+                Key::S => game.key_states[2] = true,
+                Key::D => game.key_states[3] = true,
                 _ => (),
             }
         }
@@ -98,10 +98,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // update key state
         if let Some(Button::Keyboard(key)) = e.release_args() {
             match key {
-                Key::W => game.wasd_pressed[0] = false,
-                Key::A => game.wasd_pressed[1] = false,
-                Key::S => game.wasd_pressed[2] = false,
-                Key::D => game.wasd_pressed[3] = false,
+                Key::W => game.key_states[0] = false,
+                Key::A => game.key_states[1] = false,
+                Key::S => game.key_states[2] = false,
+                Key::D => game.key_states[3] = false,
                 _ => (),
             }
         }
