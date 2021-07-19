@@ -88,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(_) = e.update_args() {
             if frames_to_skip > 0 {
                 frames_to_skip -= 1;
-                println!("Skipping a frame.");
+                println!("Skipping a frame: WaitRecommendation");
             } else if sess.current_state() == SessionState::Running {
                 // tell GGRS it is time to advance the frame and handle the requests
                 let local_input = game.local_input();
@@ -96,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match sess.advance_frame(local_handle, &local_input) {
                     Ok(requests) => game.handle_requests(requests),
                     Err(ggrs::GGRSError::PredictionThreshold) => {
-                        println!("PredictionThreshold reached, skipping a frame.")
+                        println!("Skipping a frame: PredictionThreshold")
                     }
                     Err(e) => return Err(Box::new(e)),
                 }

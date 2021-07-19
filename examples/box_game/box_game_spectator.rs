@@ -62,8 +62,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     event_settings.set_max_fps(FPS);
     let mut events = Events::new(event_settings);
 
-    let mut frames_to_skip = 0;
-
     // event loop
     while let Some(e) = events.next(&mut window) {
         // render
@@ -73,15 +71,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // game update
         if let Some(_) = e.update_args() {
-            if frames_to_skip > 0 {
-                frames_to_skip -= 1;
-                println!("Skipping a frame.");
-            } else if sess.current_state() == SessionState::Running {
+            if sess.current_state() == SessionState::Running {
                 // tell GGRS it is time to advance the frame and handle the requests
                 match sess.advance_frame() {
                     Ok(requests) => game.handle_requests(requests),
                     Err(GGRSError::PredictionThreshold) => {
-                        println!("Waiting for input from host.");
+                        println!("Skipping a frame: Waiting for input from host.");
                     }
                     Err(e) => return Err(Box::new(e)),
                 }
