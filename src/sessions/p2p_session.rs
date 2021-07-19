@@ -14,7 +14,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
-const RECOMMENDATION_INTERVAL: Frame = 10;
+const RECOMMENDATION_INTERVAL: Frame = 40;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
 pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
