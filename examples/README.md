@@ -5,8 +5,13 @@ Gathered here are some additional instructions on how to build and run the examp
 ## BoxGame
 
 BoxGame is a very basic two-player example with each player controlling a coloured box.
-There is no real game, just movement with slight ice physics. Optionally,
+There is no real game, just movement with ice physics. Optionally,
 you can specify one spectator.
+
+- W to accelerate forwards
+- S to accelerate backwards
+- A to turn left
+- D to turn right
 
 An emergent side effect of my shoddy window handling: You can simulate network interruptions by
 dragging and holding the window in order to stop it from processing events.
