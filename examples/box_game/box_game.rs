@@ -26,7 +26,9 @@ const INPUT_DOWN: u8 = 1 << 1;
 const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 
-const PLAYER_SPEED: f64 = 240.0;
+const MOVEMENT_SPEED: f64 = 15.0 / FPS as f64;
+const ROTATION_SPEED: f64 = 2.5 / FPS as f64;
+const MAX_SPEED: f64 = 7.0;
 const FRICTION: f64 = 0.98;
 
 /// Computes the fletcher16 checksum, copied from wikipedia: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
@@ -141,37 +143,54 @@ impl BoxGame {
             // old values
             let (old_x, old_y) = self.game_state.positions[i];
             let (old_vel_x, old_vel_y) = self.game_state.velocities[i];
+            let mut rot = self.game_state.rotations[i];
+
             // slow down
             let mut vel_x = old_vel_x * FRICTION;
             let mut vel_y = old_vel_y * FRICTION;
-            // apply input
-            if input & INPUT_UP != 0 {
-                vel_y = -PLAYER_SPEED;
+
+            // thrust
+            if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
+                vel_x += MOVEMENT_SPEED * rot.cos();
+                vel_y += MOVEMENT_SPEED * rot.sin();
             }
-            if input & INPUT_DOWN != 0 {
-                vel_y = PLAYER_SPEED;
+            //break
+            if input & INPUT_UP == 0 && input & INPUT_DOWN != 0 {
+                vel_x -= MOVEMENT_SPEED * rot.cos();
+                vel_y -= MOVEMENT_SPEED * rot.sin();
             }
-            if input & INPUT_LEFT != 0 {
-                vel_x = -PLAYER_SPEED;
+            // turn left
+            if input & INPUT_LEFT != 0 && input & INPUT_RIGHT == 0 {
+                rot = (rot - ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
             }
-            if input & INPUT_RIGHT != 0 {
-                vel_x = PLAYER_SPEED;
+            // turn right
+            if input & INPUT_LEFT == 0 && input & INPUT_RIGHT != 0 {
+                rot = (rot + ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
             }
-            // compute new values
-            let mut x = old_x + vel_x / FPS as f64;
-            let mut y = old_y + vel_y / FPS as f64;
+
+            // limit speed
+            let magnitude = (vel_x * vel_x + vel_y * vel_y).sqrt();
+            if magnitude > MAX_SPEED {
+                vel_x = (vel_x * MAX_SPEED) / magnitude;
+                vel_y = (vel_y * MAX_SPEED) / magnitude;
+            }
+
+            // compute new position
+            let mut x = old_x + vel_x;
+            let mut y = old_y + vel_y;
 
             //constrain boxes to canvas borders
             x = x.max(0.0);
-            x = x.min(WINDOW_WIDTH as f64 - PLAYER_SIZE);
+            x = x.min(WINDOW_WIDTH as f64);
             y = y.max(0.0);
-            y = y.min(WINDOW_HEIGHT as f64 - PLAYER_SIZE);
+            y = y.min(WINDOW_HEIGHT as f64);
 
             self.game_state.positions[i] = (x, y);
             self.game_state.velocities[i] = (vel_x, vel_y);
+            self.game_state.rotations[i] = rot;
         }
 
-        // inefficient to serialize the gamestate here
+        // TODO: inefficient to serialize the gamestate here just for the checksum
         // remember checksum to render it later
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
@@ -209,7 +228,11 @@ impl BoxGame {
                 let (x, y) = self.game_state.positions[i];
                 let rotation = self.game_state.rotations[i];
 
-                let transform = c.transform.trans(x as f64, y as f64).rot_rad(rotation);
+                let transform = c
+                    .transform
+                    .trans(x, y)
+                    .rot_rad(rotation)
+                    .trans(-PLAYER_SIZE / 2.0, -PLAYER_SIZE / 2.0);
                 rectangle(PLAYER_COLORS[i], square, transform, gl);
             }
         });
