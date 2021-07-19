@@ -31,7 +31,7 @@ const ROTATION_SPEED: f64 = 2.5 / FPS as f64;
 const MAX_SPEED: f64 = 7.0;
 const FRICTION: f64 = 0.98;
 
-/// Computes the fletcher16 checksum, copied from wikipedia: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+/// Computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
 fn fletcher16(data: &[u8]) -> u16 {
     let mut sum1: u16 = 0;
     let mut sum2: u16 = 0;
@@ -41,7 +41,7 @@ fn fletcher16(data: &[u8]) -> u16 {
         sum2 = (sum2 + sum1) % 255;
     }
 
-    return (sum2 << 8) | sum1;
+    (sum2 << 8) | sum1
 }
 
 fn glyphs(face: &mut ft::Face, text: &str) -> Vec<(Texture, [f64; 2])> {

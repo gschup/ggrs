@@ -10,7 +10,7 @@ pub const BLANK_INPUT: GameInput = GameInput {
     size: 0,
 };
 
-/// Computes the fletcher16 checksum, copied from wikipedia: https://en.wikipedia.org/wiki/Fletcher%27s_checksum
+/// Computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
 fn fletcher16(data: &[u8]) -> u16 {
     let mut sum1: u16 = 0;
     let mut sum2: u16 = 0;
@@ -20,7 +20,7 @@ fn fletcher16(data: &[u8]) -> u16 {
         sum2 = (sum2 + sum1) % 255;
     }
 
-    return (sum2 << 8) | sum1;
+    (sum2 << 8) | sum1
 }
 
 /// Represents a serialized game state of your game for a single frame. The buffer `buffer` holds your state, `frame` indicates the associated frame number
@@ -55,7 +55,7 @@ impl GameState {
             },
         };
 
-        GameState {
+        Self {
             frame,
             buffer,
             checksum,

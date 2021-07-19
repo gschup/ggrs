@@ -39,13 +39,13 @@ pub(crate) fn decode(
     let buf = bitfield_rle::decode(data)?;
 
     // decode the delta-encoding
-    Ok(delta_decode(reference, start_frame, buf))
+    Ok(delta_decode(reference, start_frame, &buf))
 }
 
 pub(crate) fn delta_decode(
     reference: &GameInput,
     start_frame: Frame,
-    data: Vec<u8>,
+    data: &[u8],
 ) -> Vec<GameInput> {
     assert!(data.len() % reference.size == 0);
     let out_size = data.len() / reference.size;

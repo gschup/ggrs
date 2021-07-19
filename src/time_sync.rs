@@ -47,7 +47,7 @@ impl TimeSync {
         }
 
         // meet in the middle
-        let sleep_frames = (((remote_avg - local_avg) / 2.0f32) + 0.5) as i32;
+        let sleep_frames = (((remote_avg - local_avg) / 2.0_f32) + 0.5) as i32;
 
         // only wait if the discrepancy is big enough
         if sleep_frames < MIN_FRAME_ADVANTAGE {

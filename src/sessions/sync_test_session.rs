@@ -97,7 +97,7 @@ impl SyncTestSession {
         // if we advanced far enough into the game do comparisons and rollbacks
         if self.check_distance > 0 && self.sync_layer.current_frame() > self.check_distance as i32 {
             // compare checksums of older frames to our checksum history (where only the first version of any checksum is allowed)
-            for i in 0..self.check_distance as i32 + 1 {
+            for i in 0..=self.check_distance as i32 {
                 let frame_to_check = self.sync_layer.current_frame() - i;
                 if !self.checksums_consistent(frame_to_check) {
                     return Err(GGRSError::MismatchedChecksum {
@@ -175,7 +175,7 @@ impl SyncTestSession {
         }
     }
 
-    /// Updates the checksum_history and checks
+    /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once
     fn checksums_consistent(&mut self, frame_to_check: Frame) -> bool {
         // remove entries older than the check_distance
         let oldest_allowed_frame = self.sync_layer.current_frame() - self.check_distance as i32;
@@ -187,17 +187,15 @@ impl SyncTestSession {
                 let latest_state = latest_cell.load();
 
                 match self.checksum_history.get(&latest_state.frame) {
-                    Some(cs) => {
-                        return *cs == latest_state.checksum;
-                    }
+                    Some(cs) => *cs == latest_state.checksum,
                     None => {
                         self.checksum_history
-                            .insert(latest_state.frame, latest_state.checksum.clone());
-                        return true;
+                            .insert(latest_state.frame, latest_state.checksum);
+                        true
                     }
                 }
             }
-            None => return true,
+            None => true,
         }
     }
 
