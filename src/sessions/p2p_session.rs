@@ -215,7 +215,7 @@ impl P2PSession {
     pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
         match self.players.get_mut(&player_handle) {
             // the local player cannot be disconnected
-            None | Some(Player::Local) => Err(GGRSError::InvalidRequest), // TODO: disconnect the local player?
+            None | Some(Player::Local) => Err(GGRSError::InvalidRequest),
             // a remote player can only be disconnected if not already disconnected, since there is some additional logic attached
             Some(Player::Remote(_)) => {
                 if !self.local_connect_status[player_handle].disconnected {
