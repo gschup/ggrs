@@ -560,6 +560,10 @@ impl UdpProtocol {
         // this input has not been encoded with what we expect, so we drop the whole thing
         // TODO: this could be made so much more efficient if we kept more received input history
         // so we can properly decode with the right reference
+        assert!(
+            self.last_received_input.frame == NULL_FRAME
+                || self.last_received_input.frame + 1 >= body.start_frame
+        );
         if self.last_received_input.frame != NULL_FRAME
             && self.last_received_input.frame + 1 != body.start_frame
         {
