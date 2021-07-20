@@ -1,6 +1,5 @@
 use bincode;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
 
 use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell};
 
@@ -46,7 +45,7 @@ impl GameStub {
     }
 }
 
-#[derive(Hash, Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct GameStateStub {
     pub frame: i32,
     pub state: i32,
