@@ -135,7 +135,7 @@ impl BoxGame {
             let input;
             // check if the player is disconnected (disconnected players might maybe do something different)
             if inputs[i].frame == NULL_FRAME {
-                input = 0; // disconnected players do nothing
+                input = 4; // disconnected players spin
             } else {
                 input = bincode::deserialize(inputs[i].input()).unwrap();
             }
