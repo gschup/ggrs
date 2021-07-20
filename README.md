@@ -12,7 +12,7 @@ For now, take a look at [the documentation](https://docs.rs/ggrs/newest/ggrs/) o
 
 ## Development Status
 
-GGRS is in an early stage, but the main functionality for two players should be quite stable.
+GGRS is in an early stage, but the main functionality for two players and spectators should be quite stable.
 
 ## What is GGPO / Rollback?
 
