@@ -45,8 +45,7 @@ cargo run --example box_game_spectator -- 7002 127.0.0.1:7000
 ## BoxGame SyncTest
 
 The same game, but without network functionality.
-Instead, the SyncTestSession focusses on simulating rollbacks and comparing checksums that you
-should provide. If you do not provide checksums, SyncTestSession does nearly nothing.
+Instead, the SyncTestSession focusses on simulating rollbacks and comparing checksums.
 
 ### Launching BoxGame SyncTest
 
