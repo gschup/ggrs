@@ -117,7 +117,7 @@ impl P2PSpectatorSession {
         assert!(merged_input.size % self.input_size == 0);
         let mut synced_inputs = Vec::new();
         for i in 0..self.num_players as usize {
-            let mut input = GameInput::new(self.current_frame, self.input_size);
+            let mut input = GameInput::new(self.current_frame + 1, self.input_size);
             let start = i * input.size;
             let end = (i + 1) * input.size;
             input.copy_input(&merged_input.buffer[start..end]);
