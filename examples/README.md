@@ -16,6 +16,13 @@ you can specify one spectator.
 An emergent side effect of my shoddy window handling: You can simulate network interruptions by
 dragging and holding the window in order to stop it from processing events.
 
+### Important Disclaimer - Determinism
+
+Since BoxGame is based on floats and uses, floating-point sin, cos and sqrt,
+I fully expect this example to desync when compiled on two different architectures/platforms.
+This is intentional to see when and how that happens. If you plan to implement your own
+deterministic game, make sure to take floating-point inpresicions and non-deterministic results into consideration.
+
 ### Launching BoxGame P2P and Spectator
 
 The example is properly launched by command-line arguments
