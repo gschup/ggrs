@@ -21,7 +21,7 @@ dragging and holding the window in order to stop it from processing events.
 Since BoxGame is based on floats and uses floating-point sin, cos and sqrt,
 I fully expect this example to desync when compiled on two different architectures/platforms.
 This is intentional to see when and how that happens. If you plan to implement your own
-deterministic game, make sure to take floating-point inpresicions and non-deterministic results into consideration.
+deterministic game, make sure to take floating-point impresicions and non-deterministic results into consideration.
 
 ### Launching BoxGame P2P and Spectator
 
