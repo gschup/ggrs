@@ -5,7 +5,6 @@
 
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
-use std::fmt::Display;
 use std::net::SocketAddr;
 
 pub use error::GGRSError;
@@ -116,16 +115,6 @@ pub enum GGRSRequest {
     LoadGameState { cell: GameStateCell },
     /// You should advance the gamestate with the `inputs` provided to you.
     AdvanceFrame { inputs: Vec<GameInput> },
-}
-
-impl Display for GGRSRequest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GGRSRequest::SaveGameState { .. } => write!(f, "SaveGameState"),
-            GGRSRequest::LoadGameState { .. } => write!(f, "LoadGameState"),
-            &GGRSRequest::AdvanceFrame { .. } => write!(f, "AdvanceFrame"),
-        }
-    }
 }
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
