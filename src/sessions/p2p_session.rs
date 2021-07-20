@@ -103,8 +103,8 @@ pub struct P2PSession {
     disconnect_timeout: Duration,
     /// The time until the client will get a notification that a remote player is about to be disconnected.
     disconnect_notify_start: Duration,
-    /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
-    next_recommended_sleep: Frame,
+    /// If we receive a disconnect from another client, we have to rollback from that frame on in order to prevent wrong predictions
+    disconnect_frame: Frame,
 
     /// Internal State of the Session.
     state: SessionState,
@@ -115,8 +115,11 @@ pub struct P2PSession {
     players: HashMap<PlayerHandle, Player>,
     /// This struct contains information about remote players, like connection status and the frame of last received input.
     local_connect_status: Vec<ConnectionStatus>,
+
     /// notes which inputs have already been sent to the spectators
     next_spectator_frame: Frame,
+    /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
+    next_recommended_sleep: Frame,
 
     ///Contains all events to be forwarded to the user.
     event_queue: VecDeque<GGRSEvent>,
@@ -149,6 +152,7 @@ impl P2PSession {
             sync_layer: SyncLayer::new(num_players, input_size),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
+            disconnect_frame: NULL_FRAME,
             players: HashMap::new(),
             event_queue: VecDeque::new(),
         })
@@ -268,8 +272,12 @@ impl P2PSession {
         let mut requests = Vec::new();
 
         // check game consistency and rollback, if necessary
-        if let Some(first_incorrect) = self.sync_layer.check_simulation_consistency() {
+        if let Some(first_incorrect) = self
+            .sync_layer
+            .check_simulation_consistency(self.disconnect_frame)
+        {
             self.adjust_gamestate(first_incorrect, &mut requests);
+            self.disconnect_frame = NULL_FRAME;
         }
 
         // find the total minimum confirmed frame and propagate disconnects
@@ -513,9 +521,9 @@ impl P2PSession {
                 self.local_connect_status[player_handle].disconnected = true;
 
                 if self.sync_layer.current_frame() > last_frame {
-                    // TODO: pond3r/ggpo adjusts simulation to account for the fact that the player disconnected a few frames ago,
+                    // remember to adjust simulation to account for the fact that the player disconnected a few frames ago,
                     // resimulating with correct disconnect flags (to account for user having some AI kick in).
-                    // For now, the game will have some frames with incorrect predictions instead.
+                    self.disconnect_frame = last_frame;
                 }
             }
             Player::Spectator(endpoint) => {

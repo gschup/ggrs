@@ -260,8 +260,7 @@ impl SyncLayer {
     }
 
     /// Finds the earliest incorrect frame detected by the individual input queues
-    pub(crate) fn check_simulation_consistency(&self) -> Option<Frame> {
-        let mut first_incorrect: Frame = NULL_FRAME;
+    pub(crate) fn check_simulation_consistency(&self, mut first_incorrect: Frame) -> Option<Frame> {
         for handle in 0..self.num_players as usize {
             let incorrect = self.input_queues[handle].first_incorrect_frame();
             if incorrect != NULL_FRAME
