@@ -6,7 +6,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderEvent, UpdateEvent};
 use piston::window::WindowSettings;
-use piston::{Button, EventLoop, IdleEvent, Key, PressEvent, ReleaseEvent};
+use piston::{Button, EventLoop, Key, PressEvent, ReleaseEvent};
 
 const FPS: u64 = 60;
 const NUM_PLAYERS: usize = 2;
