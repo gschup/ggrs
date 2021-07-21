@@ -100,20 +100,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     Err(e) => return Err(Box::new(e)),
                 }
-
-                // handle GGRS events
-                for event in sess.events() {
-                    if let GGRSEvent::WaitRecommendation { skip_frames } = event {
-                        frames_to_skip += skip_frames
-                    }
-                    println!("Event: {:?}", event);
-                }
             }
         }
 
         // idle
         if let Some(_args) = e.idle_args() {
             sess.poll_remote_clients();
+
+            // handle GGRS events
+            for event in sess.events() {
+                if let GGRSEvent::WaitRecommendation { skip_frames } = event {
+                    frames_to_skip += skip_frames
+                }
+                println!("Event: {:?}", event);
+            }
         }
 
         // update key state

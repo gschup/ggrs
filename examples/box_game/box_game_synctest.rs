@@ -79,11 +79,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // idle
-        if let Some(_args) = e.idle_args() {
-            // poll remote endpoints, but not in the synctest
-        }
-
         // update key state
         if let Some(Button::Keyboard(key)) = e.press_args() {
             match key {
