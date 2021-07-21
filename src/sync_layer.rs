@@ -56,7 +56,9 @@ impl Clone for GameStateCell {
 
 #[derive(Debug, Clone)]
 pub(crate) struct SavedStates {
-    pub states: [GameStateCell; MAX_PREDICTION_FRAMES as usize],
+    // the states array is two bigger than the max prediction frames in order to account for
+    // the next frame needing a space and still being able to rollback the max distance
+    pub states: [GameStateCell; MAX_PREDICTION_FRAMES as usize + 2],
     pub head: usize,
 }
 
