@@ -4,7 +4,7 @@
 [![docs.rs](https://img.shields.io/docsrs/ggrs?style=for-the-badge)](https://docs.rs/ggrs/newest/ggrs/)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/gschup/ggrs/Rust?style=for-the-badge)
 ![GitHub top language](https://img.shields.io/github/languages/top/gschup/ggrs?style=for-the-badge)
-![GitHub](https://img.shields.io/github/license/gschup/ggrs?style=for-the-badge)
+[![license](https://img.shields.io/github/license/gschup/ggrs?style=for-the-badge)](./LICENSE)
 
 GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](https://www.ggpo.net/) written in 100% safe [Rust 🦀](https://www.rust-lang.org/). The callback-style API from the original library has been replaced with a much saner, simpler control flow. Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.
 
