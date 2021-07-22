@@ -114,6 +114,7 @@ pub enum GGRSRequest {
     /// You should load the gamestate in the `cell` provided to you.
     LoadGameState { cell: GameStateCell },
     /// You should advance the gamestate with the `inputs` provided to you.
+    /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
     AdvanceFrame { inputs: Vec<GameInput> },
 }
 
