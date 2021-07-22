@@ -345,6 +345,63 @@ impl P2PSession {
         Ok(requests)
     }
 
+    /// Receive UDP packages, distribute them to corresponding UDP endpoints, handle all occurring events and send all outgoing UDP packages.
+    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
+    pub fn poll_remote_clients(&mut self) {
+        // Get all udp packets and distribute them to associated endpoints.
+        // The endpoints will handle their packets, which will trigger both events and UPD replies.
+        for (from, msg) in &self.socket.receive_all_messages() {
+            for endpoint in self
+                .players
+                .values_mut()
+                .filter_map(Player::as_endpoint_mut)
+            {
+                if endpoint.is_handling_message(from) {
+                    endpoint.handle_message(msg);
+                    break;
+                }
+            }
+        }
+
+        // update frame information between remote players
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::remote_as_endpoint_mut)
+        {
+            if endpoint.is_running() {
+                endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
+            }
+        }
+
+        // run enpoint poll and get events from players and spectators. This will trigger additional UDP packets to be sent.
+        let mut events = VecDeque::new();
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            let player_handle = endpoint.player_handle();
+            for event in endpoint.poll(&self.local_connect_status) {
+                events.push_back((event, player_handle))
+            }
+        }
+
+        // handle all events locally
+        for (event, handle) in events.drain(..) {
+            self.handle_event(event, handle);
+        }
+
+        // send all queued UDP packets
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.send_all_messages(&self.socket);
+        }
+    }
+
     /// Used to fetch some statistics about the quality of the network connection.
     /// # Errors
     /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
@@ -556,63 +613,6 @@ impl P2PSession {
 
         // everyone is synchronized, so we can change state and accept input
         self.state = SessionState::Running;
-    }
-
-    /// Receive UDP packages, distribute them to corresponding UDP endpoints, handle all occurring events and send all outgoing UDP packages.
-    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
-    pub fn poll_remote_clients(&mut self) {
-        // Get all udp packets and distribute them to associated endpoints.
-        // The endpoints will handle their packets, which will trigger both events and UPD replies.
-        for (from, msg) in &self.socket.receive_all_messages() {
-            for endpoint in self
-                .players
-                .values_mut()
-                .filter_map(Player::as_endpoint_mut)
-            {
-                if endpoint.is_handling_message(from) {
-                    endpoint.handle_message(msg);
-                    break;
-                }
-            }
-        }
-
-        // update frame information between remote players
-        for endpoint in self
-            .players
-            .values_mut()
-            .filter_map(Player::remote_as_endpoint_mut)
-        {
-            if endpoint.is_running() {
-                endpoint.update_local_frame_advantage(self.sync_layer.current_frame());
-            }
-        }
-
-        // run enpoint poll and get events from players and spectators. This will trigger additional UDP packets to be sent.
-        let mut events = VecDeque::new();
-        for endpoint in self
-            .players
-            .values_mut()
-            .filter_map(Player::as_endpoint_mut)
-        {
-            let player_handle = endpoint.player_handle();
-            for event in endpoint.poll(&self.local_connect_status) {
-                events.push_back((event, player_handle))
-            }
-        }
-
-        // handle all events locally
-        for (event, handle) in events.drain(..) {
-            self.handle_event(event, handle);
-        }
-
-        // send all queued UDP packets
-        for endpoint in self
-            .players
-            .values_mut()
-            .filter_map(Player::as_endpoint_mut)
-        {
-            endpoint.send_all_messages(&self.socket);
-        }
     }
 
     /// Roll back to `first_incorrect` frame and resimulate the game with most up-to-date input data.
