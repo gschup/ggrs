@@ -1,6 +1,6 @@
 # Changelog
 
-In this document, all remarkable changes are listed.
+In this document, all remarkable changes are listed. Not mentioned are smaller code cleanups or documentation improvements.
 
 ## Unreleased
 
