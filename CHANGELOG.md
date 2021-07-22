@@ -3,7 +3,8 @@
 In this document, all remarkable changes are listed. Not mentioned are smaller code cleanups or documentation improvements.
 
 ## Unreleased
-- Nothing here yet
+
+- nothing here yet...
 
 ## 0.2.5
 
