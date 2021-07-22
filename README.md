@@ -10,6 +10,8 @@ GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](ht
 
 For now, take a look at [the documentation](https://docs.rs/ggrs/newest/ggrs/) or the examples in order to check it out!
 
+If you are interested in integrating rollback networking into your game or just want to chat with other rollback developers (not limited to Rust), check out the [GGPO Developers Discord](https://discord.com/invite/8FKKhCRCCE)!
+
 ## Development Status
 
 GGRS is in an early stage, but the main functionality for two players and spectators should be quite stable.
