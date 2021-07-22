@@ -86,11 +86,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // game update
         if let Some(_) = e.update_args() {
+            //skip frames if recommended
             if frames_to_skip > 0 {
                 frames_to_skip -= 1;
                 println!("Skipping a frame: WaitRecommendation");
-            } else if sess.current_state() == SessionState::Running {
-                // tell GGRS it is time to advance the frame and handle the requests
+                continue;
+            }
+
+            // if the session is running, tell GGRS it is time to advance the frame and handle the requests
+            if sess.current_state() == SessionState::Running {
                 let local_input = game.local_input();
 
                 match sess.advance_frame(local_handle, &local_input) {

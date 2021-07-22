@@ -86,14 +86,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // idle
         if let Some(_args) = e.idle_args() {
             sess.poll_remote_clients();
-        }
 
-        // handle GGRS events
-        for event in sess.events() {
-            println!("Event: {:?}", event);
-            if let GGRSEvent::Disconnected { .. } = event {
-                println!("Disconnected from host.");
-                return Ok(());
+            // handle GGRS events
+            for event in sess.events() {
+                println!("Event: {:?}", event);
+                if let GGRSEvent::Disconnected { .. } = event {
+                    println!("Disconnected from host.");
+                    return Ok(());
+                }
             }
         }
     }
