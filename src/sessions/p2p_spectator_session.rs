@@ -30,6 +30,7 @@ pub struct P2PSpectatorSession {
     host: UdpProtocol,
     event_queue: VecDeque<GGRSEvent>,
     current_frame: Frame,
+    last_recv_frame: Frame,
 }
 
 impl P2PSpectatorSession {
@@ -59,6 +60,7 @@ impl P2PSpectatorSession {
             host: UdpProtocol::new(0, host_addr, num_players, input_size * num_players as usize),
             event_queue: VecDeque::new(),
             current_frame: NULL_FRAME,
+            last_recv_frame: NULL_FRAME,
         })
     }
 
@@ -121,6 +123,11 @@ impl P2PSpectatorSession {
             let start = i * input.size;
             let end = (i + 1) * input.size;
             input.copy_input(&merged_input.buffer[start..end]);
+
+            // disconnected players are identified by NULL_FRAME
+            if self.host_connect_status[i].disconnected {
+                input.frame = NULL_FRAME;
+            }
             synced_inputs.push(input);
         }
 
@@ -212,6 +219,8 @@ impl P2PSpectatorSession {
             Event::Input(input) => {
                 // save the input
                 self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE] = input;
+                assert!(input.frame > self.last_recv_frame);
+                self.last_recv_frame = input.frame;
 
                 // update the frame advantage
                 self.host.update_local_frame_advantage(input.frame);

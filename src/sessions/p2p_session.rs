@@ -224,14 +224,14 @@ impl P2PSession {
             Some(Player::Remote(_)) => {
                 if !self.local_connect_status[player_handle].disconnected {
                     let last_frame = self.local_connect_status[player_handle].last_frame;
-                    self.disconnect_player_by_handle(player_handle, last_frame);
+                    self.disconnect_player_at_frame(player_handle, last_frame);
                     return Ok(());
                 }
                 Err(GGRSError::PlayerDisconnected)
             }
             // disconnecting spectators is simpler
             Some(Player::Spectator(_)) => {
-                self.disconnect_player_by_handle(player_handle, NULL_FRAME);
+                self.disconnect_player_at_frame(player_handle, NULL_FRAME);
                 Ok(())
             }
         }
@@ -508,7 +508,7 @@ impl P2PSession {
         Ok(spectator_handle)
     }
 
-    fn disconnect_player_by_handle(&mut self, player_handle: PlayerHandle, last_frame: Frame) {
+    fn disconnect_player_at_frame(&mut self, player_handle: PlayerHandle, last_frame: Frame) {
         // disconnect the remote player
         match self
             .players
@@ -523,7 +523,7 @@ impl P2PSession {
                 if self.sync_layer.current_frame() > last_frame {
                     // remember to adjust simulation to account for the fact that the player disconnected a few frames ago,
                     // resimulating with correct disconnect flags (to account for user having some AI kick in).
-                    self.disconnect_frame = last_frame;
+                    self.disconnect_frame = last_frame + 1;
                 }
             }
             Player::Spectator(endpoint) => {
@@ -722,7 +722,7 @@ impl P2PSession {
                 // If so, we need to re-adjust. This can happen when we e.g. detect our own disconnect at frame n
                 // and later receive a disconnect notification for frame n-1.
                 if local_connected || local_min_confirmed > queue_min_confirmed {
-                    self.disconnect_player_by_handle(handle as PlayerHandle, queue_min_confirmed);
+                    self.disconnect_player_at_frame(handle as PlayerHandle, queue_min_confirmed);
                 }
             }
         }
@@ -786,7 +786,7 @@ impl P2PSession {
                     NULL_FRAME
                 };
 
-                self.disconnect_player_by_handle(player_handle, last_frame);
+                self.disconnect_player_at_frame(player_handle, last_frame);
                 self.event_queue
                     .push_back(GGRSEvent::Disconnected { player_handle });
             }
