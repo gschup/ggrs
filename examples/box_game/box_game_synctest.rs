@@ -1,6 +1,5 @@
 extern crate freetype as ft;
 
-use ggrs::SessionState;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
@@ -63,15 +62,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // game update
         if let Some(_) = e.update_args() {
-            // do stuff only when the session is ready
-            if sess.current_state() == SessionState::Running {
-                // tell GGRS it is time to advance the frame and handle the requests
-                let local_input = game.local_input();
-                let requests = sess.advance_frame(local_player, &local_input)?;
+            // tell GGRS it is time to advance the frame and handle the requests
+            let local_input = game.local_input();
+            let requests = sess.advance_frame(local_player, &local_input)?;
 
-                // handle requests
-                game.handle_requests(requests);
-            }
+            // handle requests
+            game.handle_requests(requests);
         }
 
         // update key state

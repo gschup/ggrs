@@ -4,8 +4,7 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Frame, GGRSRequest};
-use crate::{PlayerHandle, SessionState};
+use crate::{Frame, GGRSRequest, PlayerHandle};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -125,11 +124,6 @@ impl SyncTestSession {
         }
         self.sync_layer.set_frame_delay(player_handle, frame_delay);
         Ok(())
-    }
-
-    /// Returns the current state of the `SynctestSession`.
-    pub const fn current_state(&self) -> SessionState {
-        SessionState::Running
     }
 
     /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once
