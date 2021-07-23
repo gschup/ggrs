@@ -75,7 +75,9 @@ impl P2PSpectatorSession {
     pub fn start_session(&mut self) -> Result<(), GGRSError> {
         // if we are not in the initialization state, we already started the session at some point
         if self.state != SessionState::Initializing {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info: "Session already started.".to_owned(),
+            });
         }
 
         // start the synchronisation

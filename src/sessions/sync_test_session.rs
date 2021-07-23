@@ -52,7 +52,9 @@ impl SyncTestSession {
             return Err(GGRSError::InvalidHandle);
         }
         if player_type != PlayerType::Local {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info: "In the SyncTestSession, only local players can be added.".to_owned(),
+            });
         }
         Ok(())
     }
@@ -63,7 +65,9 @@ impl SyncTestSession {
     /// Return a `InvalidRequestError`, if the session is already running.
     pub fn start_session(&mut self) -> Result<(), GGRSError> {
         if self.running {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info: "Player handle already exists.".to_owned(),
+            });
         }
 
         self.running = true;

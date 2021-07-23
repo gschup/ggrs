@@ -146,13 +146,24 @@ pub fn start_synctest_session(
     check_distance: u32,
 ) -> Result<SyncTestSession, GGRSError> {
     if num_players > MAX_PLAYERS {
-        return Err(GGRSError::InvalidRequest);
+        return Err(GGRSError::InvalidRequest {
+            info: "Too many players.".to_owned(),
+        });
     }
     if input_size > MAX_INPUT_BYTES {
-        return Err(GGRSError::InvalidRequest);
+        return Err(GGRSError::InvalidRequest {
+            info: "Input size too big.".to_owned(),
+        });
     }
     if check_distance > MAX_PREDICTION_FRAMES - 1 {
-        return Err(GGRSError::InvalidRequest);
+        return Err(GGRSError::InvalidRequest {
+            info: "Check distance too big.".to_owned(),
+        });
+    }
+    if check_distance < 2 {
+        return Err(GGRSError::InvalidRequest {
+            info: "Check distance too small.".to_owned(),
+        });
     }
     Ok(SyncTestSession::new(
         num_players,
@@ -186,10 +197,14 @@ pub fn start_p2p_session(
     local_port: u16,
 ) -> Result<P2PSession, GGRSError> {
     if num_players > MAX_PLAYERS {
-        return Err(GGRSError::InvalidRequest);
+        return Err(GGRSError::InvalidRequest {
+            info: "Too many players.".to_owned(),
+        });
     }
     if input_size > MAX_INPUT_BYTES {
-        return Err(GGRSError::InvalidRequest);
+        return Err(GGRSError::InvalidRequest {
+            info: "Input size too big.".to_owned(),
+        });
     }
     P2PSession::new(num_players, input_size, local_port)
         .map_err(|_| GGRSError::SocketCreationFailed)
@@ -222,10 +237,14 @@ pub fn start_p2p_spectator_session(
     host_addr: SocketAddr,
 ) -> Result<P2PSpectatorSession, GGRSError> {
     if num_players > MAX_PLAYERS {
-        return Err(GGRSError::InvalidRequest);
+        return Err(GGRSError::InvalidRequest {
+            info: "Too many players.".to_owned(),
+        });
     }
     if input_size > MAX_INPUT_BYTES {
-        return Err(GGRSError::InvalidRequest);
+        return Err(GGRSError::InvalidRequest {
+            info: "Input size too big.".to_owned(),
+        });
     }
     P2PSpectatorSession::new(num_players, input_size, local_port, host_addr)
         .map_err(|_| GGRSError::SocketCreationFailed)

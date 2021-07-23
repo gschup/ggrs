@@ -174,7 +174,11 @@ impl P2PSession {
     ) -> Result<PlayerHandle, GGRSError> {
         // currently, you can only add players in the init phase
         if self.state != SessionState::Initializing {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info:
+                    "Session already started. You can only add players before starting the session."
+                        .to_owned(),
+            });
         }
 
         // add the player depending on type
@@ -191,13 +195,17 @@ impl P2PSession {
     pub fn start_session(&mut self) -> Result<(), GGRSError> {
         // if we are not in the initialization state, we already started the session at some point
         if self.state != SessionState::Initializing {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info: "Session already started.".to_owned(),
+            });
         }
 
         // check if all players are added
         for player_handle in 0..self.num_players as PlayerHandle {
             if self.players.get(&player_handle).is_none() {
-                return Err(GGRSError::InvalidRequest);
+                return Err(GGRSError::InvalidRequest{
+                    info: "Not enough players have been added. Keep registering players up to the defined player number.".to_owned(),
+                });
             }
         }
 
@@ -219,7 +227,9 @@ impl P2PSession {
     pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
         match self.players.get_mut(&player_handle) {
             // the local player cannot be disconnected
-            None | Some(Player::Local) => Err(GGRSError::InvalidRequest),
+            None | Some(Player::Local) => Err(GGRSError::InvalidRequest {
+                info: "Local Player cannot be disconnected.".to_owned(),
+            }),
             // a remote player can only be disconnected if not already disconnected, since there is some additional logic attached
             Some(Player::Remote(_)) => {
                 if !self.local_connect_status[player_handle].disconnected {
@@ -261,7 +271,7 @@ impl P2PSession {
         // player is not a local player
         match self.players.get(&local_player_handle) {
             Some(Player::Local) => (),
-            _ => return Err(GGRSError::InvalidRequest),
+            _ => return Err(GGRSError::InvalidHandle),
         }
 
         // session is not running and synchronzied
@@ -404,8 +414,7 @@ impl P2PSession {
 
     /// Used to fetch some statistics about the quality of the network connection.
     /// # Errors
-    /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
-    /// - Returns `InvalidRequest` if the provided player handle does not refer to an existing remote player.
+    /// - Returns `InvalidHandle` if the provided player handle does not refer to an existing remote player.
     /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
     pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
         // player handle is invalid
@@ -416,9 +425,11 @@ impl P2PSession {
         match self
             .players
             .get(&player_handle)
-            .ok_or(GGRSError::InvalidRequest)?
+            .ok_or(GGRSError::InvalidHandle)?
         {
-            Player::Local => Err(GGRSError::InvalidRequest),
+            Player::Local => Err(GGRSError::InvalidRequest {
+                info: "Cannot retrieve network statistics for the local player.".to_owned(),
+            }),
             Player::Remote(endpoint) | Player::Spectator(endpoint) => {
                 match endpoint.network_stats() {
                     Some(stats) => Ok(stats),
@@ -430,8 +441,8 @@ impl P2PSession {
 
     /// Change the amount of frames GGRS will delay the inputs for a player. You should only set the frame delay for local players.
     /// # Errors
-    /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
-    /// Returns `InvalidRequest` if the provided player handle refers to a remote player.
+    /// Returns `InvalidHandle` if the provided player handle is invalid.
+    /// Returns `InvalidRequest` if the provided player handle does not refer to a local player.
     pub fn set_frame_delay(
         &mut self,
         frame_delay: u32,
@@ -445,9 +456,11 @@ impl P2PSession {
         match self
             .players
             .get(&player_handle)
-            .ok_or(GGRSError::InvalidRequest)?
+            .ok_or(GGRSError::InvalidHandle)?
         {
-            Player::Remote(_) | Player::Spectator(_) => Err(GGRSError::InvalidRequest),
+            Player::Remote(_) | Player::Spectator(_) => Err(GGRSError::InvalidRequest {
+                info: "Frame delay can only be set for the local player.".to_owned(),
+            }),
             Player::Local => {
                 self.sync_layer.set_frame_delay(player_handle, frame_delay);
                 Ok(())
@@ -495,12 +508,14 @@ impl P2PSession {
 
         // check if player handle already exists
         if self.players.contains_key(&player_handle) {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info: "Player handle already exists.".to_owned(),
+            });
         }
 
         // check if a local player already exists
         if self.players.values().any(|p| matches!(p, Player::Local)) {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest{info: "Local player already registered. It is not possible to add more than one local player.".to_owned()});
         }
 
         // finally add the local player
@@ -520,7 +535,9 @@ impl P2PSession {
 
         // check if player handle already exists
         if self.players.contains_key(&player_handle) {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info: "Player handle already exists.".to_owned(),
+            });
         }
 
         // create a udp protocol endpoint that handles all the messaging to that remote player
@@ -546,7 +563,9 @@ impl P2PSession {
 
         // check if player handle already exists
         if self.players.contains_key(&spectator_handle) {
-            return Err(GGRSError::InvalidRequest);
+            return Err(GGRSError::InvalidRequest {
+                info: "Player handle already exists.".to_owned(),
+            });
         }
 
         // create a udp protocol endpoint that handles all the messaging to that remote spectator
