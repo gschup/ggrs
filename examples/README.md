@@ -1,6 +1,6 @@
 # Example Instructions
 
-Gathered here are some additional instructions on how to build and run the examples.
+Gathered here are some additional instructions on how to build and run the examples. Note that the examples are usually kept up-to-date with the most recent version of the code. If you are looking for example code compatible with a certain version, take a look at the [release tags](https://github.com/gschup/ggrs/tags).
 
 ## BoxGame
 
