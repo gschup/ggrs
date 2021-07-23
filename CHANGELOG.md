@@ -5,7 +5,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 ## Unreleased
 
 - `GGRSError::InvalidRequest` now has added `info` field to explain the problem in more detail.
-- In a `SyncTestSession`, adding players is no longer necessary, as it didn't fulfill any meaningful purpose.
+- Removed multiple methods in `SyncTestSession`,as they didn't fulfill any meaningful purpose.
 
 ## 0.2.5
 
