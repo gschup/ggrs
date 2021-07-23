@@ -5,7 +5,7 @@ use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
 use crate::{Frame, GGRSRequest};
-use crate::{PlayerHandle, PlayerType, SessionState};
+use crate::{PlayerHandle, SessionState};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -36,27 +36,6 @@ impl SyncTestSession {
             dummy_connect_status,
             checksum_history: HashMap::default(),
         }
-    }
-
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times).
-    /// # Errors
-    /// Will return `InvalidHandle` when the provided player handle is too big for the number of players.
-    /// Will return `InvalidRequest` if a player with that handle has been added before.
-    /// Will return `InvalidRequest` for any player type other than `Local`. `SyncTestSession` does not support remote players.
-    pub fn add_player(
-        &mut self,
-        player_type: PlayerType,
-        player_handle: PlayerHandle,
-    ) -> Result<(), GGRSError> {
-        if player_handle >= self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
-        if player_type != PlayerType::Local {
-            return Err(GGRSError::InvalidRequest {
-                info: "In the SyncTestSession, only local players can be added.".to_owned(),
-            });
-        }
-        Ok(())
     }
 
     /// After you are done defining and adding all players, you should start the session. In a sync test, starting the session saves the initial game state and sets running to true.

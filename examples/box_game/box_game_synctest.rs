@@ -1,6 +1,6 @@
 extern crate freetype as ft;
 
-use ggrs::{PlayerType, SessionState};
+use ggrs::SessionState;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
@@ -22,10 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session with two players
     let mut sess = ggrs::start_synctest_session(NUM_PLAYERS as u32, INPUT_SIZE, CHECK_DISTANCE)?;
 
-    // add player - this is a synctest, we skip the second player
-    sess.add_player(PlayerType::Local, 0)?;
-
-    // set input delay for the local player
+    // set input delay for any player you want
     sess.set_frame_delay(2, 0)?;
 
     // start the GGRS session
