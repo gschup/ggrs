@@ -14,7 +14,6 @@ pub struct SyncTestSession {
     num_players: u32,
     input_size: usize,
     check_distance: u32,
-    running: bool,
     sync_layer: SyncLayer,
     dummy_connect_status: Vec<ConnectionStatus>,
     checksum_history: HashMap<Frame, u64>,
@@ -31,26 +30,10 @@ impl SyncTestSession {
             num_players,
             input_size,
             check_distance,
-            running: false,
             sync_layer: SyncLayer::new(num_players, input_size),
             dummy_connect_status,
             checksum_history: HashMap::default(),
         }
-    }
-
-    /// After you are done defining and adding all players, you should start the session. In a sync test, starting the session saves the initial game state and sets running to true.
-    ///
-    /// # Errors
-    /// Return a `InvalidRequestError`, if the session is already running.
-    pub fn start_session(&mut self) -> Result<(), GGRSError> {
-        if self.running {
-            return Err(GGRSError::InvalidRequest {
-                info: "Player handle already exists.".to_owned(),
-            });
-        }
-
-        self.running = true;
-        Ok(())
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
@@ -60,7 +43,6 @@ impl SyncTestSession {
     /// # Errors
     /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
     /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
-    /// - Returns `NotSynchronized` if the session has not been started yet.
     pub fn advance_frame(
         &mut self,
         player_handle: PlayerHandle,
@@ -69,10 +51,6 @@ impl SyncTestSession {
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
             return Err(GGRSError::InvalidHandle);
-        }
-        // session has not been started
-        if !self.running {
-            return Err(GGRSError::NotSynchronized);
         }
 
         let mut requests = Vec::new();
@@ -151,11 +129,7 @@ impl SyncTestSession {
 
     /// Returns the current state of the `SynctestSession`.
     pub const fn current_state(&self) -> SessionState {
-        if self.running {
-            SessionState::Running
-        } else {
-            SessionState::Initializing
-        }
+        SessionState::Running
     }
 
     /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once

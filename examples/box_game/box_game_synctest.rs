@@ -21,12 +21,10 @@ mod box_game;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session with two players
     let mut sess = ggrs::start_synctest_session(NUM_PLAYERS as u32, INPUT_SIZE, CHECK_DISTANCE)?;
+    let local_player = 0;
 
     // set input delay for any player you want
-    sess.set_frame_delay(2, 0)?;
-
-    // start the GGRS session
-    sess.start_session()?;
+    sess.set_frame_delay(2, local_player)?;
 
     // Change this to OpenGL::V2_1 if not working
     let opengl = OpenGL::V3_2;
@@ -69,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if sess.current_state() == SessionState::Running {
                 // tell GGRS it is time to advance the frame and handle the requests
                 let local_input = game.local_input();
-                let requests = sess.advance_frame(0, &local_input)?;
+                let requests = sess.advance_frame(local_player, &local_input)?;
 
                 // handle requests
                 game.handle_requests(requests);
