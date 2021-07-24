@@ -64,15 +64,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // event loop
     while let Some(e) = events.next(&mut window) {
-        // render
+        // render update
         if let Some(args) = e.render_args() {
             game.render(&mut gl, &freetype, &args);
         }
 
-        // game update
+        // game update - tell GGRS it is time to advance the frame and handle the requests
         if let Some(_) = e.update_args() {
             if sess.current_state() == SessionState::Running {
-                // tell GGRS it is time to advance the frame and handle the requests
                 match sess.advance_frame() {
                     Ok(requests) => game.handle_requests(requests),
                     Err(GGRSError::PredictionThreshold) => {

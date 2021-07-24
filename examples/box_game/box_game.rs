@@ -31,7 +31,7 @@ const ROTATION_SPEED: f64 = 2.5 / FPS as f64;
 const MAX_SPEED: f64 = 7.0;
 const FRICTION: f64 = 0.98;
 
-/// Computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
+/// computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
 fn fletcher16(data: &[u8]) -> u16 {
     let mut sum1: u16 = 0;
     let mut sum2: u16 = 0;
@@ -84,6 +84,7 @@ where
     }
 }
 
+// BoxGame will handle rendering, gamestate, inputs and GGRSRequests
 pub struct BoxGame {
     game_state: BoxGameState,
     pub key_states: [bool; 4],
@@ -103,6 +104,7 @@ impl BoxGame {
         }
     }
 
+    // for each request, call the appropriate function
     pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
         for request in requests {
             match request {
@@ -113,6 +115,8 @@ impl BoxGame {
         }
     }
 
+    // serialize current gamestate, create a checksum
+    // creating a checksum here is only relevant for SyncTestSessions
     fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
@@ -121,6 +125,7 @@ impl BoxGame {
         cell.save(GameState::new(frame, Some(buffer), Some(checksum)));
     }
 
+    // deserialize gamestate to load and overwrite current gamestate
     fn load_game_state(&mut self, cell: GameStateCell) {
         let state_to_load = cell.load();
         self.game_state = bincode::deserialize(&state_to_load.buffer.unwrap()).unwrap();
@@ -135,8 +140,10 @@ impl BoxGame {
             let input;
             // check if the player is disconnected (disconnected players might maybe do something different)
             if inputs[i].frame == NULL_FRAME {
-                input = 4; // disconnected players spin
+                // disconnected players spin
+                input = 4;
             } else {
+                // otherwise deserialize the input
                 input = bincode::deserialize(inputs[i].input()).unwrap();
             }
 
@@ -154,7 +161,7 @@ impl BoxGame {
                 vel_x += MOVEMENT_SPEED * rot.cos();
                 vel_y += MOVEMENT_SPEED * rot.sin();
             }
-            //break
+            // break
             if input & INPUT_UP == 0 && input & INPUT_DOWN != 0 {
                 vel_x -= MOVEMENT_SPEED * rot.cos();
                 vel_y -= MOVEMENT_SPEED * rot.sin();
@@ -179,19 +186,20 @@ impl BoxGame {
             let mut x = old_x + vel_x;
             let mut y = old_y + vel_y;
 
-            //constrain boxes to canvas borders
+            // constrain boxes to canvas borders
             x = x.max(0.0);
             x = x.min(WINDOW_WIDTH as f64);
             y = y.max(0.0);
             y = y.min(WINDOW_HEIGHT as f64);
 
+            // update all state
             self.game_state.positions[i] = (x, y);
             self.game_state.velocities[i] = (vel_x, vel_y);
             self.game_state.rotations[i] = rot;
         }
 
-        // TODO: inefficient to serialize the gamestate here just for the checksum
         // remember checksum to render it later
+        // it is very inefficient to serialize the gamestate here just for the checksum
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
         self.last_checksum = (self.game_state.frame, checksum);
@@ -200,9 +208,11 @@ impl BoxGame {
         }
     }
 
+    // renders the game to the window
     pub fn render(&mut self, gl: &mut GlGraphics, freetype: &Library, args: &RenderArgs) {
         use graphics::*;
 
+        // preparation for last checksum rendering
         let mut face = freetype.new_face(&self.font, 0).unwrap();
         face.set_pixel_sizes(0, 40).unwrap();
         let checksum_string = format!(
@@ -210,15 +220,19 @@ impl BoxGame {
             self.last_checksum.0, self.last_checksum.1
         );
         let checksum_glyphs = glyphs(&mut face, &checksum_string);
+        // preparation for periodic checksum rendering
         let periodic_string = format!(
             "Frame {}: Checksum {}",
             self.periodic_checksum.0, self.periodic_checksum.1
         );
         let periodic_glyphs = glyphs(&mut face, &periodic_string);
 
+        // start drawing
         gl.draw(args.viewport(), |c, gl| {
-            // Clear the screen.
+            // clear the screen
             clear(BLACK, gl);
+
+            // render checksums
             render_text(&checksum_glyphs, &c.trans(0.0, 40.0), gl);
             render_text(&periodic_glyphs, &c.trans(0.0, 80.0), gl);
 
@@ -239,8 +253,8 @@ impl BoxGame {
     }
 
     #[allow(dead_code)]
+    // creates a compact representation of currently pressed keys and serializes it
     pub fn local_input(&self) -> Vec<u8> {
-        // Create a set of pressed Keys.
         let mut input: u8 = 0;
 
         // ugly, but it works...
@@ -257,6 +271,8 @@ impl BoxGame {
             input |= INPUT_RIGHT;
         }
 
+        // serialization is completely unnecessary here, since the data is already u8
+        // this is for demonstration
         bincode::serialize(&input).unwrap()
     }
 }

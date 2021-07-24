@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // event loop
     while let Some(e) = events.next(&mut window) {
-        // render
+        // render update
         if let Some(args) = e.render_args() {
             game.render(&mut gl, &freetype, &args);
         }
@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // update key state
+        // key state update
         if let Some(Button::Keyboard(key)) = e.press_args() {
             match key {
                 Key::W => game.key_states[0] = true,
@@ -131,7 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // update key state
+        // key state update
         if let Some(Button::Keyboard(key)) = e.release_args() {
             match key {
                 Key::W => game.key_states[0] = false,

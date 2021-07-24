@@ -55,22 +55,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // event loop
     while let Some(e) = events.next(&mut window) {
-        // render
+        // render update
         if let Some(args) = e.render_args() {
             game.render(&mut gl, &freetype, &args);
         }
 
-        // game update
+        // game update - tell GGRS it is time to advance the frame and handle the requests
         if let Some(_) = e.update_args() {
-            // tell GGRS it is time to advance the frame and handle the requests
             let local_input = game.local_input();
             let requests = sess.advance_frame(local_player, &local_input)?;
-
-            // handle requests
             game.handle_requests(requests);
         }
 
-        // update key state
+        // key state update
         if let Some(Button::Keyboard(key)) = e.press_args() {
             match key {
                 Key::W => game.key_states[0] = true,
@@ -81,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // update key state
+        // key state update
         if let Some(Button::Keyboard(key)) = e.release_args() {
             match key {
                 Key::W => game.key_states[0] = false,
