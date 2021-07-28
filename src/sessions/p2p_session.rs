@@ -355,8 +355,8 @@ impl P2PSession {
         Ok(requests)
     }
 
-    /// Receive UDP packages, distribute them to corresponding UDP endpoints, handle all occurring events and send all outgoing UDP packages.
-    /// Should be called periodically by your application to give GGRS a chance to do internal work like packet transmissions.
+    /// Should be called periodically by your application to give GGRS a chance to do internal work.
+    /// GGRS will receive UDP packets, distribute them to corresponding endpoints, handle all occurring events and send all outgoing UDP packets.
     pub fn poll_remote_clients(&mut self) {
         // Get all udp packets and distribute them to associated endpoints.
         // The endpoints will handle their packets, which will trigger both events and UPD replies.
@@ -412,7 +412,7 @@ impl P2PSession {
         }
     }
 
-    /// Used to fetch some statistics about the quality of the network connection.
+    /// Returns a `NetworkStats` struct that gives information about the quality of the network connection.
     /// # Errors
     /// - Returns `InvalidHandle` if the provided player handle does not refer to an existing remote player.
     /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
@@ -441,8 +441,8 @@ impl P2PSession {
 
     /// Change the amount of frames GGRS will delay the inputs for a player. You should only set the frame delay for local players.
     /// # Errors
-    /// Returns `InvalidHandle` if the provided player handle is invalid.
-    /// Returns `InvalidRequest` if the provided player handle does not refer to a local player.
+    /// - Returns `InvalidHandle` if the provided player handle is invalid.
+    /// - Returns `InvalidRequest` if the provided player handle does not refer to a local player.
     pub fn set_frame_delay(
         &mut self,
         frame_delay: u32,
