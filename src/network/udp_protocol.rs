@@ -541,6 +541,8 @@ impl UdpProtocol {
             return;
         }
 
+        self.running_last_input_recv = Instant::now();
+
         // we know everything is correct, so we decode
         let recv_inputs = decode(&self.last_received_input, body.start_frame, &body.bytes)
             .expect("decoding failed");
@@ -550,10 +552,8 @@ impl UdpProtocol {
             if game_input.frame <= self.last_received_input.frame {
                 continue;
             }
-
             // send the input to the session
             self.last_received_input = *game_input;
-            self.running_last_input_recv = Instant::now();
             self.event_queue.push_back(Event::Input(*game_input));
         }
 
