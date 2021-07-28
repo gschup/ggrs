@@ -75,7 +75,6 @@ pub(crate) struct QualityReply {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct MessageHeader {
     pub magic: u16,
-    pub sequence_number: u16,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

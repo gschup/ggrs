@@ -28,7 +28,6 @@ const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
-const MAX_SEQ_DISTANCE: u16 = 1 << 15;
 const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
 
 fn millis_since_epoch() -> u128 {
@@ -91,8 +90,6 @@ pub(crate) struct UdpProtocol {
     round_trip_time: u128,
     last_send_time: Instant,
     last_recv_time: Instant,
-    send_seq: u16,
-    recv_seq: u16,
 }
 
 impl PartialEq for UdpProtocol {
@@ -167,8 +164,6 @@ impl UdpProtocol {
             round_trip_time: 0,
             last_send_time: Instant::now(),
             last_recv_time: Instant::now(),
-            send_seq: 0,
-            recv_seq: 0,
         }
     }
 
@@ -325,12 +320,6 @@ impl UdpProtocol {
         }
     }
 
-    fn next_sequence_number(&mut self) -> u16 {
-        let ret = self.send_seq;
-        self.send_seq += 1;
-        ret
-    }
-
     /*
      *  SENDING MESSAGES
      */
@@ -430,11 +419,7 @@ impl UdpProtocol {
 
     fn queue_message(&mut self, body: MessageBody) {
         // set the header
-        let header = MessageHeader {
-            magic: self.magic,
-            sequence_number: self.next_sequence_number(),
-        };
-
+        let header = MessageHeader { magic: self.magic };
         let msg = UdpMessage { header, body };
 
         self.packets_sent += 1;
@@ -450,31 +435,17 @@ impl UdpProtocol {
      */
 
     pub(crate) fn handle_message(&mut self, msg: &UdpMessage) {
+        // don't handle messages if shutdown
         if self.state == ProtocolState::Shutdown {
             return;
         }
 
-        // filter messages that don't match what we expect
-        match &msg.body {
-            MessageBody::SyncRequest(_) | MessageBody::SyncReply(_) => {
-                // filter packets that don't match the magic if we have set if yet
-                if self.remote_magic != 0 && msg.header.magic != self.remote_magic {
-                    return;
-                }
-            }
-            _ => {
-                // filter packets that don't match the magic
-                if msg.header.magic != self.remote_magic {
-                    return;
-                }
-                // filter out-of-order packets
-                if msg.header.sequence_number - self.recv_seq > MAX_SEQ_DISTANCE {
-                    return;
-                }
-            }
+        // filter packets that don't match the magic if we have set it already
+        if self.remote_magic != 0 && msg.header.magic != self.remote_magic {
+            return;
         }
-        // update sequence number of received packages
-        self.recv_seq = msg.header.sequence_number;
+
+        // update time when we last received packages
         self.last_recv_time = Instant::now();
 
         // if the connection has been marked as interrupted, send an event to signal we are receiving again
@@ -483,6 +454,7 @@ impl UdpProtocol {
             self.event_queue.push_back(Event::NetworkResumed);
         }
 
+        // handle the message
         match &msg.body {
             MessageBody::SyncRequest(body) => self.on_sync_request(*body),
             MessageBody::SyncReply(body) => self.on_sync_reply(msg.header, *body),
