@@ -519,13 +519,12 @@ impl UdpProtocol {
         } else {
             // update the peer connection status
             for i in 0..self.peer_connect_status.len() {
-                assert!(
-                    body.peer_connect_status[i].last_frame
-                        >= self.peer_connect_status[i].last_frame
-                );
                 self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected
                     || self.peer_connect_status[i].disconnected;
-                self.peer_connect_status[i].last_frame = body.peer_connect_status[i].last_frame;
+                self.peer_connect_status[i].last_frame = std::cmp::max(
+                    self.peer_connect_status[i].last_frame,
+                    body.peer_connect_status[i].last_frame,
+                );
             }
         }
 
