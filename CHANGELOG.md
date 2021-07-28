@@ -9,6 +9,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 - removed multiple methods in `SyncTestSession`, as they didn't fulfill any meaningful purpose
 - removed unused sequence number from message header, fixing related issues
 - fixed an issue where out-of-order packets would cause a crash
+- other minor improvements
 
 ## 0.2.5
 
