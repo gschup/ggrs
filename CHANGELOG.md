@@ -5,8 +5,9 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 ## Unreleased
 
 - `GGRSError::InvalidRequest` now has an added `info` field to explain the problem in more detail
-- Removed unused `GGRSError::GeneralFailure`
-- Removed multiple methods in `SyncTestSession`, as they didn't fulfill any meaningful purpose
+- removed unused `GGRSError::GeneralFailure`
+- removed multiple methods in `SyncTestSession`, as they didn't fulfill any meaningful purpose
+- removed unused sequence number from message header
 
 ## 0.2.5
 
