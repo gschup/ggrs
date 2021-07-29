@@ -4,7 +4,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- spectators catch up by advancing the frame twice per `advance_frame(..)` call, if too far behind
+- spectators catch up by advancing the frame twice per `advance_frame()` call, if too far behind
+- added `frames_behind_host()` method for `P2PSpectatorSession`, allowing to query how many frames the spectator client is behind the last received input
 
 ## 0.3.0
 
