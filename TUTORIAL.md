@@ -1,13 +1,11 @@
 # How to use GGRS
 
-Include GGRS into your dependencies in your `Cargo.toml` file.
-
 ```toml
 [dependencies]
 ggrs = "0.3"
 ```
 
-GGRS mainly operates through one of three Sessions; each providing different functionalities:
+GGRS mainly operates through one of three sessions; each providing different functionalities:
 
 - `P2PSession`: Communicate with other remote sessions; send and receive inputs to synchronize your game between clients. All Clients participating in the game create their own session and connect to each other in a peer-to-peer fashion.
 - `P2PSpectatorSession`: Connects to another `P2PSession` in order to receive confirmed game inputs without contributing to the game input itself. If you want clients to spectate games, this is the session to use.
@@ -15,7 +13,9 @@ GGRS mainly operates through one of three Sessions; each providing different fun
 
 ## Setup
 
-For all sessions, you will have to define the number of active players contributing to the game input via `num_players` as well as the size of such inputs via `input_size`. The `local_port` is where your client will receive  packets of remote clients.
+For all sessions, you will have to define the number of active players contributing to the game input via `num_players` as well as the size of such inputs via `input_size`. The `local_port` is where your client will receive packets of remote clients.
+
+GGRS does not handle NAT hole punching. Check out [this article](https://keithjohnston.wordpress.com/2014/02/17/nat-punch-through-for-multiplayer-games/) for more information on the topic.
 
 ### `P2PSession`
 
@@ -40,7 +40,7 @@ sess.add_player(PlayerType::Local, local_handle)?;
 sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
 ```
 
-Optionally, define any spectators you wish to add. The `spectator_handle` should be greater or equal to `num_players`. Internally, GGRS will add 1000 to the provided handle to identify the spectator client, so the resulting handle will be 1002 in this example.
+Optionally, define any spectators you wish to add. The `spectator_handle` should be greater or equal to `num_players`. Internally, GGRS will add 1000 to the provided handle to identify the spectator client, so the resulting internal handle will be 1002 in this example.
 
 ```rust
 let spectator_handle = 2;
@@ -109,11 +109,13 @@ You don't need to define players or start the session. Because there are no remo
 
 ## Main Loop
 
-In your main game loop, you should call `advance_frame(...)` in fixed intervals. Please see [BoxGame P2P](./examples/box_game/box_game_p2p.rs), [BoxGame Spectator](./examples/box_game/box_game_spectator.rs) or [BoxGame SyncTest](./examples/box_game/box_game_synctest.rs) for a full code example.
+In your main game loop, you should call `advance_frame(...)` in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out [this article](https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75) or [this article](https://gafferongames.com/post/fix_your_timestep/) to learn more about running your own gameloop.
 
 WARNING: Currently, this interval should be 60 FPS, otherwise frame synchronization will be slightly off for `P2PSession`.
 
-## Handling Requests
+Please see [BoxGame P2P](./examples/box_game/box_game_p2p.rs), [BoxGame Spectator](./examples/box_game/box_game_spectator.rs) or [BoxGame SyncTest](./examples/box_game/box_game_synctest.rs) for a full code example.
+
+### Handling Requests
 
 If calling `advance_frame(...)` succeeds, it will return a `Vec<GGRSRequest>`. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests:
 
@@ -123,7 +125,7 @@ If calling `advance_frame(...)` succeeds, it will return a `Vec<GGRSRequest>`. H
 
 Please see [BoxGame](./examples/box_game.rs) for a full code example.
 
-## Polling Remote Clients
+### Polling Remote Clients
 
 If you have spare time between rendering and updating your game, you can always call:
 
@@ -133,6 +135,6 @@ sess.poll_remote_clients();
 
 This will receive and handle incoming UDP packets and send queued packets to other remote clients. GGRS should work without explicitly calling this method, but frequent polling leads to timely communication between sessions.
 
-## Handling Events
+### Handling Events
 
 Events are notifications from the session for the user. Please see the examples or refer to the documentation what kind of `GGRSEvent` can occur.
