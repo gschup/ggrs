@@ -102,7 +102,10 @@ let mut sess = ggrs::start_synctest_session(num_players, input_size, check_dista
 Afterwards, you can optionally define input delays for any player you wish.
 
 ```rust
-sess.set_frame_delay(2)?;
+let input_delay = 2;
+
+sess.set_frame_delay(input_delay, 0)?;
+sess.set_frame_delay(input_delay, 1)?;
 ```
 
 You don't need to define players or start the session. Because there are no remote clients to synchronize with, it will immediately be ready to advance the game.
