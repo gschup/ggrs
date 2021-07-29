@@ -15,6 +15,9 @@ use super::p2p_session::Event;
 
 // The amount of inputs a spectator can buffer
 const SPECTATOR_BUFFER_SIZE: usize = 128;
+// If the spectator is more than this amount of frames behind, it will advance the game two steps at a time to catch up
+const MAX_FRAMES_BEHIND: usize = 10;
+// The amount of events a spectator can buffer; should never be an issue if the user polls the events at every step
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 /// A `P2PSpectatorSession` provides a UDP protocol to connect to a remote host in a peer-to-peer fashion. The host will broadcast all confirmed inputs to this session.
@@ -105,33 +108,7 @@ impl P2PSpectatorSession {
 
         // split the inputs
         let frame_to_grab = self.current_frame + 1;
-        let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
-
-        // We haven't received the input from the host yet. Wait.
-        if merged_input.frame < frame_to_grab {
-            return Err(GGRSError::PredictionThreshold);
-        }
-
-        // The host is more than `SPECTATOR_BUFFER_SIZE` frames ahead of the spectator. The input we need is gone forever.
-        if merged_input.frame > frame_to_grab {
-            return Err(GGRSError::SpectatorTooFarBehind);
-        }
-
-        // split the inputs back into an input for each player
-        assert!(merged_input.size % self.input_size == 0);
-        let mut synced_inputs = Vec::new();
-        for i in 0..self.num_players as usize {
-            let mut input = GameInput::new(self.current_frame + 1, self.input_size);
-            let start = i * input.size;
-            let end = (i + 1) * input.size;
-            input.copy_input(&merged_input.buffer[start..end]);
-
-            // disconnected players are identified by NULL_FRAME
-            if self.host_connect_status[i].disconnected {
-                input.frame = NULL_FRAME;
-            }
-            synced_inputs.push(input);
-        }
+        let synced_inputs = self.inputs_at_frame(frame_to_grab)?;
 
         // advance the frame
         self.current_frame += 1;
@@ -181,6 +158,38 @@ impl P2PSpectatorSession {
 
         // send out all pending UDP messages
         self.host.send_all_messages(&self.socket);
+    }
+
+    fn inputs_at_frame(&mut self, frame_to_grab: Frame) -> Result<Vec<GameInput>, GGRSError> {
+        let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
+
+        // We haven't received the input from the host yet. Wait.
+        if merged_input.frame < frame_to_grab {
+            return Err(GGRSError::PredictionThreshold);
+        }
+
+        // The host is more than `SPECTATOR_BUFFER_SIZE` frames ahead of the spectator. The input we need is gone forever.
+        if merged_input.frame > frame_to_grab {
+            return Err(GGRSError::SpectatorTooFarBehind);
+        }
+
+        // split the inputs back into an input for each player
+        assert!(merged_input.size % self.input_size == 0);
+        let mut synced_inputs = Vec::new();
+        for i in 0..self.num_players as usize {
+            let mut input = GameInput::new(self.current_frame + 1, self.input_size);
+            let start = i * input.size;
+            let end = (i + 1) * input.size;
+            input.copy_input(&merged_input.buffer[start..end]);
+
+            // disconnected players are identified by NULL_FRAME
+            if self.host_connect_status[i].disconnected {
+                input.frame = NULL_FRAME;
+            }
+            synced_inputs.push(input);
+        }
+
+        Ok(synced_inputs)
     }
 
     fn handle_event(&mut self, event: Event) {
