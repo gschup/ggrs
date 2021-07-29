@@ -66,10 +66,10 @@ sess.start_session()?;
 First, create a new session. For the spectator, you will have to define a `host_addr` from which this session will receive inputs from all players. The defined host needs to add this client as a spectator, as well.
 
 ```rust
-let local_port: u16 = 7777;
+let local_port: u16 = 7002;
 let num_players : u32 = 2;
 let input_size : usize = std::mem::size_of::<u32>();
-let host_addr: SocketAddr = "127.0.0.1:8888".parse()?;
+let host_addr: SocketAddr = "127.0.0.1:7000".parse()?;
 
 let mut sess = ggrs::start_p2p_spectator_session(num_players, input_size, local_port, host_addr)?;
 ```
