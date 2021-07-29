@@ -8,13 +8,7 @@
 
 GGRS (good game rollback system) is a reimagination of the [GGPO network SDK](https://www.ggpo.net/) written in 100% safe [Rust 🦀](https://www.rust-lang.org/). The callback-style API from the original library has been replaced with a much saner, simpler control flow. Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.
 
-For now, take a look at [the documentation](https://docs.rs/ggrs/newest/ggrs/) or the examples in order to check it out!
-
 If you are interested in integrating rollback networking into your game or just want to chat with other rollback developers (not limited to Rust), check out the [GGPO Developers Discord](https://discord.com/invite/8FKKhCRCCE)!
-
-## Development Status
-
-GGRS is in an early stage, but the main functionality for two players and spectators should be quite stable.
 
 ## What is GGPO / Rollback?
 
@@ -27,6 +21,18 @@ Taken from [the official GGPO website](https://ggpo.net/):
 >Don't worry if that sounds like a headache.  GGPO was designed specifically to implement the rollback algorithms and low-level networking logic in a way that's easy to integrate into your existing game loop.  If you simply implement the functionality to save your game state, load it back up, and execute a frame of game state without rendering its outcome, GGPO can take care of the rest.
 
 For more information about GGPO, check out [the official website](http://ggpo.net/) or [the official github repository](https://github.com/pond3r/ggpo). A very good pseudocode explanation for general rollback networking can be found [in this Gist](https://gist.github.com/rcmagic/f8d76bca32b5609e85ab156db38387e9).
+
+## Getting Started
+
+To get started with GGRS, check out the following resources:
+
+- [Tutorial](./TUTORIAL.md)
+- [Documentation](https://docs.rs/ggrs/newest/ggrs/)
+- [Examples](./examples/README.md)
+
+## Development Status
+
+GGRS is in an early stage, but the main functionality for two players and spectators should be quite stable.
 
 ## Other Rollback Implementations in Rust
 
