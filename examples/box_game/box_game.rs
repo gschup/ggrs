@@ -1,7 +1,7 @@
 extern crate freetype as ft;
 
 use ft::Library;
-use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell, NULL_FRAME};
+use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, NULL_FRAME};
 use graphics::{Context, Graphics, ImageSize};
 use opengl_graphics::{GlGraphics, Texture, TextureSettings};
 use piston::input::RenderArgs;
@@ -87,7 +87,7 @@ where
 // BoxGame will handle rendering, gamestate, inputs and GGRSRequests
 pub struct BoxGame {
     game_state: BoxGameState,
-    pub key_states: [bool; 4],
+    pub key_states: [bool; 8],
     font: PathBuf,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
@@ -97,7 +97,7 @@ impl BoxGame {
     pub fn new(font: PathBuf) -> Self {
         Self {
             game_state: BoxGameState::new(),
-            key_states: [false; 4],
+            key_states: [false; 8],
             font,
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
@@ -254,21 +254,38 @@ impl BoxGame {
 
     #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
-    pub fn local_input(&self) -> Vec<u8> {
+    pub fn local_input(&self, handle: PlayerHandle) -> Vec<u8> {
         let mut input: u8 = 0;
 
         // ugly, but it works...
-        if self.key_states[0] {
-            input |= INPUT_UP;
+        if handle == 0 {
+            if self.key_states[0] {
+                input |= INPUT_UP;
+            }
+            if self.key_states[1] {
+                input |= INPUT_LEFT;
+            }
+            if self.key_states[2] {
+                input |= INPUT_DOWN;
+            }
+            if self.key_states[3] {
+                input |= INPUT_RIGHT;
+            }
         }
-        if self.key_states[1] {
-            input |= INPUT_LEFT;
-        }
-        if self.key_states[2] {
-            input |= INPUT_DOWN;
-        }
-        if self.key_states[3] {
-            input |= INPUT_RIGHT;
+
+        if handle == 1 {
+            if self.key_states[4] {
+                input |= INPUT_UP;
+            }
+            if self.key_states[5] {
+                input |= INPUT_LEFT;
+            }
+            if self.key_states[6] {
+                input |= INPUT_DOWN;
+            }
+            if self.key_states[7] {
+                input |= INPUT_RIGHT;
+            }
         }
 
         // serialization is completely unnecessary here, since the data is already u8

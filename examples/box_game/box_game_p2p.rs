@@ -95,7 +95,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // if the session is running, tell GGRS it is time to advance the frame and handle the requests
             if sess.current_state() == SessionState::Running {
-                let local_input = game.local_input();
+                // always get WASD inputs
+                let local_input = game.local_input(0);
 
                 match sess.advance_frame(local_handle, &local_input) {
                     Ok(requests) => game.handle_requests(requests),

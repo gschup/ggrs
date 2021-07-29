@@ -20,10 +20,10 @@ mod box_game;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session with two players
     let mut sess = ggrs::start_synctest_session(NUM_PLAYERS as u32, INPUT_SIZE, CHECK_DISTANCE)?;
-    let local_player = 0;
 
     // set input delay for any player you want
-    sess.set_frame_delay(2, local_player)?;
+    sess.set_frame_delay(2, 0)?;
+    sess.set_frame_delay(2, 1)?;
 
     // Change this to OpenGL::V2_1 if not working
     let opengl = OpenGL::V3_2;
@@ -60,10 +60,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             game.render(&mut gl, &freetype, &args);
         }
 
-        // game update - tell GGRS it is time to advance the frame and handle the requests
+        // game update
         if let Some(_) = e.update_args() {
-            let local_input = game.local_input();
-            let requests = sess.advance_frame(local_player, &local_input)?;
+            // create inputs for all players
+            let mut all_inputs = Vec::new();
+            for i in 0..NUM_PLAYERS {
+                all_inputs.push(game.local_input(i));
+            }
+            // tell GGRS it is time to advance the frame and handle the requests
+            let requests = sess.advance_frame(&all_inputs)?;
             game.handle_requests(requests);
         }
 
@@ -74,6 +79,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Key::A => game.key_states[1] = true,
                 Key::S => game.key_states[2] = true,
                 Key::D => game.key_states[3] = true,
+                Key::Up => game.key_states[4] = true,
+                Key::Left => game.key_states[5] = true,
+                Key::Down => game.key_states[6] = true,
+                Key::Right => game.key_states[7] = true,
                 _ => (),
             }
         }
@@ -85,6 +94,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Key::A => game.key_states[1] = false,
                 Key::S => game.key_states[2] = false,
                 Key::D => game.key_states[3] = false,
+                Key::Up => game.key_states[4] = false,
+                Key::Left => game.key_states[5] = false,
+                Key::Down => game.key_states[6] = false,
+                Key::Right => game.key_states[7] = false,
                 _ => (),
             }
         }

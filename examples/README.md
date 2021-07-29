@@ -46,6 +46,7 @@ cargo run --example box_game_spectator -- 7002 127.0.0.1:7000
 
 The same game, but without network functionality.
 Instead, the SyncTestSession focusses on simulating rollbacks and comparing checksums.
+You can use the Arrow Keys in addition to WASD in order to move the second player.
 
 ### Launching BoxGame SyncTest
 

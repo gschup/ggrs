@@ -44,14 +44,8 @@ impl SyncTestSession {
     /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
     pub fn advance_frame(
         &mut self,
-        player_handle: PlayerHandle,
-        input: &[u8],
+        all_inputs: &Vec<Vec<u8>>,
     ) -> Result<Vec<GGRSRequest>, GGRSError> {
-        // player handle is invalid
-        if player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
-        }
-
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
@@ -71,14 +65,17 @@ impl SyncTestSession {
             self.adjust_gamestate(frame_to, &mut requests);
         }
 
-        //create an input struct for current frame
-        let mut current_input: GameInput =
-            GameInput::new(self.sync_layer.current_frame(), self.input_size);
-        current_input.copy_input(input);
+        // pass all inputs into the sync layer
+        assert_eq!(self.num_players as usize, all_inputs.len());
+        for i in 0..self.num_players as usize {
+            //create an input struct for current frame
+            let mut input: GameInput =
+                GameInput::new(self.sync_layer.current_frame(), self.input_size);
+            input.copy_input(&all_inputs[i]);
 
-        // send the input into the sync layer
-        self.sync_layer
-            .add_local_input(player_handle, current_input)?;
+            // send the input into the sync layer
+            self.sync_layer.add_local_input(i, input)?;
+        }
 
         // save the current frame in the syncronization layer
         requests.push(self.sync_layer.save_current_state());

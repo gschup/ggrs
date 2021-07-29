@@ -9,15 +9,16 @@ fn test_create_session() {
 
 #[test]
 fn test_advance_frame_with_rollbacks() {
-    let handle = 1;
     let check_distance = 7;
     let mut stub = stubs::GameStub::new();
     let mut sess = ggrs::start_synctest_session(2, stubs::INPUT_SIZE, check_distance).unwrap();
 
     for i in 0..200 {
         let input: u32 = i;
-        let serialized_input = bincode::serialize(&input).unwrap();
-        let requests = sess.advance_frame(handle, &serialized_input).unwrap();
+        let mut serialized_input = Vec::new();
+        serialized_input.push(bincode::serialize(&input).unwrap());
+        serialized_input.push(bincode::serialize(&input).unwrap());
+        let requests = sess.advance_frame(&serialized_input).unwrap();
         stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
@@ -33,8 +34,10 @@ fn test_advance_frames_with_delayed_input() {
 
     for i in 0..200 {
         let input: u32 = i;
-        let serialized_input = bincode::serialize(&input).unwrap();
-        let requests = sess.advance_frame(handle, &serialized_input).unwrap();
+        let mut serialized_input = Vec::new();
+        serialized_input.push(bincode::serialize(&input).unwrap());
+        serialized_input.push(bincode::serialize(&input).unwrap());
+        let requests = sess.advance_frame(&serialized_input).unwrap();
         stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
