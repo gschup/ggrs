@@ -109,7 +109,7 @@ You don't need to define players or start the session. Because there are no remo
 
 ## Main Loop
 
-In your main game loop, you should call `advance_frame(...)` in fixed intervals. Please see [BoxGame P2P](./examples/box_game_p2p.rs), [BoxGame Spectator](./examples/box_game_spectator.rs) or [BoxGame SyncTest](./examples/box_game_synctest.rs) for a full code example.
+In your main game loop, you should call `advance_frame(...)` in fixed intervals. Please see [BoxGame P2P](./examples/box_game/box_game_p2p.rs), [BoxGame Spectator](./examples/box_game/box_game_spectator.rs) or [BoxGame SyncTest](./examples/box_game/box_game_synctest.rs) for a full code example.
 
 WARNING: Currently, this interval should be 60 FPS, otherwise frame synchronization will be slightly off for `P2PSession`.
 
