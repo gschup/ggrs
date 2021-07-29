@@ -13,10 +13,14 @@ use crate::{
 
 use super::p2p_session::Event;
 
-// The amount of inputs a spectator can buffer
-const SPECTATOR_BUFFER_SIZE: usize = 128;
+// The amount of inputs a spectator can buffer (a second worth of inputs)
+const SPECTATOR_BUFFER_SIZE: usize = 60;
 // If the spectator is more than this amount of frames behind, it will advance the game two steps at a time to catch up
-const MAX_FRAMES_BEHIND: usize = 10;
+const MAX_FRAMES_BEHIND: i32 = 10;
+// The amount of frames the spectator advances in a single step if not too far behing
+const NORMAL_SPEED: u32 = 1;
+// The amount of frames the spectator advances in a single step if too far behing
+const CATCHUP_SPEED: u32 = 2;
 // The amount of events a spectator can buffer; should never be an issue if the user polls the events at every step
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
@@ -106,15 +110,24 @@ impl P2PSpectatorSession {
 
         let mut requests = Vec::new();
 
-        // split the inputs
-        let frame_to_grab = self.current_frame + 1;
-        let synced_inputs = self.inputs_at_frame(frame_to_grab)?;
+        let frames_to_advance = if self.last_recv_frame - self.current_frame > MAX_FRAMES_BEHIND {
+            CATCHUP_SPEED
+        } else {
+            NORMAL_SPEED
+        };
 
-        // advance the frame
-        self.current_frame += 1;
-        requests.push(GGRSRequest::AdvanceFrame {
-            inputs: synced_inputs,
-        });
+        for _ in 0..frames_to_advance {
+            // get inputs for the next frame
+            let frame_to_grab = self.current_frame + 1;
+            let synced_inputs = self.inputs_at_frame(frame_to_grab)?;
+
+            requests.push(GGRSRequest::AdvanceFrame {
+                inputs: synced_inputs,
+            });
+
+            // advance the frame, but only if grabbing the inputs succeeded
+            self.current_frame += 1;
+        }
 
         Ok(requests)
     }
@@ -160,7 +173,7 @@ impl P2PSpectatorSession {
         self.host.send_all_messages(&self.socket);
     }
 
-    fn inputs_at_frame(&mut self, frame_to_grab: Frame) -> Result<Vec<GameInput>, GGRSError> {
+    fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput>, GGRSError> {
         let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 
         // We haven't received the input from the host yet. Wait.
@@ -176,8 +189,9 @@ impl P2PSpectatorSession {
         // split the inputs back into an input for each player
         assert!(merged_input.size % self.input_size == 0);
         let mut synced_inputs = Vec::new();
+
         for i in 0..self.num_players as usize {
-            let mut input = GameInput::new(self.current_frame + 1, self.input_size);
+            let mut input = GameInput::new(frame_to_grab, self.input_size);
             let start = i * input.size;
             let end = (i + 1) * input.size;
             input.copy_input(&merged_input.buffer[start..end]);
@@ -186,6 +200,7 @@ impl P2PSpectatorSession {
             if self.host_connect_status[i].disconnected {
                 input.frame = NULL_FRAME;
             }
+
             synced_inputs.push(input);
         }
 
