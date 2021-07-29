@@ -16,11 +16,11 @@ use super::p2p_session::Event;
 // The amount of inputs a spectator can buffer (a second worth of inputs)
 const SPECTATOR_BUFFER_SIZE: usize = 60;
 // If the spectator is more than this amount of frames behind, it will advance the game two steps at a time to catch up
-const MAX_FRAMES_BEHIND: i32 = 10;
+const DEFAULT_MAX_FRAMES_BEHIND: u32 = 10;
 // The amount of frames the spectator advances in a single step if not too far behing
 const NORMAL_SPEED: u32 = 1;
 // The amount of frames the spectator advances in a single step if too far behing
-const CATCHUP_SPEED: u32 = 2;
+const DEFAULT_CATCHUP_SPEED: u32 = 2;
 // The amount of events a spectator can buffer; should never be an issue if the user polls the events at every step
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
@@ -38,6 +38,8 @@ pub struct P2PSpectatorSession {
     event_queue: VecDeque<GGRSEvent>,
     current_frame: Frame,
     last_recv_frame: Frame,
+    max_frames_behind: u32,
+    catchup_speed: u32,
 }
 
 impl P2PSpectatorSession {
@@ -68,6 +70,8 @@ impl P2PSpectatorSession {
             event_queue: VecDeque::new(),
             current_frame: NULL_FRAME,
             last_recv_frame: NULL_FRAME,
+            max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
+            catchup_speed: DEFAULT_CATCHUP_SPEED,
         })
     }
 
@@ -77,8 +81,49 @@ impl P2PSpectatorSession {
     }
 
     /// Returns the number of frames behind the host
-    pub const fn frames_behind_host(&self) -> u32 {
-        (self.last_recv_frame - self.current_frame) as u32
+    pub fn frames_behind_host(&self) -> u32 {
+        let diff = self.last_recv_frame - self.current_frame;
+        assert!(diff >= 0);
+        diff as u32
+    }
+
+    /// Sets the amount of frames the spectator advances in a single `advance_frame()` call if it is too far behind the host.
+    /// If set to 1, the spectator will never catch up.
+    pub fn set_catchup_speed(&mut self, desired_catchup_speed: u32) -> Result<(), GGRSError> {
+        if desired_catchup_speed < 1 {
+            return Err(GGRSError::InvalidRequest {
+                info: "Catchup speed cannot be smaller than 1.".to_owned(),
+            });
+        }
+
+        if desired_catchup_speed >= self.max_frames_behind {
+            return Err(GGRSError::InvalidRequest {
+                info: "Catchup speed cannot be larger or equal than the allowed maximum frames behind host"
+                    .to_owned(),
+            });
+        }
+
+        self.catchup_speed = desired_catchup_speed;
+        Ok(())
+    }
+
+    /// Sets the amount of frames behind the host before starting to catch up
+    pub fn set_max_frames_behind(&mut self, desired_value: u32) -> Result<(), GGRSError> {
+        if desired_value < 1 {
+            return Err(GGRSError::InvalidRequest {
+                info: "Max frames behind cannot be smaller than 2.".to_owned(),
+            });
+        }
+
+        if desired_value >= SPECTATOR_BUFFER_SIZE as u32 {
+            return Err(GGRSError::InvalidRequest {
+                info: "Max frames behind cannot be larger or equal than the Spectator buffer size (60)"
+                    .to_owned(),
+            });
+        }
+
+        self.max_frames_behind = desired_value;
+        Ok(())
     }
 
     /// Used to fetch some statistics about the quality of the network connection.
@@ -130,8 +175,8 @@ impl P2PSpectatorSession {
 
         let mut requests = Vec::new();
 
-        let frames_to_advance = if self.last_recv_frame - self.current_frame > MAX_FRAMES_BEHIND {
-            CATCHUP_SPEED
+        let frames_to_advance = if self.frames_behind_host() > self.max_frames_behind {
+            self.catchup_speed
         } else {
             NORMAL_SPEED
         };

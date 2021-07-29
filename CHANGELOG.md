@@ -5,7 +5,9 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 ## Unreleased
 
 - spectators catch up by advancing the frame twice per `advance_frame()` call, if too far behind
-- added `frames_behind_host()` method for `P2PSpectatorSession`, allowing to query how many frames the spectator client is behind the last received input
+- added `frames_behind_host()` to `P2PSpectatorSession`, allowing to query how many frames the spectator client is behind the last received input
+- added `set_max_frames_behind(desired_value)`to `P2PSpectatorSession`, allowing to set after how many frames behind the spectator fast-forwards to catch up
+- added `set_catchup_speed(desired_value)` to `P2PSpectatorSession`, allowing to set how many frames the spectator catches up per `advance_frame()` call, if too far behind
 
 ## 0.3.0
 

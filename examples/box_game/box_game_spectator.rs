@@ -31,6 +31,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut sess =
         ggrs::start_p2p_spectator_session(NUM_PLAYERS as u32, INPUT_SIZE, port, host_addr)?;
 
+    // change catch-up parameters, if desired
+    sess.set_max_frames_behind(5)?; // when the spectator is more than this amount of frames behind, it will catch up
+    sess.set_catchup_speed(2)?; // set this to 1 if you don't want any catch-ups
+
     // start the GGRS session
     sess.start_session()?;
 
