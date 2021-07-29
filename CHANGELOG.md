@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- spectators catch up by advancing the frame twice per `advance_frame(..)` call, if too far behind
 
 ## 0.3.0
 
