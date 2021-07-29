@@ -76,6 +76,26 @@ impl P2PSpectatorSession {
         self.state
     }
 
+    /// Returns the number of frames behind the host
+    pub const fn frames_behind_host(&self) -> u32 {
+        (self.last_recv_frame - self.current_frame) as u32
+    }
+
+    /// Used to fetch some statistics about the quality of the network connection.
+    /// # Errors
+    /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
+    pub fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
+        match self.host.network_stats() {
+            Some(stats) => Ok(stats),
+            None => Err(GGRSError::NotSynchronized),
+        }
+    }
+
+    /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
+    pub fn events(&mut self) -> Drain<GGRSEvent> {
+        self.event_queue.drain(..)
+    }
+
     /// A spectator can directly start the session. Then, the synchronization process will begin.
     /// # Errors
     /// - Returns `InvalidRequest` if the session has already been started.
@@ -130,21 +150,6 @@ impl P2PSpectatorSession {
         }
 
         Ok(requests)
-    }
-
-    /// Used to fetch some statistics about the quality of the network connection.
-    /// # Errors
-    /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
-    pub fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
-        match self.host.network_stats() {
-            Some(stats) => Ok(stats),
-            None => Err(GGRSError::NotSynchronized),
-        }
-    }
-
-    /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GGRSEvent> {
-        self.event_queue.drain(..)
     }
 
     /// Receive UDP packages, distribute them to corresponding UDP endpoints, handle all occurring events and send all outgoing UDP packages.
