@@ -8,6 +8,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 - added `frames_behind_host()` to `P2PSpectatorSession`, allowing to query how many frames the spectator client is behind the last received input
 - added `set_max_frames_behind(desired_value)`to `P2PSpectatorSession`, allowing to set after how many frames behind the spectator fast-forwards to catch up
 - added `set_catchup_speed(desired_value)` to `P2PSpectatorSession`, allowing to set how many frames the spectator catches up per `advance_frame()` call, if too far behind
+- in `SyncTestSession`, the user now can (and has to) provide input for all players in order to advance the frame
 
 ## 0.3.0
 
