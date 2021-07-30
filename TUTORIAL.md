@@ -2,7 +2,7 @@
 
 ```toml
 [dependencies]
-ggrs = "0.3"
+ggrs = "0.4"
 ```
 
 GGRS mainly operates through one of three sessions; each providing different functionalities:
