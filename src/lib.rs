@@ -1,6 +1,6 @@
 //! # GGRS
-//! GGRS (good game rollback system) is a reimagination of the GGPO network SDK written in 100% safe Rust 🦀. 
-//! The callback-style API from the original library has been replaced with a much saner, simpler control flow. 
+//! GGRS (good game rollback system) is a reimagination of the GGPO network SDK written in 100% safe Rust 🦀.
+//! The callback-style API from the original library has been replaced with a much saner, simpler control flow.
 //! Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.
 
 #![forbid(unsafe_code)] // let us try
@@ -51,6 +51,10 @@ pub const NULL_FRAME: i32 = -1;
 
 pub type Frame = i32;
 pub type PlayerHandle = usize;
+
+// #############
+// #   ENUMS   #
+// #############
 
 /// Defines the three types of players that GGRS considers:
 /// - local players, who play on the local device,
@@ -119,6 +123,10 @@ pub enum GGRSRequest {
     /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
     AdvanceFrame { inputs: Vec<GameInput> },
 }
+
+// #############
+// # FUNCTIONS #
+// #############
 
 /// Used to create a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
