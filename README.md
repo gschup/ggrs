@@ -36,6 +36,7 @@ GGRS is in an early stage, but the main functionality for two players and specta
 
 - [Changelog](./CHANGELOG.md)
 - [Issues](https://github.com/gschup/ggrs/issues)
+- [Contribution Guide](./CONTRIBUTING.md)
 
 ## Other Rollback Implementations in Rust
 
