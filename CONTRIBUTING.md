@@ -1,1 +1,1 @@
-TODO
+# How to Contribute to GGRS
