@@ -247,7 +247,9 @@ impl P2PSpectatorSession {
             input.copy_input(&merged_input.buffer[start..end]);
 
             // disconnected players are identified by NULL_FRAME
-            if self.host_connect_status[i].disconnected {
+            if self.host_connect_status[i].disconnected
+                && self.host_connect_status[i].last_frame < frame_to_grab
+            {
                 input.frame = NULL_FRAME;
             }
 

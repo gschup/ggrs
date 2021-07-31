@@ -5,6 +5,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 ## Unreleased
 
 - expanded the BoxGame example for up to four players and as many spectators as wanted
+- fixed a bug where a spectator would not handle disconnected players correctly with more than two players
 
 ## 0.4.0
 
