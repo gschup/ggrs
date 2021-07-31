@@ -1,7 +1,9 @@
 extern crate freetype as ft;
 
 use ft::Library;
-use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, NULL_FRAME};
+use ggrs::{
+    Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, MAX_PLAYERS, NULL_FRAME,
+};
 use graphics::{Context, Graphics, ImageSize};
 use opengl_graphics::{GlGraphics, Texture, TextureSettings};
 use piston::input::RenderArgs;
@@ -9,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 const FPS: u64 = 60;
-const MAX_PLAYERS: usize = 4;
 const CHECKSUM_PERIOD: i32 = 100;
 
 const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
@@ -17,7 +18,7 @@ const BLUE: [f32; 4] = [0.0, 0.35, 0.78, 1.0];
 const ORANGE: [f32; 4] = [0.78, 0.59, 0.2, 1.0];
 const MAGENTA: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
 const GREEN: [f32; 4] = [0.35, 0.7, 0.35, 1.0];
-const PLAYER_COLORS: [[f32; 4]; MAX_PLAYERS] = [BLUE, ORANGE, MAGENTA, GREEN];
+const PLAYER_COLORS: [[f32; 4]; MAX_PLAYERS as usize] = [BLUE, ORANGE, MAGENTA, GREEN];
 
 const PLAYER_SIZE: f64 = 50.0;
 const WINDOW_HEIGHT: u32 = 800;
@@ -98,7 +99,7 @@ pub struct BoxGame {
 
 impl BoxGame {
     pub fn new(num_players: usize, font: PathBuf) -> Self {
-        assert!(num_players <= MAX_PLAYERS);
+        assert!(num_players <= MAX_PLAYERS as usize);
         Self {
             num_players,
             game_state: BoxGameState::new(num_players),
