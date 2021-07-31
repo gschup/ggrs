@@ -213,7 +213,7 @@ impl SyncLayer {
     ) -> Vec<GameInput> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
-            if con_stat.disconnected {
+            if con_stat.disconnected && con_stat.last_frame < self.current_frame {
                 inputs.push(BLANK_INPUT);
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
@@ -230,10 +230,12 @@ impl SyncLayer {
     ) -> Vec<GameInput> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
-            if con_stat.disconnected || con_stat.last_frame < frame {
+            // either the player is disconnected or we received the requested frame previously
+            assert!(con_stat.disconnected || con_stat.last_frame >= frame);
+            if con_stat.disconnected && con_stat.last_frame < frame {
                 inputs.push(BLANK_INPUT);
             } else {
-                inputs.push(self.input_queues[i].confirmed_input(frame as u32));
+                inputs.push(self.input_queues[i].confirmed_input(frame));
             }
         }
         inputs

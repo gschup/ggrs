@@ -71,10 +71,10 @@ impl InputQueue {
 
     /// Returns a `GameInput`, but only if the input for the requested frame is confirmed.
     /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
-    pub(crate) fn confirmed_input(&self, requested_frame: u32) -> GameInput {
+    pub(crate) fn confirmed_input(&self, requested_frame: Frame) -> GameInput {
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
-        if self.inputs[offset].frame == requested_frame as i32 {
+        if self.inputs[offset].frame == requested_frame {
             return self.inputs[offset];
         }
 
