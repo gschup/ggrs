@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- expanded the BoxGame example for up to four players and as many spectators as wanted
 
 ## 0.4.0
 
