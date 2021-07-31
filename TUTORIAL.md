@@ -108,7 +108,7 @@ sess.set_frame_delay(input_delay, 0)?;
 sess.set_frame_delay(input_delay, 1)?;
 ```
 
-You don't need to define players or start the session. Because there are no remote clients to synchronize with, it will immediately be ready to advance the game.
+You don't need to define players or start the session. Because there are no remote clients to synchronize with, a `SyncTestSession` will immediately be ready to advance the game.
 
 ## Main Loop
 
@@ -126,7 +126,7 @@ If calling `advance_frame(...)` succeeds, it will return a `Vec<GGRSRequest>`. H
 - `LoadGameState { cell: GameStateCell }`: Save the current gamestate by calling `cell.save(your_state)`.
 - `SaveGameState { cell: GameStateCell, frame: Frame }`: Load a previous gamestate by calling `your_state = cell.load()`. The provided `frame` defines frame from which this gamestate is at.
 
-Please see [BoxGame](./examples/box_game.rs) for a full code example.
+Please see [BoxGame](./examples/box_game/box_game.rs) for a full code example.
 
 ### Polling Remote Clients
 
