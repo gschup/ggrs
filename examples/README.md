@@ -4,17 +4,14 @@ Gathered here are some additional instructions on how to build and run the examp
 
 ## BoxGame
 
-BoxGame is a very basic two-player example with each player controlling a coloured box.
+BoxGame is a very basic 2-4 player game example with each player controlling a coloured box.
 There is no real game, just movement with ice physics. Optionally,
-you can specify one spectator.
+you can specify spectators.
 
 - W to accelerate forwards
 - S to accelerate backwards
 - A to turn left
 - D to turn right
-
-An emergent side effect of my shoddy window handling: You can simulate network interruptions by
-dragging and holding the window in order to stop it from processing events.
 
 ### Important Disclaimer - Determinism
 
@@ -25,21 +22,25 @@ deterministic game, make sure to take floating-point impresicions and non-determ
 
 ### Launching BoxGame P2P and Spectator
 
-The example is properly launched by command-line arguments
-(with the spectator address in brackets being optional):
+The P2P example is launched by command-line arguments:
 
-```shell
-cargo run --example box_game_p2p -- local_port local_player_handle remote_adress [spectator_address]
-cargo run --example box_game_spectator -- local_port host_adress
-```
+- `--local-port / -l`: local port the client is listening to
+- `--players / -p`: a list of player addresses, with the local player being identified by `localhost`
+- `--spectators / -s`: a list of spectator addresses. This client will act as a host for these spectators
 
-To run two instances of the game and a spectator on your local machine,
+For the spectator, the following command-line arguments exist:
+
+- `--local-port / -l`: local port the client is listening to
+- `--num-players / -n`: number of players that will participate in the game
+- `--host / -h`: address of the host
+
+For example, to run a two-player game and a spectator on your local machine,
 run these commands in separate terminals:
 
 ```shell
-cargo run --example box_game_p2p -- 7000 0 127.0.0.1:7001 127.0.0.1:7002
-cargo run --example box_game_p2p -- 7001 1 127.0.0.1:7000 
-cargo run --example box_game_spectator -- 7002 127.0.0.1:7000 
+cargo run --example box_game_p2p -- --local-port 7000 --players localhost 127.0.0.1:7001 --spectators 127.0.0.1:7002
+cargo run --example box_game_p2p -- --local-port 7001 --players 127.0.0.1:7000 localhost
+cargo run --example box_game_spectator -- --local-port 7002 --num-players 2 --host 127.0.0.1:7000 
 ```
 
 ## BoxGame SyncTest
@@ -50,6 +51,10 @@ You can use the Arrow Keys in addition to WASD in order to move the second playe
 
 ### Launching BoxGame SyncTest
 
+The SyncTest example is launched by a single command-line argument:
+
+- `--num-players / -n`: number of players that will participate in the game
+
 ```shell
-cargo run --example box_game_synctest
+cargo run --example box_game_synctest -- --num-players 3
 ```

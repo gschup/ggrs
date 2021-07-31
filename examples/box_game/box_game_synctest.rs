@@ -6,9 +6,9 @@ use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderEvent, UpdateEvent};
 use piston::window::WindowSettings;
 use piston::{Button, EventLoop, Key, PressEvent, ReleaseEvent};
+use structopt::StructOpt;
 
 const FPS: u64 = 60;
-const NUM_PLAYERS: usize = 2;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 const CHECK_DISTANCE: u32 = 7;
 
@@ -17,13 +17,24 @@ const WINDOW_WIDTH: u32 = 600;
 
 mod box_game;
 
+#[derive(StructOpt)]
+struct Opt {
+    #[structopt(short, long)]
+    num_players: usize,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // read cmd line arguments
+    let opt = Opt::from_args();
+
     // create a GGRS session with two players
-    let mut sess = ggrs::start_synctest_session(NUM_PLAYERS as u32, INPUT_SIZE, CHECK_DISTANCE)?;
+    let mut sess =
+        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, CHECK_DISTANCE)?;
 
     // set input delay for any player you want
-    sess.set_frame_delay(2, 0)?;
-    sess.set_frame_delay(2, 1)?;
+    for i in 0..opt.num_players {
+        sess.set_frame_delay(2, i)?;
+    }
 
     // Change this to OpenGL::V2_1 if not working
     let opengl = OpenGL::V3_2;
@@ -44,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let font = assets.join("FiraSans-Regular.ttf");
 
     // Create a new box game
-    let mut game = box_game::BoxGame::new(font);
+    let mut game = box_game::BoxGame::new(opt.num_players, font);
     let mut gl = GlGraphics::new(opengl);
 
     // event settings
@@ -64,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(_) = e.update_args() {
             // create inputs for all players
             let mut all_inputs = Vec::new();
-            for i in 0..NUM_PLAYERS {
+            for i in 0..opt.num_players {
                 all_inputs.push(game.local_input(i));
             }
             // tell GGRS it is time to advance the frame and handle the requests

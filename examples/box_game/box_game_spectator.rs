@@ -7,11 +7,10 @@ use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderEvent, UpdateEvent};
 use piston::window::WindowSettings;
 use piston::{EventLoop, IdleEvent};
-use std::env;
 use std::net::SocketAddr;
+use structopt::StructOpt;
 
 const FPS: u64 = 60;
-const NUM_PLAYERS: usize = 2;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 
 const WINDOW_HEIGHT: u32 = 800;
@@ -19,17 +18,27 @@ const WINDOW_WIDTH: u32 = 600;
 
 mod box_game;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // read cmd line arguments very clumsily
-    let args: Vec<String> = env::args().collect();
-    assert_eq!(args.len(), 3);
+#[derive(StructOpt)]
+struct Opt {
+    #[structopt(short, long)]
+    local_port: u16,
+    #[structopt(short, long)]
+    num_players: usize,
+    #[structopt(short, long)]
+    host: SocketAddr,
+}
 
-    let port: u16 = args[1].parse()?;
-    let host_addr: SocketAddr = args[2].parse()?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // read cmd line arguments
+    let opt = Opt::from_args();
 
     // create a GGRS session for a spectator
-    let mut sess =
-        ggrs::start_p2p_spectator_session(NUM_PLAYERS as u32, INPUT_SIZE, port, host_addr)?;
+    let mut sess = ggrs::start_p2p_spectator_session(
+        opt.num_players as u32,
+        INPUT_SIZE,
+        opt.local_port,
+        opt.host,
+    )?;
 
     // change catch-up parameters, if desired
     sess.set_max_frames_behind(5)?; // when the spectator is more than this amount of frames behind, it will catch up
@@ -57,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let font = assets.join("FiraSans-Regular.ttf");
 
     // Create a new box game
-    let mut game = box_game::BoxGame::new(font);
+    let mut game = box_game::BoxGame::new(opt.num_players, font);
     let mut gl = GlGraphics::new(opengl);
 
     // event settings

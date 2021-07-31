@@ -1,17 +1,16 @@
 extern crate freetype as ft;
 
-use ggrs::{GGRSEvent, PlayerHandle, PlayerType, SessionState};
+use ggrs::{GGRSEvent, PlayerType, SessionState};
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderEvent, UpdateEvent};
 use piston::window::WindowSettings;
 use piston::{Button, EventLoop, IdleEvent, Key, PressEvent, ReleaseEvent};
-use std::env;
 use std::net::SocketAddr;
+use structopt::StructOpt;
 
 const FPS: u64 = 60;
-const NUM_PLAYERS: usize = 2;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 
 const WINDOW_HEIGHT: u32 = 800;
@@ -19,27 +18,42 @@ const WINDOW_WIDTH: u32 = 600;
 
 mod box_game;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // read cmd line arguments very clumsily
-    let args: Vec<String> = env::args().collect();
-    assert!(args.len() >= 4);
+#[derive(StructOpt)]
+struct Opt {
+    #[structopt(short, long)]
+    local_port: u16,
+    #[structopt(short, long)]
+    players: Vec<String>,
+    #[structopt(short, long)]
+    spectators: Vec<SocketAddr>,
+}
 
-    let port: u16 = args[1].parse()?;
-    let local_handle: PlayerHandle = args[2].parse()?;
-    let remote_handle: PlayerHandle = 1 - local_handle;
-    let remote_addr: SocketAddr = args[3].parse()?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // read cmd line arguments
+    let opt = Opt::from_args();
+    let mut local_handle = 0;
+    let num_players = opt.players.len();
+    assert!(num_players > 0);
 
     // create a GGRS session with two players
-    let mut sess = ggrs::start_p2p_session(NUM_PLAYERS as u32, INPUT_SIZE, port)?;
+    let mut sess = ggrs::start_p2p_session(num_players as u32, INPUT_SIZE, opt.local_port)?;
 
     // add players
-    sess.add_player(PlayerType::Local, local_handle)?;
-    sess.add_player(PlayerType::Remote(remote_addr), remote_handle)?;
+    for (i, player_addr) in opt.players.iter().enumerate() {
+        // local player
+        if player_addr == "localhost" {
+            sess.add_player(PlayerType::Local, i)?;
+            local_handle = i;
+        } else {
+            // remote players
+            let remote_addr: SocketAddr = player_addr.parse()?;
+            sess.add_player(PlayerType::Remote(remote_addr), i)?;
+        }
+    }
 
-    // optionally, add a spectator
-    if args.len() > 4 {
-        let spec_addr: SocketAddr = args[4].parse()?;
-        sess.add_player(PlayerType::Spectator(spec_addr), 2)?;
+    // optionally, add spectators
+    for (i, spec_addr) in opt.spectators.iter().enumerate() {
+        sess.add_player(PlayerType::Spectator(*spec_addr), num_players + i)?;
     }
 
     // set input delay for the local player
@@ -66,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let font = assets.join("FiraSans-Regular.ttf");
 
     // Create a new box game
-    let mut game = box_game::BoxGame::new(font);
+    let mut game = box_game::BoxGame::new(num_players, font);
     let mut gl = GlGraphics::new(opengl);
 
     // event settings

@@ -9,13 +9,15 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 const FPS: u64 = 60;
-const NUM_PLAYERS: usize = 2;
+const MAX_PLAYERS: usize = 4;
 const CHECKSUM_PERIOD: i32 = 100;
 
 const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 const BLUE: [f32; 4] = [0.0, 0.35, 0.78, 1.0];
 const ORANGE: [f32; 4] = [0.78, 0.59, 0.2, 1.0];
-const PLAYER_COLORS: [[f32; 4]; 2] = [BLUE, ORANGE];
+const MAGENTA: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
+const GREEN: [f32; 4] = [0.35, 0.7, 0.35, 1.0];
+const PLAYER_COLORS: [[f32; 4]; MAX_PLAYERS] = [BLUE, ORANGE, MAGENTA, GREEN];
 
 const PLAYER_SIZE: f64 = 50.0;
 const WINDOW_HEIGHT: u32 = 800;
@@ -86,6 +88,7 @@ where
 
 // BoxGame will handle rendering, gamestate, inputs and GGRSRequests
 pub struct BoxGame {
+    num_players: usize,
     game_state: BoxGameState,
     pub key_states: [bool; 8],
     font: PathBuf,
@@ -94,9 +97,11 @@ pub struct BoxGame {
 }
 
 impl BoxGame {
-    pub fn new(font: PathBuf) -> Self {
+    pub fn new(num_players: usize, font: PathBuf) -> Self {
+        assert!(num_players <= MAX_PLAYERS);
         Self {
-            game_state: BoxGameState::new(),
+            num_players,
+            game_state: BoxGameState::new(num_players),
             key_states: [false; 8],
             font,
             last_checksum: (NULL_FRAME, 0),
@@ -132,71 +137,8 @@ impl BoxGame {
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
-        // increase the frame counter
-        self.game_state.frame += 1;
-
-        for i in 0..NUM_PLAYERS {
-            // get input of that player
-            let input;
-            // check if the player is disconnected (disconnected players might maybe do something different)
-            if inputs[i].frame == NULL_FRAME {
-                // disconnected players spin
-                input = 4;
-            } else {
-                // otherwise deserialize the input
-                input = bincode::deserialize(inputs[i].input()).unwrap();
-            }
-
-            // old values
-            let (old_x, old_y) = self.game_state.positions[i];
-            let (old_vel_x, old_vel_y) = self.game_state.velocities[i];
-            let mut rot = self.game_state.rotations[i];
-
-            // slow down
-            let mut vel_x = old_vel_x * FRICTION;
-            let mut vel_y = old_vel_y * FRICTION;
-
-            // thrust
-            if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
-                vel_x += MOVEMENT_SPEED * rot.cos();
-                vel_y += MOVEMENT_SPEED * rot.sin();
-            }
-            // break
-            if input & INPUT_UP == 0 && input & INPUT_DOWN != 0 {
-                vel_x -= MOVEMENT_SPEED * rot.cos();
-                vel_y -= MOVEMENT_SPEED * rot.sin();
-            }
-            // turn left
-            if input & INPUT_LEFT != 0 && input & INPUT_RIGHT == 0 {
-                rot = (rot - ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
-            }
-            // turn right
-            if input & INPUT_LEFT == 0 && input & INPUT_RIGHT != 0 {
-                rot = (rot + ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
-            }
-
-            // limit speed
-            let magnitude = (vel_x * vel_x + vel_y * vel_y).sqrt();
-            if magnitude > MAX_SPEED {
-                vel_x = (vel_x * MAX_SPEED) / magnitude;
-                vel_y = (vel_y * MAX_SPEED) / magnitude;
-            }
-
-            // compute new position
-            let mut x = old_x + vel_x;
-            let mut y = old_y + vel_y;
-
-            // constrain boxes to canvas borders
-            x = x.max(0.0);
-            x = x.min(WINDOW_WIDTH as f64);
-            y = y.max(0.0);
-            y = y.min(WINDOW_HEIGHT as f64);
-
-            // update all state
-            self.game_state.positions[i] = (x, y);
-            self.game_state.velocities[i] = (vel_x, vel_y);
-            self.game_state.rotations[i] = rot;
-        }
+        // advance the game state
+        self.game_state.advance(inputs);
 
         // remember checksum to render it later
         // it is very inefficient to serialize the gamestate here just for the checksum
@@ -237,7 +179,7 @@ impl BoxGame {
             render_text(&periodic_glyphs, &c.trans(0.0, 80.0), gl);
 
             // draw the player rectangles
-            for i in 0..NUM_PLAYERS {
+            for i in 0..self.num_players {
                 let square = rectangle::square(0.0, 0.0, PLAYER_SIZE);
                 let (x, y) = self.game_state.positions[i];
                 let rotation = self.game_state.rotations[i];
@@ -298,29 +240,103 @@ impl BoxGame {
 #[derive(Serialize, Deserialize)]
 struct BoxGameState {
     pub frame: i32,
+    pub num_players: usize,
     pub positions: Vec<(f64, f64)>,
     pub velocities: Vec<(f64, f64)>,
     pub rotations: Vec<f64>,
 }
 
 impl BoxGameState {
-    pub fn new() -> Self {
+    pub fn new(num_players: usize) -> Self {
         let mut positions = Vec::new();
         let mut velocities = Vec::new();
         let mut rotations = Vec::new();
-        for i in 0..NUM_PLAYERS as i32 {
-            let x = WINDOW_WIDTH as i32 / 2 + (2 * i - 1) * (WINDOW_WIDTH as i32 / 4);
-            let y = WINDOW_HEIGHT as i32 / 2;
+
+        let r = WINDOW_WIDTH as f64 / 4.0;
+
+        for i in 0..num_players as i32 {
+            let rot = i as f64 / num_players as f64 * 2.0 * std::f64::consts::PI;
+            let x = WINDOW_WIDTH as f64 / 2.0 + r * rot.cos();
+            let y = WINDOW_HEIGHT as f64 / 2.0 + r * rot.sin();
             positions.push((x as f64, y as f64));
             velocities.push((0.0, 0.0));
-            rotations.push(0.0);
+            rotations.push((rot + std::f64::consts::PI) % (2.0 * std::f64::consts::PI));
         }
 
         Self {
             frame: 0,
+            num_players,
             positions,
             velocities,
             rotations,
+        }
+    }
+
+    pub fn advance(&mut self, inputs: Vec<GameInput>) {
+        // increase the frame counter
+        self.frame += 1;
+
+        for i in 0..self.num_players {
+            // get input of that player
+            let input;
+            // check if the player is disconnected (disconnected players might maybe do something different)
+            if inputs[i].frame == NULL_FRAME {
+                // disconnected players spin
+                input = 4;
+            } else {
+                // otherwise deserialize the input
+                input = bincode::deserialize(inputs[i].input()).unwrap();
+            }
+
+            // old values
+            let (old_x, old_y) = self.positions[i];
+            let (old_vel_x, old_vel_y) = self.velocities[i];
+            let mut rot = self.rotations[i];
+
+            // slow down
+            let mut vel_x = old_vel_x * FRICTION;
+            let mut vel_y = old_vel_y * FRICTION;
+
+            // thrust
+            if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
+                vel_x += MOVEMENT_SPEED * rot.cos();
+                vel_y += MOVEMENT_SPEED * rot.sin();
+            }
+            // break
+            if input & INPUT_UP == 0 && input & INPUT_DOWN != 0 {
+                vel_x -= MOVEMENT_SPEED * rot.cos();
+                vel_y -= MOVEMENT_SPEED * rot.sin();
+            }
+            // turn left
+            if input & INPUT_LEFT != 0 && input & INPUT_RIGHT == 0 {
+                rot = (rot - ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
+            }
+            // turn right
+            if input & INPUT_LEFT == 0 && input & INPUT_RIGHT != 0 {
+                rot = (rot + ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
+            }
+
+            // limit speed
+            let magnitude = (vel_x * vel_x + vel_y * vel_y).sqrt();
+            if magnitude > MAX_SPEED {
+                vel_x = (vel_x * MAX_SPEED) / magnitude;
+                vel_y = (vel_y * MAX_SPEED) / magnitude;
+            }
+
+            // compute new position
+            let mut x = old_x + vel_x;
+            let mut y = old_y + vel_y;
+
+            // constrain boxes to canvas borders
+            x = x.max(0.0);
+            x = x.min(WINDOW_WIDTH as f64);
+            y = y.max(0.0);
+            y = y.min(WINDOW_HEIGHT as f64);
+
+            // update all state
+            self.positions[i] = (x, y);
+            self.velocities[i] = (vel_x, vel_y);
+            self.rotations[i] = rot;
         }
     }
 }
