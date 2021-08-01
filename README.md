@@ -1,4 +1,4 @@
-# ![GGRS LOGO](./ggrs_logo.png)
+# ![GGRS LOGO](./ggrs_logo.png | width=100)
 
 [![crates.io](https://img.shields.io/crates/v/ggrs?style=for-the-badge)](https://crates.io/crates/ggrs)
 [![docs.rs](https://img.shields.io/docsrs/ggrs?style=for-the-badge)](https://docs.rs/ggrs/newest/ggrs/)
