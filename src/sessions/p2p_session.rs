@@ -18,6 +18,7 @@ const RECOMMENDATION_INTERVAL: Frame = 40;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
 pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
+pub(crate) const DEFAULT_FPS: u32 = 60;
 
 #[derive(Debug, PartialEq, Eq)]
 enum Player {
@@ -98,6 +99,8 @@ pub struct P2PSession {
     input_size: usize,
     /// The sync layer handles player input queues and provides predictions.
     sync_layer: SyncLayer,
+    /// FPS defines the expected update frequency of this session.
+    fps: u32,
 
     /// The time until a remote player gets disconnected.
     disconnect_timeout: Duration,
@@ -145,6 +148,7 @@ impl P2PSession {
             state: SessionState::Initializing,
             num_players,
             input_size,
+            fps: DEFAULT_FPS,
             socket,
             local_connect_status,
             next_recommended_sleep: 0,
@@ -488,6 +492,27 @@ impl P2PSession {
         {
             endpoint.set_disconnect_notify_start(notify_delay);
         }
+    }
+
+    /// Sets the FPS this session is used with. This influences estimations for frame synchronization between sessions.
+    pub fn set_fps(&mut self, fps: u32) -> Result<(), GGRSError> {
+        if fps == 0 {
+            return Err(GGRSError::InvalidRequest {
+                info: "FPS should be higher than 0.".to_owned(),
+            });
+        }
+
+        self.fps = fps;
+
+        for endpoint in self
+            .players
+            .values_mut()
+            .filter_map(Player::as_endpoint_mut)
+        {
+            endpoint.set_fps(fps);
+        }
+
+        Ok(())
     }
 
     /// Returns the current `SessionState` of a session.

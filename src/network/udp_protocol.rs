@@ -6,7 +6,7 @@ use crate::network::udp_msg::{
 };
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sessions::p2p_session::{
-    Event, DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT,
+    Event, DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_FPS,
 };
 use crate::time_sync::TimeSync;
 use crate::{Frame, PlayerHandle, NULL_FRAME};
@@ -66,6 +66,7 @@ pub(crate) struct UdpProtocol {
     disconnect_timeout: Duration,
     disconnect_notify_start: Duration,
     shutdown_timeout: Instant,
+    fps: u32,
 
     // the other client
     peer_addr: SocketAddr,
@@ -140,6 +141,7 @@ impl UdpProtocol {
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             shutdown_timeout: Instant::now(),
+            fps: DEFAULT_FPS,
 
             // the other client
             peer_addr,
@@ -180,7 +182,7 @@ impl UdpProtocol {
         }
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
         let ping = i32::try_from(self.round_trip_time).expect("Ping is higher than i32::MAX");
-        let remote_frame = self.last_received_input.frame + (ping * 60 / 1000);
+        let remote_frame = self.last_received_input.frame + ((ping * self.fps as i32) / 1000);
         // Our frame "advantage" is how many frames behind the remote client we are. (It's an advantage because they will have to predict more often)
         self.local_frame_advantage = remote_frame - local_frame;
     }
@@ -191,6 +193,11 @@ impl UdpProtocol {
 
     pub(crate) fn set_disconnect_notify_start(&mut self, notify_start: Duration) {
         self.disconnect_notify_start = notify_start;
+    }
+
+    pub(crate) fn set_fps(&mut self, fps: u32) {
+        assert!(fps > 0);
+        self.fps = fps;
     }
 
     pub(crate) fn network_stats(&self) -> Option<NetworkStats> {

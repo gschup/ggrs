@@ -59,6 +59,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // set input delay for the local player
     sess.set_frame_delay(2, local_handle)?;
 
+    // set change default expected update frequency
+    sess.set_fps(FPS as u32)?;
+
     // start the GGRS session
     sess.start_session()?;
 
