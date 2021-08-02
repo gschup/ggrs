@@ -6,6 +6,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 - expanded the BoxGame example for up to four players and as many spectators as wanted
 - fixed a bug where a spectator would not handle disconnected players correctly with more than two players
+- added `set_fps(desired_fps)` to `P2PSession` for the user to set expected update frequency. This is helpful for frame synchronization between sessions
+- fixed a bug where changes to `disconnect_timeout` and `disconnect_notify_start` would change existings endpoints, but would not influence endpoints created afterwards
 
 ## 0.4.0
 
