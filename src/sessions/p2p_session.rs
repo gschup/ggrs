@@ -474,6 +474,7 @@ impl P2PSession {
 
     /// Sets the disconnect timeout. The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
     pub fn set_disconnect_timeout(&mut self, timeout: Duration) {
+        self.disconnect_timeout = timeout;
         for endpoint in self
             .players
             .values_mut()
@@ -485,6 +486,7 @@ impl P2PSession {
 
     /// Sets the time before the first notification will be sent in case of a prolonged period of no received packages.
     pub fn set_disconnect_notify_delay(&mut self, notify_delay: Duration) {
+        self.disconnect_notify_start = notify_delay;
         for endpoint in self
             .players
             .values_mut()
