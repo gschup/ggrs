@@ -295,7 +295,10 @@
   							<li><a href="https://gschup.github.io/ggrs/docs/help/faq/#what-is-ggrs">What is GGRS?</a></li>
   							
   							
-  							<li><a href="https://gschup.github.io/ggrs/docs/help/faq/#contact-the-creator">Contact the creator?</a></li>
+  							<li><a href="https://gschup.github.io/ggrs/docs/help/faq/#what-is-ggpo">What is GGPO?</a></li>
+  							
+  							
+  							<li><a href="https://gschup.github.io/ggrs/docs/help/faq/#even-more-questions">Even more questions?</a></li>
   							
   							
   					</ul>
@@ -309,7 +312,19 @@
         <p class="lead">Answers to frequently asked questions.</p>
         <h2 id="what-is-ggrs">What is GGRS?</h2>
 <p>GGRS (Good Game Rollback System) is a reimagination of the <a href="https://www.ggpo.net/">GGPO</a> network SDK written in 100% safe Rust.</p>
-<h2 id="contact-the-creator">Contact the creator?</h2>
+<h2 id="what-is-ggpo">What is GGPO?</h2>
+<p>Taken from <a href="https://ggpo.net/">the official GGPO website</a>:</p>
+<blockquote>
+<p>Rollback networking is designed to be integrated into a fully deterministic peer-to-peer engine.  With full determinism, the game is guaranteed to play out the same way on all players computers if we simply feed them the same inputs.  One way to achieve this is to exchange inputs for all players over the network, only execution a frame of gameplay logic when all players have received all the inputs from their peers.  This often results in sluggish, unresponsive gameplay.  The longer it takes to get inputs over the network, the slower the game becomes.</p>
+</blockquote>
+<blockquote>
+<p>In rollback networking, game logic is allowed to proceed with just the inputs from the local player.  If the remote inputs have not yet arrived when it's time to execute a frame, the networking code will predict what it expects the remote players to do based on previously seen inputs.  Since there's no waiting, the game feels just as responsive as it does offline.  When those inputs finally arrive over the network, they can be compared to the ones that were predicted earlier.  If they differ, the game can be re-simulated from the point of divergence to the current visible frame.</p>
+</blockquote>
+<blockquote>
+<p>Don't worry if that sounds like a headache.  GGPO was designed specifically to implement the rollback algorithms and low-level networking logic in a way that's easy to integrate into your existing game loop.  If you simply implement the functionality to save your game state, load it back up, and execute a frame of game state without rendering its outcome, GGPO can take care of the rest.</p>
+</blockquote>
+<p>For more information about GGPO, check out <a href="http://ggpo.net/">the official website</a> or <a href="https://github.com/pond3r/ggpo">the official github repository</a>. A very good pseudocode explanation for general rollback networking can be found <a href="https://gist.github.com/rcmagic/f8d76bca32b5609e85ab156db38387e9">in this Gist</a>.</p>
+<h2 id="even-more-questions">Even more questions?</h2>
 <p>Send <em>Georg Schuppe</em> an E-mail:</p>
 <ul>
 <li><a href="mailto:georg.schuppe@gmail.com">georg.schuppe@gmail.com</a></li>
