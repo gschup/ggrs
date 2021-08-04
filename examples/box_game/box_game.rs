@@ -285,15 +285,13 @@ impl BoxGameState {
 
         for i in 0..self.num_players {
             // get input of that player
-            let input;
-            // check if the player is disconnected (disconnected players might maybe do something different)
-            if inputs[i].frame == NULL_FRAME {
+            let input = if inputs[i].frame == NULL_FRAME {
                 // disconnected players spin
-                input = 4;
+                4
             } else {
                 // otherwise deserialize the input
-                input = bincode::deserialize(inputs[i].input()).unwrap();
-            }
+                bincode::deserialize(inputs[i].input()).unwrap()
+            };
 
             // old values
             let (old_x, old_y) = self.positions[i];
