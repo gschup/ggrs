@@ -75,15 +75,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()
         .unwrap();
 
-    // load a font to render text
-    let assets = find_folder::Search::ParentsThenKids(3, 3)
-        .for_folder("assets")
-        .unwrap();
-    let freetype = ft::Library::init().unwrap();
-    let font = assets.join("FiraSans-Regular.ttf");
-
     // Create a new box game
-    let mut game = box_game::BoxGame::new(num_players, font);
+    let mut game = box_game::BoxGame::new(num_players);
     let mut gl = GlGraphics::new(opengl);
 
     // event settings
@@ -98,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(e) = events.next(&mut window) {
         // render update
         if let Some(args) = e.render_args() {
-            game.render(&mut gl, &freetype, &args);
+            game.render(&mut gl, &args);
         }
 
         // game update

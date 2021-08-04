@@ -93,18 +93,24 @@ pub struct BoxGame {
     game_state: BoxGameState,
     pub key_states: [bool; 8],
     font: PathBuf,
+    freetype: Library,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
 }
 
 impl BoxGame {
-    pub fn new(num_players: usize, font: PathBuf) -> Self {
+    pub fn new(num_players: usize) -> Self {
+        // load a font to render text
+        let assets = find_folder::Search::ParentsThenKids(3, 3)
+            .for_folder("assets")
+            .unwrap();
         assert!(num_players <= MAX_PLAYERS as usize);
         Self {
             num_players,
             game_state: BoxGameState::new(num_players),
             key_states: [false; 8],
-            font,
+            font: assets.join("FiraSans-Regular.ttf"),
+            freetype: ft::Library::init().unwrap(),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
         }
@@ -152,11 +158,11 @@ impl BoxGame {
     }
 
     // renders the game to the window
-    pub fn render(&mut self, gl: &mut GlGraphics, freetype: &Library, args: &RenderArgs) {
+    pub fn render(&mut self, gl: &mut GlGraphics, args: &RenderArgs) {
         use graphics::*;
 
         // preparation for last checksum rendering
-        let mut face = freetype.new_face(&self.font, 0).unwrap();
+        let mut face = self.freetype.new_face(&self.font, 0).unwrap();
         face.set_pixel_sizes(0, 40).unwrap();
         let checksum_string = format!(
             "Frame {}: Checksum {}",
