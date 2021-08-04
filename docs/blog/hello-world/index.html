@@ -15,11 +15,15 @@
 
   
   
+  
+  
+  
     
   
 
-
   
+  
+    
     
   
   
@@ -27,6 +31,9 @@
     
   
   
+  
+  
+    
   
   
   
@@ -42,29 +49,29 @@
 
 	
 
-<title>GGRS | P2P Rollback Networking in Rust</title>
-<meta name="description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
-<link rel="canonical" href="https://gschup.github.io/ggrs/">
+<title>Hello World | GGRS</title>
+<meta name="description" content="Introducing GGRS, a reimagination of the GGPO network SDK written in 100% safe Rust.">
+<link rel="canonical" href="https://gschup.github.io/ggrs/blog/hello-world/">
 
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="doks.png">
-  <meta name="twitter:title" content="GGRS">
-  <meta name="twitter:description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
+  <meta name="twitter:title" content="Hello World">
+  <meta name="twitter:description" content="Introducing GGRS, a reimagination of the GGPO network SDK written in 100% safe Rust.">
   <meta name="twitter:site" content="@aaranxu">
   <meta name="twitter:creator" content="@aaranxu">
   
-  <meta property="og:title" content="GGRS">
-  <meta property="og:description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://gschup.github.io/ggrs/">
+  <meta property="og:title" content="Hello World">
+  <meta property="og:description" content="Introducing GGRS, a reimagination of the GGPO network SDK written in 100% safe Rust.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://gschup.github.io/ggrs/blog/hello-world/">
 
   
     <meta property="og:image" content="doks.png">
   
 
-  <meta property="og:updated_time" content="2021-05-01T08:08:08+08:00">
-  <meta property="og:site_name" content="GGRS">
+  <meta property="og:updated_time" content="2021-08-04T19:17:23+00:00">
+  <meta property="og:site_name" content="Hello World">
 
   
 
@@ -77,26 +84,39 @@
 
 
 
+
+
   
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "Organization",
-      "url": "/",
-      "name": "GGRS",
-      "logo": "/logo-doks.png",
-      "sameAs": [
-        "https://twitter.com/g_schup",
+      "@type": "Article",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "/blog/hello-world/"
+      },
+      "headline": "Hello World",
+      "image": ,
+      "datePublished": "2021-08-04T19:17:23+00:00",
+      "dateModified": "2021-08-04T19:17:23+00:00",
+      "author": {
+        "@type": "Organization",
+        "name": "Hello World"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Hello World",
         
-        "https://github.com/gschup"
-      ]
+        "logo": {
+          "@type": "ImageObject",
+          "url": "logo-doks.png"
+        }
+        
+      },
+      "description": "Introducing GGRS, a reimagination of the GGPO network SDK written in 100% safe Rust."
     }
     </script>
   
-  
-  
-
-
 
 
 
@@ -107,15 +127,57 @@
     "@context": "http://schema.org",
     "@type": "BreadcrumbList",
     
-    {
-      "@type": "ListItem",
-      "position":  1 ,
-      "name": "Home",
-      "item": "https://gschup.github.io/ggrs/"
-    },
+      
+      
+        
+        
+        
+        
+        
+        
+        
+        
+          {
+            "@type": "ListItem",
+            "position":  1 ,
+            "name": "Home",
+            "item": "https://gschup.github.io/ggrs/"
+          },
+          
+          
+          {
+            "@type": "ListItem",
+            "position":  2 ,
+            "name": "Blog",
+            "item": "https://gschup.github.io/ggrs/blog/"
+          },
+        
+      
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+          
+          
+          {
+            "@type": "ListItem",
+            "position":  3 ,
+            "name": "Hello World",
+            "item": "https://gschup.github.io/ggrs/blog/hello-world/"
+          },
+        
+      
     
   }
 </script>
+
 
 
 
@@ -133,9 +195,11 @@
 
 </head>
 
-<body class="home">
   
-    
+
+<body class="blog single">
+  
+  
 <div class="header-bar fixed-top"></div>
 <header class="navbar fixed-top navbar-expand-md navbar-light">
 	<div class="container">
@@ -167,7 +231,7 @@
 							<a class="nav-link" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">Docs</a>
 						</li>
 					
-						<li class="nav-item">
+						<li class="nav-item blog active">
 							<a class="nav-link" href="https://gschup.github.io/ggrs/blog/">Blog</a>
 						</li>
 					
@@ -185,46 +249,27 @@
 	</div>
 </header>
 
-  
+
 
   
 <div class="wrap container" role="document">
   <div class="content">
-    <section class="section container-fluid mt-n3 pb-3">
-      <div class="row justify-content-center">
-        <div class="col-lg-12 text-center">
-          <h1 class="mt-0">P2P Rollback Networking</h1>
-        </div>
-        <div class="col-lg-9 col-xl-8 text-center">
-          <p class="lead"><b>GGRS</b> is a reimagination of the GGPO network SDK written in 100% safe Rust.</p>
-          <a class="btn btn-primary btn-lg px-4 mb-2" href="https://gschup.github.io/ggrs/docs/getting-started/introduction" role="button">Get started</a>
-          <p class="meta">Open-source MIT License. <a href="https://github.com/gschup/ggrs">GitHub</a></p>
-        </div>
-      </div>
-    </section>
-  </div>
-</div>
+    <div class="row justify-content-center">
+      <div class="col-md-12 col-lg-10 col-xl-8">
+        <article>
+          <div class="blog-header">
+            <h1>Hello World</h1>
+            
+<p><small>Posted August  4, 2021 by <a class="stretched-link position-relative" href="https://gschup.github.io/ggrs/authors/georg-schuppe/">Georg Schuppe</a>&nbsp;&hyphen;&nbsp;<strong>0&nbsp;min read</strong></small><p>
 
-<section class="section section-sm">
-  <div class="container">
-    <div class="row justify-content-center text-center">
-      
-        
-        <div class="col-lg-5">
-          <h2 class="h4">TODO</h2>
-          <p>todo</p>
-        </div>
-        
-      
+          </div>
+          <p class="lead">Introducing GGRS, a reimagination of the GGPO network SDK written in 100% safe Rust.</p>
+          
+        </article>
+      </div>
     </div>
   </div>
-</section>
-
-<section class="section section-sm container-fluid">
-  <div class="row justify-content-center text-center">
-    <div class="col-lg-9"></div>
-  </div>
-</section>
+</div>
 
 
   
