@@ -28,7 +28,8 @@ For more information about GGPO, check out [the official website](http://ggpo.ne
 
 To get started with GGRS, check out the following resources:
 
-- [Tutorial](./TUTORIAL.md)
+- [Website](https://gschup.github.io/ggrs/)
+- [Tutorial](https://gschup.github.io/ggrs/docs/getting-started/quick-start/)
 - [Documentation](https://docs.rs/ggrs/newest/ggrs/)
 - [Examples](./examples/README.md)
 
@@ -38,7 +39,7 @@ GGRS is in an early stage, but the main functionality for two players and specta
 
 - [Changelog](./CHANGELOG.md)
 - [Issues](https://github.com/gschup/ggrs/issues)
-- [Contribution Guide](./CONTRIBUTING.md)
+- [Contribution Guide](https://gschup.github.io/ggrs/docs/contributing/how-to-contribute/)
 
 ## Other Rollback Implementations in Rust
 
