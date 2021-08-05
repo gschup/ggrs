@@ -43,3 +43,7 @@ path = "examples/box_game/box_game_spectator.rs"
 [[example]]
 name = "box_game_synctest"
 path = "examples/box_game/box_game_synctest.rs"
+
+[[example]]
+name = "rapier_synctest"
+path = "examples/rapier/rapier_synctest.rs"
