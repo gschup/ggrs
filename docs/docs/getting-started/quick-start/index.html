@@ -406,7 +406,6 @@
 <p>You don't need to define players or start the session. Because there are no remote clients to synchronize with, a <code>SyncTestSession</code> will immediately be ready to advance the game.</p>
 <h2 id="main-loop">Main Loop</h2>
 <p>In your main game loop, you should call <code>advance_frame(...)</code> in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out <a href="https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75">this article</a> or <a href="https://gafferongames.com/post/fix_your_timestep/">this article</a> to learn more about running your own gameloop.</p>
-<p>WARNING: Currently, this interval should be 60 FPS, otherwise frame synchronization will be slightly off for <code>P2PSession</code>.</p>
 <p>Please see <a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_p2p.rs">BoxGame P2P</a>, <a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_spectator.rs">BoxGame Spectator</a> or <a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_synctest.rs">BoxGame SyncTest</a> for a full code example.</p>
 <h3 id="handling-requests">Handling Requests</h3>
 <p>If calling <code>advance_frame(...)</code> succeeds, it will return a <code>Vec&lt;GGRSRequest&gt;</code>. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests:</p>

@@ -196,7 +196,7 @@
           <h1 class="mt-0">P2P Rollback Networking</h1>
         </div>
         <div class="col-lg-9 col-xl-8 text-center">
-          <p class="lead"><b>GGRS</b> is a reimagination of the GGPO network SDK written in 100% safe Rust.</p>
+          <p class="lead"><b>GGRS</b> is a reimagination of the GGPO network SDK written in Rust.</p>
           <a class="btn btn-primary btn-lg px-4 mb-2" href="https://gschup.github.io/ggrs/docs/getting-started/introduction" role="button">Get started</a>
           <p class="meta">Open-source MIT License. <a href="https://github.com/gschup/ggrs">GitHub</a></p>
         </div>
@@ -211,8 +211,18 @@
       
         
         <div class="col-lg-5">
-          <h2 class="h4">TODO</h2>
-          <p>todo</p>
+          <h2 class="h4">100% safe, stable Rust</h2>
+          <p>No build complications, no linking errors. Just add ggrs into your Cargo.toml dependencies.</p>
+        </div>
+        
+        <div class="col-lg-5">
+          <h2 class="h4">Simple and Sane Control Flow</h2>
+          <p>The callback-style API from the original library has been replaced with a much saner, simpler control flow. Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.</p>
+        </div>
+        
+        <div class="col-lg-5">
+          <h2 class="h4">Platform Independency</h2>
+          <p>Using Rusts UDP Sockets, the implementation is independent from any OS-specific code. Both IPv4 and IPv6 are naturally supported.</p>
         </div>
         
       

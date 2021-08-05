@@ -94,7 +94,6 @@
 &lt;p&gt;You don&#x27;t need to define players or start the session. Because there are no remote clients to synchronize with, a &lt;code&gt;SyncTestSession&lt;&#x2F;code&gt; will immediately be ready to advance the game.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;main-loop&quot;&gt;Main Loop&lt;&#x2F;h2&gt;
 &lt;p&gt;In your main game loop, you should call &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out &lt;a href=&quot;https:&#x2F;&#x2F;medium.com&#x2F;@tglaiel&#x2F;how-to-make-your-game-run-at-60fps-24c61210fe75&quot;&gt;this article&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;gafferongames.com&#x2F;post&#x2F;fix_your_timestep&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; to learn more about running your own gameloop.&lt;&#x2F;p&gt;
-&lt;p&gt;WARNING: Currently, this interval should be 60 FPS, otherwise frame synchronization will be slightly off for &lt;code&gt;P2PSession&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;Please see &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_p2p.rs&quot;&gt;BoxGame P2P&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_spectator.rs&quot;&gt;BoxGame Spectator&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_synctest.rs&quot;&gt;BoxGame SyncTest&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
 &lt;h3 id=&quot;handling-requests&quot;&gt;Handling Requests&lt;&#x2F;h3&gt;
 &lt;p&gt;If calling &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; succeeds, it will return a &lt;code&gt;Vec&amp;lt;GGRSRequest&amp;gt;&lt;&#x2F;code&gt;. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests:&lt;&#x2F;p&gt;
@@ -120,8 +119,8 @@
 		<link href="https://gschup.github.io/ggrs/docs/help/faq/" type="text/html"/>
 		<id>https://gschup.github.io/ggrs/docs/help/faq/</id>
 		<content type="html">&lt;h2 id=&quot;what-is-ggrs&quot;&gt;What is GGRS?&lt;&#x2F;h2&gt;
-&lt;p&gt;GGRS (Good Game Rollback System) is a reimagination of the &lt;a href=&quot;https:&#x2F;&#x2F;www.ggpo.net&#x2F;&quot;&gt;GGPO&lt;&#x2F;a&gt; network SDK written in 100% safe Rust.&lt;&#x2F;p&gt;
-&lt;h2 id=&quot;what-is-ggpo&quot;&gt;What is GGPO?&lt;&#x2F;h2&gt;
+&lt;p&gt;GGRS (Good Game Rollback System) is a reimagination of the &lt;a href=&quot;https:&#x2F;&#x2F;www.ggpo.net&#x2F;&quot;&gt;GGPO&lt;&#x2F;a&gt; P2P rollback networking library written in 100% safe Rust.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;what-is-ggpo-rollback&quot;&gt;What is GGPO &#x2F; Rollback?&lt;&#x2F;h2&gt;
 &lt;p&gt;Taken from &lt;a href=&quot;https:&#x2F;&#x2F;ggpo.net&#x2F;&quot;&gt;the official GGPO website&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;Rollback networking is designed to be integrated into a fully deterministic peer-to-peer engine.  With full determinism, the game is guaranteed to play out the same way on all players computers if we simply feed them the same inputs.  One way to achieve this is to exchange inputs for all players over the network, only execution a frame of gameplay logic when all players have received all the inputs from their peers.  This often results in sluggish, unresponsive gameplay.  The longer it takes to get inputs over the network, the slower the game becomes.&lt;&#x2F;p&gt;
@@ -149,11 +148,11 @@
 		<content type="html">&lt;h2 id=&quot;quick-start&quot;&gt;Quick Start&lt;&#x2F;h2&gt;
 &lt;p&gt;One page summary of how to start developing with GGRS. &lt;a href=&quot;..&#x2F;quick-start&#x2F;&quot;&gt;Quick Start →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;examples&quot;&gt;Examples&lt;&#x2F;h2&gt;
-&lt;p&gt;Find full game examples using GGRS. &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&quot;&gt;Examples →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Find full game examples. &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&quot;&gt;Examples →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;contributing&quot;&gt;Contributing&lt;&#x2F;h2&gt;
-&lt;p&gt;Find out how to contribute to GGRS. &lt;a href=&quot;..&#x2F;..&#x2F;contributing&#x2F;how-to-contribute&#x2F;&quot;&gt;Contributing →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Find out how to contribute. &lt;a href=&quot;..&#x2F;..&#x2F;contributing&#x2F;how-to-contribute&#x2F;&quot;&gt;Contributing →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;help&quot;&gt;Help&lt;&#x2F;h2&gt;
-&lt;p&gt;Get help on GGRS. &lt;a href=&quot;..&#x2F;..&#x2F;help&#x2F;faq&#x2F;&quot;&gt;Help →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;See the FAQ. &lt;a href=&quot;..&#x2F;..&#x2F;help&#x2F;faq&#x2F;&quot;&gt;Help →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 </content>
 	</entry>
 	<entry xml:lang="en">
