@@ -737,11 +737,7 @@ impl P2PSession {
             let mut queue_min_confirmed = i32::MAX;
 
             // check all remote players for that player
-            for endpoint in self
-                .players
-                .values_mut()
-                .filter_map(Player::remote_as_endpoint_mut)
-            {
+            for endpoint in self.players.values().filter_map(Player::remote_as_endpoint) {
                 if !endpoint.is_running() {
                     continue;
                 }
