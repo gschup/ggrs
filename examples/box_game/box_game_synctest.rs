@@ -10,7 +10,6 @@ use structopt::StructOpt;
 
 const FPS: u64 = 60;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
-const CHECK_DISTANCE: u32 = 7;
 
 const WINDOW_HEIGHT: u32 = 800;
 const WINDOW_WIDTH: u32 = 600;
@@ -21,6 +20,8 @@ mod box_game;
 struct Opt {
     #[structopt(short, long)]
     num_players: usize,
+    #[structopt(short, long)]
+    check_distance: u32,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a GGRS session with two players
     let mut sess =
-        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, CHECK_DISTANCE)?;
+        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
 
     // set input delay for any player you want
     for i in 0..opt.num_players {
