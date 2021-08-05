@@ -1,7 +1,6 @@
-# ![GGRS LOGO](./ggrs_logo.png)
+# [![GGRS LOGO](./ggrs_logo.png)](https://gschup.github.io/ggrs/)
 
 [![crates.io](https://img.shields.io/crates/v/ggrs?style=for-the-badge)](https://crates.io/crates/ggrs)
-[![docs.rs](https://img.shields.io/docsrs/ggrs?style=for-the-badge)](https://docs.rs/ggrs/newest/ggrs/)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/gschup/ggrs/Rust?style=for-the-badge)
 ![GitHub top language](https://img.shields.io/github/languages/top/gschup/ggrs?style=for-the-badge)
 [![license](https://img.shields.io/github/license/gschup/ggrs?style=for-the-badge)](./LICENSE)
@@ -18,12 +17,12 @@ To get started with GGRS, check out the following resources:
 
 - [Website](https://gschup.github.io/ggrs/)
 - [Tutorial](https://gschup.github.io/ggrs/docs/getting-started/quick-start/)
-- [Documentation](https://docs.rs/ggrs/newest/ggrs/)
 - [Examples](./examples/README.md)
+- [Documentation](https://docs.rs/ggrs/newest/ggrs/)
 
 ## Development Status
 
-GGRS is in an early stage, but the main functionality for two players and spectators should be quite stable. See the Changelog for the latest changes, even those yet unreleased on crates.io! If you want to contribute, check out the Issues!
+GGRS is in an early stage, but the main functionality for two players and spectators should be quite stable. See the Changelog for the latest changes, even those yet unreleased on crates.io! If you want to contribute, check out existing issues, as well as the contribution guide!
 
 - [Changelog](./CHANGELOG.md)
 - [Issues](https://github.com/gschup/ggrs/issues)
