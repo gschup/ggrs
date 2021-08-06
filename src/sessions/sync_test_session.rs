@@ -49,7 +49,7 @@ impl SyncTestSession {
 
         // if we advanced far enough into the game do comparisons and rollbacks
         if self.check_distance > 0 && self.sync_layer.current_frame() > self.check_distance as i32 {
-            // compare checksums of older frames to our checksum history (where only the first version of any checksum is allowed)
+            // compare checksums of older frames to our checksum history (where only the first version of any checksum is recorded)
             for i in 0..=self.check_distance as i32 {
                 let frame_to_check = self.sync_layer.current_frame() - i;
                 if !self.checksums_consistent(frame_to_check) {
@@ -156,14 +156,10 @@ impl SyncTestSession {
         assert_eq!(self.sync_layer.current_frame(), frame_to);
 
         // step forward to the previous current state
-        for i in 0..count {
+        for _ in 0..count {
             let inputs = self
                 .sync_layer
                 .synchronized_inputs(&self.dummy_connect_status);
-
-            if i > 0 {
-                requests.push(self.sync_layer.save_current_state());
-            }
 
             self.sync_layer.advance_frame();
             requests.push(GGRSRequest::AdvanceFrame { inputs });
