@@ -59,13 +59,11 @@ pub(crate) struct SavedStates {
     // the states array is two bigger than the max prediction frames in order to account for
     // the next frame needing a space and still being able to rollback the max distance
     pub states: [GameStateCell; MAX_PREDICTION_FRAMES as usize + 2],
-    pub head: usize,
 }
 
 impl Default for SavedStates {
     fn default() -> Self {
         Self {
-            head: 0,
             states: Default::default(),
         }
     }
@@ -73,29 +71,20 @@ impl Default for SavedStates {
 
 impl SavedStates {
     fn push(&mut self, frame: Frame) -> GameStateCell {
-        let saved_state = self.states[self.head].clone();
-        saved_state.reset(frame);
-        self.head = (self.head + 1) % self.states.len();
-        assert!(self.head < self.states.len());
-        saved_state
+        assert!(frame >= 0);
+        let pos = frame as usize % self.states.len();
+        let cell = self.states[pos].clone();
+        cell.reset(frame);
+        cell
     }
 
-    fn find_index(&self, frame: Frame) -> Option<usize> {
-        self.states
-            .iter()
-            .enumerate()
-            .find(|(_, saved)| saved.0.lock().frame == frame)
-            .map(|(i, _)| i)
+    fn peek(&mut self, frame: Frame) -> GameStateCell {
+        assert!(frame >= 0);
+        let pos = frame as usize % self.states.len();
+        let saved_cell = self.states[pos].clone();
+        saved_cell
     }
 
-    fn reset_to(&mut self, frame: Frame) -> GameStateCell {
-        self.head = self
-            .find_index(frame)
-            .unwrap_or_else(|| panic!("Could not find saved frame index for frame: {}", frame));
-        self.states[self.head].clone()
-    }
-
-    /// Returns a `GameStateCell` for the given `frame`.
     fn by_frame(&self, frame: Frame) -> Option<GameStateCell> {
         self.states
             .iter()
@@ -132,7 +121,6 @@ impl SyncLayer {
             last_saved_frame: NULL_FRAME,
             current_frame: 0,
             saved_states: SavedStates {
-                head: 0,
                 states: Default::default(),
             },
             input_queues,
@@ -167,7 +155,7 @@ impl SyncLayer {
         }
     }
 
-    /// Loads the gamestate indicated by `frame_to_load`. After execution, `self.saved_states.head` is set one position after the loaded state.
+    /// Loads the gamestate indicated by `frame_to_load`.
     pub(crate) fn load_frame(&mut self, frame_to_load: Frame) -> GGRSRequest {
         // The state should not be the current state or the state should not be in the future or too far away in the past
         assert!(
@@ -177,11 +165,10 @@ impl SyncLayer {
         );
 
         // Reset the head of the state ring-buffer to point in advance of the current frame (as if we had just finished executing it).
-        let cell = self.saved_states.reset_to(frame_to_load);
+        let cell = self.saved_states.peek(frame_to_load);
         let loaded_frame = cell.0.lock().frame;
         assert_eq!(loaded_frame, frame_to_load);
 
-        self.saved_states.head = (self.saved_states.head + 1) % MAX_PREDICTION_FRAMES as usize;
         self.current_frame = loaded_frame;
 
         GGRSRequest::LoadGameState { cell }

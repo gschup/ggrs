@@ -10,6 +10,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 - fixed a bug where a spectator would not handle disconnected players correctly with more than two players
 - fixed a bug where changes to `disconnect_timeout` and `disconnect_notify_start` would change existings endpoints, but would not influence endpoints created afterwards
 - expanded the BoxGame example for up to four players and as many spectators as wanted
+- minor code optimizations
 
 ## 0.4.0
 
