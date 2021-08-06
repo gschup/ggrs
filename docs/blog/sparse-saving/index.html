@@ -15,14 +15,21 @@
 
   
   
+  
+  
+  
     
   
 
   
   
+    
+    
+  
+  
   
     
-    
+  
   
   
   
@@ -42,29 +49,29 @@
 
 	
 
-<title>Blog | GGRS</title>
-<meta name="description" content="Blog">
-<link rel="canonical" href="https://gschup.github.io/ggrs/blog/">
+<title>Introducing: Sparse Saving Feature | GGRS</title>
+<meta name="description" content="Explaining the sparse saving feature in GGRS and how it works.">
+<link rel="canonical" href="https://gschup.github.io/ggrs/blog/sparse-saving/">
 
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="doks.png">
-  <meta name="twitter:title" content="Blog">
-  <meta name="twitter:description" content="Blog">
+  <meta name="twitter:title" content="Introducing: Sparse Saving Feature">
+  <meta name="twitter:description" content="Explaining the sparse saving feature in GGRS and how it works.">
   <meta name="twitter:site" content="@g_schup">
   <meta name="twitter:creator" content="@g_schup">
   
-  <meta property="og:title" content="Blog">
-  <meta property="og:description" content="Blog">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://gschup.github.io/ggrs/blog/">
+  <meta property="og:title" content="Introducing: Sparse Saving Feature">
+  <meta property="og:description" content="Explaining the sparse saving feature in GGRS and how it works.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://gschup.github.io/ggrs/blog/sparse-saving/">
 
   
     <meta property="og:image" content="doks.png">
   
 
-  <meta property="og:updated_time" content="2021-05-01T08:08:08+08:00">
-  <meta property="og:site_name" content="Blog">
+  <meta property="og:updated_time" content="2021-08-06T12:00:00+00:00">
+  <meta property="og:site_name" content="Introducing: Sparse Saving Feature">
 
   
 
@@ -78,6 +85,38 @@
 
 
 
+
+  
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "/blog/sparse-saving/"
+      },
+      "headline": "Introducing: Sparse Saving Feature",
+      "image": ,
+      "datePublished": "2021-08-06T12:00:00+00:00",
+      "dateModified": "2021-08-06T12:00:00+00:00",
+      "author": {
+        "@type": "Organization",
+        "name": "Introducing: Sparse Saving Feature"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Introducing: Sparse Saving Feature",
+        
+        "logo": {
+          "@type": "ImageObject",
+          "url": "logo-doks.png"
+        }
+        
+      },
+      "description": "Explaining the sparse saving feature in GGRS and how it works."
+    }
+    </script>
+  
 
 
 
@@ -114,9 +153,31 @@
           },
         
       
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+          
+          
+          {
+            "@type": "ListItem",
+            "position":  3 ,
+            "name": "Sparse Saving",
+            "item": "https://gschup.github.io/ggrs/blog/sparse-saving/"
+          },
+        
+      
     
   }
 </script>
+
 
 
 
@@ -136,9 +197,7 @@
 
   
 
-<body class="blog list">
-  
-  
+<body class="blog single">
   
   
 <div class="header-bar fixed-top"></div>
@@ -198,33 +257,37 @@
     <div class="row justify-content-center">
       <div class="col-md-12 col-lg-10 col-xl-8">
         <article>
-          <h1 class="text-center">Blog</h1>
-          <div class="card-list">
+          <div class="blog-header">
+            <h1>Introducing: Sparse Saving Feature</h1>
             
-            <div class="card">
-              <div class="card-body">
-                <h2 class="h3"><a class="stretched-link text-body" href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;blog&#x2F;sparse-saving&#x2F;">Introducing: Sparse Saving Feature</a></h2>
-                
-                  <p class="lead">Explaining the sparse saving feature in GGRS and how it works.</p>
-                
 <p><small>Posted August  6, 2021 by <a class="stretched-link position-relative" href="https://gschup.github.io/ggrs/authors/georg-schuppe/">Georg Schuppe</a>&nbsp;&hyphen;&nbsp;<strong>3&nbsp;min read</strong></small><p>
 
-              </div>
-            </div>
-            
-            <div class="card">
-              <div class="card-body">
-                <h2 class="h3"><a class="stretched-link text-body" href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;blog&#x2F;hello-world&#x2F;">Hello World</a></h2>
-                
-                  <p class="lead">Introducing GGRS, a reimagination of the GGPO network SDK written in 100% safe Rust.</p>
-                
-<p><small>Posted August  4, 2021 by <a class="stretched-link position-relative" href="https://gschup.github.io/ggrs/authors/georg-schuppe/">Georg Schuppe</a>&nbsp;&hyphen;&nbsp;<strong>0&nbsp;min read</strong></small><p>
-
-              </div>
-            </div>
-            
-            
           </div>
+          <p class="lead">Explaining the sparse saving feature in GGRS and how it works.</p>
+          <p>GGRS just released version <a href="https://github.com/gschup/ggrs/releases/tag/v0.4.1">0.4.1</a> and with it comes the sparse saving feature. In this article, I am going to briefly explain what it does and if you should consider using it.</p>
+<h2 id="how-things-were-before">How things were before</h2>
+<p>If you were using GGRS before 0.4.1, updating, loading and saving the game state would occur exactly as often as they would in GGPO. Loading is done once per rollback, but saving is done after every update step. This is how a rollback looks like in GGPO:</p>
+<pre style="background-color:#2b303b;color:#c0c5ce;"><code><span>[LOAD]</span><span>
+</span><span>[UPDATE]</span><span>
+</span><span>[SAVE]</span><span>
+</span><span>[UPDATE]</span><span>
+</span><span>[SAVE]</span><span>
+</span><span>[UPDATE]</span><span>
+</span><span>[SAVE]</span><span>
+</span></code></pre>
+<p>By keeping a full history of gamestates, GGPO can always load the most recent and correct state. You could say that <strong>GGPO minimizes <em>update steps</em>.</strong></p>
+<h2 id="saving-and-loading-game-state">Saving and Loading Game State</h2>
+<p>Depending on your application, saving and loading the game state can look wildly different, but one often used technique is serialization, for example with rusts popular <a href="https://serde.rs/">Serde</a>. In fact, GGRS's own examples use <code>serde</code> and <code>bincode</code> in order to save and load the gamestate. While very convenient, this usually results in computation time problems when saving multiple times in a single step, as in a rollback shown above.</p>
+<h2 id="sparse-saving-mode">Sparse Saving Mode</h2>
+<p>As a solution, GGRS offers a <em>sparse saving</em> mode for <code>P2PSession</code>. It is easily enabled before starting the session.</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>sess.</span><span style="color:#96b5b4;">set_sparse_saving</span><span>(</span><span style="color:#d08770;">true</span><span>)?;</span><span>
+</span></code></pre>
+<p>That's it. You don't need to change anything else in your code. <strong>When in sparse saving mode, GGRS minimizes <em>save requests</em></strong> at the cost of additional update steps.</p>
+<p>This works by only ever saving latest confirmed frame, for which we have received and confirmed input from all clients. This state is guaranteed to be correct and can be used as a loading point for every rollback. If no <em>natural</em> rollbacks occur (due to all predictions being correct or all inputs arriving on time), we sometimes might need to artificially induce a rollback in order to resimulate the last confirmed state and save it.</p>
+<p>With sparse saving, GGRS guarantees to save at most once per update tick, at the cost of potentially longer rollback sequences. In the <a href="https://github.com/gschup/ggrs/tree/main/examples/rapier">Rapier Synctest Example</a>, an update step costs less than 0.5ms, while saving costs up to 3ms of time (due to the whole physics pipeline being serialized, which is definitely not optimal). In a hypothetical P2P example, this disparity makes the rapier example a prime candidate for the sparse saving feature.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Depending on your application, the sparse saving mode might be beneficial for you. Update GGRS to the latest version 0.4.1, enable <em>sparse saving</em> and give it a try! If it made any difference for you, let me know!</p>
+
         </article>
       </div>
     </div>

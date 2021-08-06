@@ -5,8 +5,39 @@
 	<link href="https://gschup.github.io/ggrs/atom.xml" rel="self" type="application/atom+xml"/>
   <link href="https://gschup.github.io/ggrs/"/>
 	<generator uri="https://www.getzola.org/">Zola</generator>
-	<updated>2021-08-04T19:17:23+00:00</updated>
+	<updated>2021-08-06T12:00:00+00:00</updated>
 	<id>https://gschup.github.io/ggrs/atom.xml</id>
+	<entry xml:lang="en">
+		<title>Introducing: Sparse Saving Feature</title>
+		<published>2021-08-06T12:00:00+00:00</published>
+		<updated>2021-08-06T12:00:00+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/blog/sparse-saving/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/blog/sparse-saving/</id>
+		<content type="html">&lt;p&gt;GGRS just released version &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;releases&#x2F;tag&#x2F;v0.4.1&quot;&gt;0.4.1&lt;&#x2F;a&gt; and with it comes the sparse saving feature. In this article, I am going to briefly explain what it does and if you should consider using it.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;how-things-were-before&quot;&gt;How things were before&lt;&#x2F;h2&gt;
+&lt;p&gt;If you were using GGRS before 0.4.1, updating, loading and saving the game state would occur exactly as often as they would in GGPO. Loading is done once per rollback, but saving is done after every update step. This is how a rollback looks like in GGPO:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;color:#c0c5ce;&quot;&gt;&lt;code&gt;&lt;span&gt;[LOAD]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[UPDATE]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[SAVE]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[UPDATE]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[SAVE]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[UPDATE]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[SAVE]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;By keeping a full history of gamestates, GGPO can always load the most recent and correct state. You could say that &lt;strong&gt;GGPO minimizes &lt;em&gt;update steps&lt;&#x2F;em&gt;.&lt;&#x2F;strong&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;saving-and-loading-game-state&quot;&gt;Saving and Loading Game State&lt;&#x2F;h2&gt;
+&lt;p&gt;Depending on your application, saving and loading the game state can look wildly different, but one often used technique is serialization, for example with rusts popular &lt;a href=&quot;https:&#x2F;&#x2F;serde.rs&#x2F;&quot;&gt;Serde&lt;&#x2F;a&gt;. In fact, GGRS&#x27;s own examples use &lt;code&gt;serde&lt;&#x2F;code&gt; and &lt;code&gt;bincode&lt;&#x2F;code&gt; in order to save and load the gamestate. While very convenient, this usually results in computation time problems when saving multiple times in a single step, as in a rollback shown above.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;sparse-saving-mode&quot;&gt;Sparse Saving Mode&lt;&#x2F;h2&gt;
+&lt;p&gt;As a solution, GGRS offers a &lt;em&gt;sparse saving&lt;&#x2F;em&gt; mode for &lt;code&gt;P2PSession&lt;&#x2F;code&gt;. It is easily enabled before starting the session.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_sparse_saving&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;That&#x27;s it. You don&#x27;t need to change anything else in your code. &lt;strong&gt;When in sparse saving mode, GGRS minimizes &lt;em&gt;save requests&lt;&#x2F;em&gt;&lt;&#x2F;strong&gt; at the cost of additional update steps.&lt;&#x2F;p&gt;
+&lt;p&gt;This works by only ever saving latest confirmed frame, for which we have received and confirmed input from all clients. This state is guaranteed to be correct and can be used as a loading point for every rollback. If no &lt;em&gt;natural&lt;&#x2F;em&gt; rollbacks occur (due to all predictions being correct or all inputs arriving on time), we sometimes might need to artificially induce a rollback in order to resimulate the last confirmed state and save it.&lt;&#x2F;p&gt;
+&lt;p&gt;With sparse saving, GGRS guarantees to save at most once per update tick, at the cost of potentially longer rollback sequences. In the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;rapier&quot;&gt;Rapier Synctest Example&lt;&#x2F;a&gt;, an update step costs less than 0.5ms, while saving costs up to 3ms of time (due to the whole physics pipeline being serialized, which is definitely not optimal). In a hypothetical P2P example, this disparity makes the rapier example a prime candidate for the sparse saving feature.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;&#x2F;h2&gt;
+&lt;p&gt;Depending on your application, the sparse saving mode might be beneficial for you. Update GGRS to the latest version 0.4.1, enable &lt;em&gt;sparse saving&lt;&#x2F;em&gt; and give it a try! If it made any difference for you, let me know!&lt;&#x2F;p&gt;
+</content>
+	</entry>
 	<entry xml:lang="en">
 		<title>Hello World</title>
 		<published>2021-08-04T19:17:23+00:00</published>
