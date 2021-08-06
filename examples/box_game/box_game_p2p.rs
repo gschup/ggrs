@@ -38,6 +38,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session with two players
     let mut sess = ggrs::start_p2p_session(num_players as u32, INPUT_SIZE, opt.local_port)?;
 
+    // turn on sparse saving
+    sess.set_sparse_saving(true)?;
+
     // add players
     for (i, player_addr) in opt.players.iter().enumerate() {
         // local player
