@@ -95,6 +95,7 @@ impl SavedStates {
         self.states[self.head].clone()
     }
 
+    /// Returns a `GameStateCell` for the given `frame`.
     fn by_frame(&self, frame: Frame) -> Option<GameStateCell> {
         self.states
             .iter()
@@ -110,6 +111,7 @@ pub(crate) struct SyncLayer {
     saved_states: SavedStates,
     rolling_back: bool,
     last_confirmed_frame: Frame,
+    last_saved_frame: Frame,
     current_frame: Frame,
     input_queues: Vec<InputQueue>,
 }
@@ -127,6 +129,7 @@ impl SyncLayer {
             input_size,
             rolling_back: false,
             last_confirmed_frame: NULL_FRAME,
+            last_saved_frame: NULL_FRAME,
             current_frame: 0,
             saved_states: SavedStates {
                 head: 0,
@@ -145,6 +148,7 @@ impl SyncLayer {
     }
 
     pub(crate) fn save_current_state(&mut self) -> GGRSRequest {
+        self.last_saved_frame = self.current_frame;
         let cell = self.saved_states.push(self.current_frame);
         GGRSRequest::SaveGameState {
             cell,
@@ -157,9 +161,9 @@ impl SyncLayer {
         self.input_queues[player_handle as usize].set_frame_delay(delay);
     }
 
-    pub(crate) fn reset_prediction(&mut self, frame: Frame) {
+    pub(crate) fn reset_prediction(&mut self) {
         for i in 0..self.num_players {
-            self.input_queues[i as usize].reset_prediction(frame);
+            self.input_queues[i as usize].reset_prediction();
         }
     }
 
@@ -240,7 +244,7 @@ impl SyncLayer {
     }
 
     /// Sets the last confirmed frame to a given frame. By raising the last confirmed frame, we can discard all previous frames, as they are no longer necessary.
-    pub(crate) fn set_last_confirmed_frame(&mut self, frame: Frame) {
+    pub(crate) fn set_last_confirmed_frame(&mut self, mut frame: Frame, sparse_saving: bool) {
         // dont set the last confirmed frame after the first incorrect frame before a rollback has happened
         let mut first_incorrect: Frame = NULL_FRAME;
         for handle in 0..self.num_players as usize {
@@ -248,6 +252,11 @@ impl SyncLayer {
                 first_incorrect,
                 self.input_queues[handle].first_incorrect_frame(),
             );
+        }
+
+        // if sparse saving option is turned on, don't set the last confirmed frame after the last saved frame
+        if sparse_saving {
+            frame = std::cmp::min(frame, self.last_saved_frame);
         }
 
         // if we set the last confirmed frame beyond the first incorrect frame, we discard inputs that we need later for ajusting the gamestate.
@@ -262,7 +271,7 @@ impl SyncLayer {
     }
 
     /// Finds the earliest incorrect frame detected by the individual input queues
-    pub(crate) fn check_simulation_consistency(&self, mut first_incorrect: Frame) -> Option<Frame> {
+    pub(crate) fn check_simulation_consistency(&self, mut first_incorrect: Frame) -> Frame {
         for handle in 0..self.num_players as usize {
             let incorrect = self.input_queues[handle].first_incorrect_frame();
             if incorrect != NULL_FRAME
@@ -271,15 +280,17 @@ impl SyncLayer {
                 first_incorrect = incorrect;
             }
         }
-        match first_incorrect {
-            NULL_FRAME => None,
-            _ => Some(first_incorrect),
-        }
+        first_incorrect
     }
 
-    /// Returns the latest saved gamestate
+    /// Returns a gamestate through given frame
     pub(crate) fn saved_state_by_frame(&self, frame: Frame) -> Option<GameStateCell> {
         self.saved_states.by_frame(frame)
+    }
+
+    /// Returns the latest saved frame
+    pub(crate) const fn last_saved_frame(&self) -> Frame {
+        self.last_saved_frame
     }
 }
 

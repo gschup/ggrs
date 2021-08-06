@@ -96,7 +96,7 @@ impl SyncTestSession {
         // inputs from other players
         let safe_frame = self.sync_layer.current_frame() - self.check_distance as i32;
 
-        self.sync_layer.set_last_confirmed_frame(safe_frame);
+        self.sync_layer.set_last_confirmed_frame(safe_frame, false);
 
         // also, we update the dummy connect status to pretend that we received inputs from all players
         for con_stat in &mut self.dummy_connect_status {
@@ -153,7 +153,7 @@ impl SyncTestSession {
 
         // rollback to the first incorrect state
         requests.push(self.sync_layer.load_frame(frame_to));
-        self.sync_layer.reset_prediction(frame_to);
+        self.sync_layer.reset_prediction();
         assert_eq!(self.sync_layer.current_frame(), frame_to);
 
         // step forward to the previous current state

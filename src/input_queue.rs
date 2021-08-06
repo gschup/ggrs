@@ -61,9 +61,7 @@ impl InputQueue {
         self.frame_delay = delay;
     }
 
-    pub(crate) fn reset_prediction(&mut self, frame: Frame) {
-        assert!(self.first_incorrect_frame == NULL_FRAME || frame <= self.first_incorrect_frame);
-
+    pub(crate) fn reset_prediction(&mut self) {
         self.prediction.frame = NULL_FRAME;
         self.first_incorrect_frame = NULL_FRAME;
         self.last_requested_frame = NULL_FRAME;

@@ -5,7 +5,10 @@ use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::UdpProtocol;
 use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
-use crate::{Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
+use crate::{
+    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_PREDICTION_FRAMES,
+    NULL_FRAME,
+};
 
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
@@ -16,6 +19,7 @@ use std::time::Duration;
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
 const RECOMMENDATION_INTERVAL: Frame = 40;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
+const DEFAULT_SAVE_MODE: bool = false;
 pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
 pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
 pub(crate) const DEFAULT_FPS: u32 = 60;
@@ -101,6 +105,8 @@ pub struct P2PSession {
     sync_layer: SyncLayer,
     /// FPS defines the expected update frequency of this session.
     fps: u32,
+    /// With sparse saving, the session will only request to save the minimum confirmed frame.
+    sparse_saving: bool,
 
     /// The time until a remote player gets disconnected.
     disconnect_timeout: Duration,
@@ -149,6 +155,7 @@ impl P2PSession {
             num_players,
             input_size,
             fps: DEFAULT_FPS,
+            sparse_saving: DEFAULT_SAVE_MODE,
             socket,
             local_connect_status,
             next_recommended_sleep: 0,
@@ -283,28 +290,56 @@ impl P2PSession {
             return Err(GGRSError::NotSynchronized);
         }
 
+        // This list of requests will be returned to the user
         let mut requests = Vec::new();
 
-        // check game consistency and rollback, if necessary
-        if let Some(first_incorrect) = self
-            .sync_layer
-            .check_simulation_consistency(self.disconnect_frame)
-        {
-            self.adjust_gamestate(first_incorrect, &mut requests);
-            self.disconnect_frame = NULL_FRAME;
+        // if we are in the first frame, we have to save the state
+        if self.sync_layer.current_frame() == 0 {
+            requests.push(self.sync_layer.save_current_state());
         }
 
         // find the total minimum confirmed frame and propagate disconnects
-        let min_confirmed_frame = self.min_confirmed_frame();
+        let min_confirmed = self.min_confirmed_frame();
+
+        // check game consistency and rollback, if necessary.
+        // The disconnect frame indicates if a rollback is necessary due to a previously disconnected player
+        let first_incorrect = self
+            .sync_layer
+            .check_simulation_consistency(self.disconnect_frame);
+        if first_incorrect != NULL_FRAME {
+            self.adjust_gamestate(first_incorrect, min_confirmed, &mut requests);
+            self.disconnect_frame = NULL_FRAME;
+        }
+
+        // in sparse saving mode, we need to make sure not to lose the last saved frame
+        let last_saved = self.sync_layer.last_saved_frame();
+        if self.sparse_saving
+            && self.sync_layer.current_frame() - last_saved >= MAX_PREDICTION_FRAMES as i32
+        {
+            // check if the current frame is confirmed, otherwise we need to roll back
+            if min_confirmed >= self.sync_layer.current_frame() {
+                // the current frame is confirmed, save it
+                requests.push(self.sync_layer.save_current_state());
+            } else {
+                // roll back to the last saved state, resimulate and save on the way
+                self.adjust_gamestate(last_saved, min_confirmed, &mut requests);
+            }
+
+            // after all this, we should have saved the confirmed state
+            assert_eq!(
+                self.sync_layer.last_saved_frame(),
+                std::cmp::min(min_confirmed, self.sync_layer.current_frame())
+            );
+        }
 
         // send confirmed inputs to remotes
-        self.send_confirmed_inputs_to_spectators(min_confirmed_frame);
+        self.send_confirmed_inputs_to_spectators(min_confirmed);
 
         // set the last confirmed frame and discard all saved inputs before that frame
         self.sync_layer
-            .set_last_confirmed_frame(min_confirmed_frame);
+            .set_last_confirmed_frame(min_confirmed, self.sparse_saving);
 
-        // check time sync between clients and wait, if appropriate
+        // check time sync between clients and send wait recommendation, if appropriate
         if self.sync_layer.current_frame() > self.next_recommended_sleep {
             let skip_frames = self.max_delay_recommendation(true);
             if skip_frames > 0 {
@@ -342,8 +377,11 @@ impl P2PSession {
             }
         }
 
-        // save the current frame in the syncronization layer
-        requests.push(self.sync_layer.save_current_state());
+        // without sparse saving, always save the current frame
+        if !self.sparse_saving {
+            requests.push(self.sync_layer.save_current_state());
+        }
+
         // get correct inputs for the current frame
         let inputs = self
             .sync_layer
@@ -352,6 +390,7 @@ impl P2PSession {
             // check if input is correct or represents a disconnected player (by NULL_FRAME)
             assert!(input.frame == NULL_FRAME || input.frame == self.sync_layer.current_frame());
         }
+
         // advance the frame
         self.sync_layer.advance_frame();
         requests.push(GGRSRequest::AdvanceFrame { inputs });
@@ -517,6 +556,23 @@ impl P2PSession {
         Ok(())
     }
 
+    /// Sets the sparse saving mode. With sparse saving turned on, only the minimum confirmed frame (for which all inputs from all players are confirmed correct) will be saved.
+    /// This leads to much less save requests at the cost of potentially longer rollbacks and thus more advance frame requests. Recommended, if saving your gamestate
+    /// takes much more time than advancing the game state.
+    pub fn set_sparse_saving(&mut self, sparse_saving: bool) -> Result<(), GGRSError> {
+        // you can only switch the saving mode in the init phase
+        if self.state != SessionState::Initializing {
+            return Err(GGRSError::InvalidRequest {
+                info:
+                    "Session already started. You can only change the saving mode before starting the session."
+                        .to_owned(),
+            });
+        }
+
+        self.sparse_saving = sparse_saving;
+        Ok(())
+    }
+
     /// Returns the current `SessionState` of a session.
     pub const fn current_state(&self) -> SessionState {
         self.state
@@ -661,29 +717,56 @@ impl P2PSession {
         self.state = SessionState::Running;
     }
 
-    /// Roll back to `first_incorrect` frame and resimulate the game with most up-to-date input data.
-    fn adjust_gamestate(&mut self, first_incorrect: Frame, requests: &mut Vec<GGRSRequest>) {
+    /// Roll back to `min_confirmed` frame and resimulate the game with most up-to-date input data.
+    fn adjust_gamestate(
+        &mut self,
+        first_incorrect: Frame,
+        min_confirmed: Frame,
+        requests: &mut Vec<GGRSRequest>,
+    ) {
         let current_frame = self.sync_layer.current_frame();
-        let count = current_frame - first_incorrect;
+        // determine the frame to load
+        let frame_to_load = if self.sparse_saving {
+            // if sparse saving is turned on, we will rollback to the last saved state
+            self.sync_layer.last_saved_frame()
+        } else {
+            // otherwise, we will rollback to first_incorrect
+            first_incorrect
+        };
 
-        // rollback to the first incorrect state
-        requests.push(self.sync_layer.load_frame(first_incorrect));
-        self.sync_layer.reset_prediction(first_incorrect);
-        assert_eq!(self.sync_layer.current_frame(), first_incorrect);
+        // we should always load a frame that is before or exactly the first incorrect frame
+        assert!(frame_to_load <= first_incorrect);
+        let count = current_frame - frame_to_load;
 
-        // step forward to the previous current state
-        for i in 0..count {
+        // request to load that frame
+        requests.push(self.sync_layer.load_frame(frame_to_load));
+
+        // we are now at the desired frame
+        assert_eq!(self.sync_layer.current_frame(), frame_to_load);
+        self.sync_layer.reset_prediction();
+
+        // step forward to the previous current state, but with updated inputs
+        for _ in 0..count {
             let inputs = self
                 .sync_layer
                 .synchronized_inputs(&self.local_connect_status);
 
-            if i > 0 {
-                requests.push(self.sync_layer.save_current_state());
-            }
-
+            // advance the frame
             self.sync_layer.advance_frame();
             requests.push(GGRSRequest::AdvanceFrame { inputs });
+
+            // decide wether to request a state save
+            if self.sparse_saving {
+                // with sparse saving, we only save exactly the min_confirmed frame
+                if self.sync_layer.current_frame() == min_confirmed {
+                    requests.push(self.sync_layer.save_current_state());
+                }
+            } else {
+                // without sparse saving, we save every state except the very first one
+                requests.push(self.sync_layer.save_current_state());
+            }
         }
+        // after all this, we should have arrived at the same frame where we started
         assert_eq!(self.sync_layer.current_frame(), current_frame);
     }
 
