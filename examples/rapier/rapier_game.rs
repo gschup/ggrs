@@ -11,7 +11,7 @@ use graphics::{Context, Graphics, ImageSize};
 use opengl_graphics::{GlGraphics, Texture, TextureSettings};
 use piston::input::RenderArgs;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, time::Instant};
+use std::path::PathBuf;
 
 const CHECKSUM_PERIOD: i32 = 100;
 
@@ -119,7 +119,6 @@ impl RapierGame {
 
     // for each request, call the appropriate function
     pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
-        let now = Instant::now();
         for request in requests {
             match request {
                 GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
@@ -127,7 +126,6 @@ impl RapierGame {
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
         }
-        println!("Handling requests took {} ms", now.elapsed().as_millis());
     }
 
     // serialize current gamestate, create a checksum

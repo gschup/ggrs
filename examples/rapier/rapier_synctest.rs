@@ -1,5 +1,7 @@
 extern crate freetype as ft;
 
+use std::time::Instant;
+
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
@@ -67,6 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // game update
         if let Some(_) = e.update_args() {
+            let now = Instant::now();
             // create inputs for all players
             let mut all_inputs = Vec::new();
             for i in 0..num_players {
@@ -75,6 +78,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // tell GGRS it is time to advance the frame and handle the requests
             let requests = sess.advance_frame(&all_inputs)?;
             game.handle_requests(requests);
+            if now.elapsed().as_micros() > 1000000 / FPS as u128 {
+                println!(
+                    "Update took too long: {} microseconds",
+                    now.elapsed().as_micros()
+                );
+            }
         }
 
         // key state update
