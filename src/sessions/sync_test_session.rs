@@ -40,7 +40,6 @@ impl SyncTestSession {
     /// You should fulfill all requests in the exact order they are provided. Failure to do so will cause panics later.
     ///
     /// # Errors
-    /// - Returns `InvalidHandle` if the provided player handle is higher than the number of players.
     /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
     pub fn advance_frame(
         &mut self,
@@ -148,8 +147,8 @@ impl SyncTestSession {
     }
 
     fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GGRSRequest>) {
-        let current_frame = self.sync_layer.current_frame();
-        let count = current_frame - frame_to;
+        let start_frame = self.sync_layer.current_frame();
+        let count = start_frame - frame_to;
 
         // rollback to the first incorrect state
         requests.push(self.sync_layer.load_frame(frame_to));
@@ -169,6 +168,6 @@ impl SyncTestSession {
             self.sync_layer.advance_frame();
             requests.push(GGRSRequest::AdvanceFrame { inputs });
         }
-        assert_eq!(self.sync_layer.current_frame(), current_frame);
+        assert_eq!(self.sync_layer.current_frame(), start_frame);
     }
 }

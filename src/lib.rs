@@ -148,7 +148,7 @@ pub enum GGRSRequest {
 ///
 /// # Errors
 /// - Will return a `InvalidRequestError` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
-/// - Will return a `InvalidRequestError` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
+/// - Will return a `InvalidRequestError` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
 /// - Will return a `InvalidRequestError` if the `check_distance is` higher than or equal to `MAX_PREDICTION_FRAMES`.
 pub fn start_synctest_session(
     num_players: u32,
@@ -165,14 +165,9 @@ pub fn start_synctest_session(
             info: "Input size too big.".to_owned(),
         });
     }
-    if check_distance > MAX_PREDICTION_FRAMES - 1 {
+    if check_distance >= MAX_PREDICTION_FRAMES {
         return Err(GGRSError::InvalidRequest {
             info: "Check distance too big.".to_owned(),
-        });
-    }
-    if check_distance < 2 {
-        return Err(GGRSError::InvalidRequest {
-            info: "Check distance too small.".to_owned(),
         });
     }
     Ok(SyncTestSession::new(
@@ -199,7 +194,7 @@ pub fn start_synctest_session(
 ///
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
-/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
+/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
 /// - Will return `SocketCreationFailed` if the UPD socket could not be created.
 pub fn start_p2p_session(
     num_players: u32,
@@ -238,7 +233,7 @@ pub fn start_p2p_session(
 ///
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
-/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see  `MAX_INPUT_BYTES`).
+/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
 /// - Will return `SocketCreationFailed` if the UPD socket could not be created.
 pub fn start_p2p_spectator_session(
     num_players: u32,
