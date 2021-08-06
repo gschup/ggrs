@@ -55,8 +55,8 @@
   <meta name="twitter:image" content="doks.png">
   <meta name="twitter:title" content="Quick Start">
   <meta name="twitter:description" content="One page summary of how to start developing with GGRS.">
-  <meta name="twitter:site" content="@aaranxu">
-  <meta name="twitter:creator" content="@aaranxu">
+  <meta name="twitter:site" content="@g_schup">
+  <meta name="twitter:creator" content="@g_schup">
   
   <meta property="og:title" content="Quick Start">
   <meta property="og:description" content="One page summary of how to start developing with GGRS.">
@@ -75,8 +75,8 @@
   
 
   
-  <meta property="article:publisher" content="https://www.facebook.com/ichunyun">
-  <meta property="article:author" content="https://www.facebook.com/ichunyun">
+  <meta property="article:publisher" content="https://www.facebook.com/">
+  <meta property="article:author" content="https://www.facebook.com/">
   <meta property="og:locale" content="en_US">
 
 
@@ -370,6 +370,9 @@
 <pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#b48ead;">let</span><span> desired_delay = </span><span style="color:#d08770;">2</span><span>;</span><span>
 </span><span>sess.</span><span style="color:#96b5b4;">set_frame_delay</span><span>(desired_delay, local_handle)?;</span><span>
 </span></code></pre>
+<p>Per default, GGRS requests to save the gamestate after every update step in order to minimize rollbacks as much as possible. If saving your game state takes much longer than performing multiple update steps, GGRS has an alternative sparse saving mode where instead the amount of save requests are minimized at the cost of some additional state update requests.</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>sess.</span><span style="color:#96b5b4;">set_sparse_saving</span><span>(</span><span style="color:#d08770;">true</span><span>)?;</span><span>
+</span></code></pre>
 <p>Finally, you can start the session. GGRS will then make an effort to establish communication between all clients. Only if the connection to all remotes (including spectators) has been established, the session will be able to advance the gamestate and send inputs.</p>
 <pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>sess.</span><span style="color:#96b5b4;">start_session</span><span>()?;</span><span>
 </span></code></pre>
@@ -390,7 +393,7 @@
 <pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>sess.</span><span style="color:#96b5b4;">start_session</span><span>()?;</span><span>
 </span></code></pre>
 <h3 id="synctestsession">SyncTestSession</h3>
-<p>First, create a new session. <code>check_distance</code> specifies how many frames of rollback you want to induce every frame. Currently, the value needs range from 2 to 7.</p>
+<p>First, create a new session. <code>check_distance</code> specifies how many frames of rollback you want to induce every frame. This value cannot exceed the maximum predicition frames allowed. Currently, 7 is the maximum distance of rollback that can occur.</p>
 <pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#b48ead;">let</span><span> check_distance : </span><span style="color:#b48ead;">u32 </span><span>= </span><span style="color:#d08770;">7</span><span>;</span><span>
 </span><span style="color:#b48ead;">let</span><span> num_players : </span><span style="color:#b48ead;">u32 </span><span>= </span><span style="color:#d08770;">2</span><span>;</span><span>
 </span><span style="color:#b48ead;">let</span><span> input_size : </span><span style="color:#b48ead;">usize </span><span>= std::mem::size_of::&lt;</span><span style="color:#b48ead;">u32</span><span>&gt;();</span><span>

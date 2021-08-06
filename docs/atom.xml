@@ -58,6 +58,9 @@
 &lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; desired_delay = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
 &lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_frame_delay&lt;&#x2F;span&gt;&lt;span&gt;(desired_delay, local_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
 &lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Per default, GGRS requests to save the gamestate after every update step in order to minimize rollbacks as much as possible. If saving your game state takes much longer than performing multiple update steps, GGRS has an alternative sparse saving mode where instead the amount of save requests are minimized at the cost of some additional state update requests.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_sparse_saving&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;Finally, you can start the session. GGRS will then make an effort to establish communication between all clients. Only if the connection to all remotes (including spectators) has been established, the session will be able to advance the gamestate and send inputs.&lt;&#x2F;p&gt;
 &lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;start_session&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
 &lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
@@ -78,7 +81,7 @@
 &lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;start_session&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
 &lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
 &lt;h3 id=&quot;synctestsession&quot;&gt;SyncTestSession&lt;&#x2F;h3&gt;
-&lt;p&gt;First, create a new session. &lt;code&gt;check_distance&lt;&#x2F;code&gt; specifies how many frames of rollback you want to induce every frame. Currently, the value needs range from 2 to 7.&lt;&#x2F;p&gt;
+&lt;p&gt;First, create a new session. &lt;code&gt;check_distance&lt;&#x2F;code&gt; specifies how many frames of rollback you want to induce every frame. This value cannot exceed the maximum predicition frames allowed. Currently, 7 is the maximum distance of rollback that can occur.&lt;&#x2F;p&gt;
 &lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; check_distance : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; num_players : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_size : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;usize &lt;&#x2F;span&gt;&lt;span&gt;= std::mem::size_of::&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;();&lt;&#x2F;span&gt;&lt;span&gt;
@@ -162,7 +165,13 @@
 		<link href="https://gschup.github.io/ggrs/authors/georg-schuppe/" type="text/html"/>
 		<id>https://gschup.github.io/ggrs/authors/georg-schuppe/</id>
 		<content type="html">&lt;p&gt;Creator of &lt;strong&gt;GGRS&lt;&#x2F;strong&gt;.&lt;&#x2F;p&gt;
-&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&quot;&gt;Github&lt;&#x2F;a&gt;
+&lt;p&gt;I am a PhD student at the &lt;a href=&quot;https:&#x2F;&#x2F;www.kth.se&#x2F;&quot;&gt;KTH Royal Institute of Technology&lt;&#x2F;a&gt; in the &lt;a href=&quot;https:&#x2F;&#x2F;www.kth.se&#x2F;is&#x2F;rpl&quot;&gt;Division of Robotics, Perception and Learning&lt;&#x2F;a&gt; under supervision by &lt;a href=&quot;https:&#x2F;&#x2F;people.kth.se&#x2F;%7Etumova&#x2F;home.html&quot;&gt;Jana Tumova&lt;&#x2F;a&gt;. I am also an affiliated PhD student in the &lt;a href=&quot;https:&#x2F;&#x2F;wasp-sweden.org&#x2F;&quot;&gt;WASP program&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;my-research&quot;&gt;My Research&lt;&#x2F;h2&gt;
+&lt;p&gt;I apply methods from &lt;em&gt;Formal Verification&lt;&#x2F;em&gt; to the domain of &lt;em&gt;Multi-Robot Systems&lt;&#x2F;em&gt; by synthesizing correct-by-design strategies over &lt;em&gt;Linear Time Logic&lt;&#x2F;em&gt; specifications in a scalable manner. Strategy negotation through assumption exchange between agents, but also between agents and humans are the overarching theme of my work.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;private-interests&quot;&gt;Private Interests&lt;&#x2F;h2&gt;
+&lt;p&gt;In my free time, I enjoy to play and study the game of &lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;Go_(game)&quot;&gt;Go&lt;&#x2F;a&gt; and dabble in &lt;a href=&quot;https:&#x2F;&#x2F;www.rust-lang.org&#x2F;&quot;&gt;Rust&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;gschup.github.io&#x2F;&quot;&gt;Website&lt;&#x2F;a&gt;
+&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&quot;&gt;Github&lt;&#x2F;a&gt;
 &lt;a href=&quot;https:&#x2F;&#x2F;twitter.com&#x2F;g_schup&quot;&gt;@g_schup&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 </content>
 	</entry>
