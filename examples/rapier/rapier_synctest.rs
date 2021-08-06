@@ -42,12 +42,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opengl = OpenGL::V3_2;
 
     // Create a Glutin window
-    let mut window: Window =
-        WindowSettings::new("Box Game Synctest", [WINDOW_WIDTH, WINDOW_HEIGHT])
-            .graphics_api(opengl)
-            .exit_on_esc(true)
-            .build()
-            .unwrap();
+    let mut window: Window = WindowSettings::new("Rapier Synctest", [WINDOW_WIDTH, WINDOW_HEIGHT])
+        .graphics_api(opengl)
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
 
     // Create a new box game
     let mut game = rapier_game::RapierGame::new(num_players, opt.num_bodies);

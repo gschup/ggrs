@@ -348,7 +348,7 @@ impl BoxGameState {
 
         let shift = rad * 2.0;
         let centerx = shift * (num_bodies / 2) as f32;
-        let centery = shift / 2.0;
+        let centery = shift / 2.0 + 20.0;
 
         for i in 0..num_bodies {
             for j in 0usize..num_bodies {
