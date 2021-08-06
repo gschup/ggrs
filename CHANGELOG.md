@@ -4,6 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- nothing here yet...
+
+## 0.4.1
+
 - added sparse saving feature `P2PSession`, minimizing the SaveState requests to a bare minimum at the cost of potentially longer rollbacks
 - added `set_sparse_saving()` to `P2PSession` to enable sparse saving
 - added `set_fps(desired_fps)` to `P2PSession` for the user to set expected update frequency. This is helpful for frame synchronization between sessions
