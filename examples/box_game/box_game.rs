@@ -241,6 +241,11 @@ impl BoxGame {
         // this is for demonstration
         bincode::serialize(&input).unwrap()
     }
+
+    #[allow(dead_code)]
+    pub const fn current_frame(&self) -> i32 {
+        self.game_state.frame
+    }
 }
 
 // BoxGameState holds all relevant information about the game state
