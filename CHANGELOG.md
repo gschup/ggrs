@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- users are now allowed to save `None` buffers for a `GGRSRequest::SaveRequest`. This allows users to keep their own state history and load/save more efficiently
 
 ## 0.4.1
 

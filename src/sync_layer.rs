@@ -12,18 +12,19 @@ use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME}
 pub struct GameStateCell(Arc<Mutex<GameState>>);
 
 impl GameStateCell {
-    pub(crate) fn reset(&self, frame: Frame) {
+    pub(crate) fn reset(&self) {
         *self.0.lock() = GameState {
-            frame,
-            ..Default::default()
+            frame: NULL_FRAME,
+            buffer: None,
+            checksum: 0,
         }
     }
 
     /// Saves a `GameState` the user creates into the cell.
     pub fn save(&self, new_state: GameState) {
         let mut state = self.0.lock();
-        assert!(new_state.buffer.is_some());
-        assert_eq!(state.frame, new_state.frame);
+        assert!(new_state.frame != NULL_FRAME);
+        state.frame = new_state.frame;
         state.checksum = new_state.checksum;
         state.buffer = new_state.buffer;
     }
@@ -34,7 +35,7 @@ impl GameStateCell {
     /// Will panic if the data has previously not been saved to.
     pub fn load(&self) -> GameState {
         let state = self.0.lock();
-        if state.buffer.is_some() && state.frame != NULL_FRAME {
+        if state.frame != NULL_FRAME {
             state.clone()
         } else {
             panic!("Trying to load data that wasn't saved to.")
@@ -74,7 +75,7 @@ impl SavedStates {
         assert!(frame >= 0);
         let pos = frame as usize % self.states.len();
         let cell = self.states[pos].clone();
-        cell.reset(frame);
+        cell.reset();
         cell
     }
 
