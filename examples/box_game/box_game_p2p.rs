@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // set input delay for the local player
-    sess.set_frame_delay(2, local_handle)?;
+    sess.set_frame_delay(4, local_handle)?;
 
     // set change default expected update frequency
     sess.set_fps(FPS as u32)?;
@@ -114,9 +114,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match sess.advance_frame(local_handle, &local_input) {
                     Ok(requests) => game.handle_requests(requests),
                     Err(ggrs::GGRSError::PredictionThreshold) => {
-                        println!("Skipping a frame: PredictionThreshold")
+                        //println!("Skipping a frame: PredictionThreshold")
                     }
                     Err(e) => return Err(Box::new(e)),
+                }
+
+                //regularily print networks stats
+                if game.current_frame() % 120 == 0 {
+                    for i in 0..num_players {
+                        if let Ok(stats) = sess.network_stats(i) {
+                            println!("NetworkStats to player {}: {:?}", i, stats);
+                        }
+                    }
                 }
             }
         }
