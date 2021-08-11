@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- added `local_player_handle()` to `P2PSession`, which returns the handle of the local player
 
 ## 0.4.2
 

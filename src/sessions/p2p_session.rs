@@ -573,6 +573,13 @@ impl P2PSession {
         Ok(())
     }
 
+    pub fn local_player_handle(&self) -> Option<PlayerHandle> {
+        self.players
+            .iter()
+            .find(|(_, v)| matches!(v, Player::Local))
+            .map(|(&k, _)| k)
+    }
+
     /// Returns the current `SessionState` of a session.
     pub const fn current_state(&self) -> SessionState {
         self.state
