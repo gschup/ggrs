@@ -573,6 +573,7 @@ impl P2PSession {
         Ok(())
     }
 
+    /// Returns the handle of the local player, if the player is already added
     pub fn local_player_handle(&self) -> Option<PlayerHandle> {
         self.players
             .iter()
