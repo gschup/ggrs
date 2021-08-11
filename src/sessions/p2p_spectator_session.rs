@@ -223,6 +223,16 @@ impl P2PSpectatorSession {
         self.host.send_all_messages(&self.socket);
     }
 
+    /// Returns the number of players this session was constructed with.
+    pub const fn num_players(&self) -> u32 {
+        self.num_players
+    }
+
+    /// Returns the input size this session was constructed with.
+    pub const fn input_size(&self) -> usize {
+        self.input_size
+    }
+
     fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput>, GGRSError> {
         let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 

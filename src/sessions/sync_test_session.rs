@@ -122,6 +122,16 @@ impl SyncTestSession {
         Ok(())
     }
 
+    /// Returns the number of players this session was constructed with.
+    pub const fn num_players(&self) -> u32 {
+        self.num_players
+    }
+
+    /// Returns the input size this session was constructed with.
+    pub const fn input_size(&self) -> usize {
+        self.input_size
+    }
+
     /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once
     fn checksums_consistent(&mut self, frame_to_check: Frame) -> bool {
         // remove entries older than the check_distance

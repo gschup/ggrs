@@ -583,6 +583,16 @@ impl P2PSession {
         self.event_queue.drain(..)
     }
 
+    /// Returns the number of players this session was constructed with.
+    pub const fn num_players(&self) -> u32 {
+        self.num_players
+    }
+
+    /// Returns the input size this session was constructed with.
+    pub const fn input_size(&self) -> usize {
+        self.input_size
+    }
+
     fn add_local_player(&mut self, player_handle: PlayerHandle) -> Result<PlayerHandle, GGRSError> {
         // check if valid player
         if player_handle >= self.num_players as PlayerHandle {
