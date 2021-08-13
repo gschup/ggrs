@@ -34,4 +34,9 @@ Also take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/
 
 ## Licensing
 
-Just like the original GGPO, GGRS is available under The MIT License. This means GGRS is free for commercial and non-commercial use. Attribution is not required, but appreciated.
+GGRS is dual-licensed under either
+
+- [MIT License](./LICENSE-MIT): Also available [online](http://opensource.org/licenses/MIT)
+- [Apache License, Version 2.0](./LICENSE-APACHE): Also available [online](http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.
