@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
 
-    // create a GGRS session with two players
+    // create a GGRS session
     let mut sess =
         ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
 

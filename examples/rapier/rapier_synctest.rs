@@ -7,7 +7,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderEvent, UpdateEvent};
 use piston::window::WindowSettings;
-use piston::{Button, EventLoop, Key, PressEvent, ReleaseEvent};
+use piston::EventLoop;
 use structopt::StructOpt;
 
 const FPS: u64 = 60;
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
 
-    // create a GGRS session with two players
+    // create a GGRS session
     let mut sess =
         ggrs::start_synctest_session(num_players as u32, INPUT_SIZE, opt.check_distance)?;
 
@@ -83,36 +83,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "Update took too long: {} microseconds",
                     now.elapsed().as_micros()
                 );
-            }
-        }
-
-        // key state update
-        if let Some(Button::Keyboard(key)) = e.press_args() {
-            match key {
-                Key::W => game.key_states[0] = true,
-                Key::A => game.key_states[1] = true,
-                Key::S => game.key_states[2] = true,
-                Key::D => game.key_states[3] = true,
-                Key::Up => game.key_states[4] = true,
-                Key::Left => game.key_states[5] = true,
-                Key::Down => game.key_states[6] = true,
-                Key::Right => game.key_states[7] = true,
-                _ => (),
-            }
-        }
-
-        // key state update
-        if let Some(Button::Keyboard(key)) = e.release_args() {
-            match key {
-                Key::W => game.key_states[0] = false,
-                Key::A => game.key_states[1] = false,
-                Key::S => game.key_states[2] = false,
-                Key::D => game.key_states[3] = false,
-                Key::Up => game.key_states[4] = false,
-                Key::Left => game.key_states[5] = false,
-                Key::Down => game.key_states[6] = false,
-                Key::Right => game.key_states[7] = false,
-                _ => (),
             }
         }
     }

@@ -11,7 +11,7 @@ use graphics::{Context, Graphics, ImageSize};
 use opengl_graphics::{GlGraphics, Texture, TextureSettings};
 use piston::input::RenderArgs;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 
 const CHECKSUM_PERIOD: i32 = 100;
 
@@ -22,11 +22,6 @@ const BLUE: [f32; 4] = [0.0, 0.35, 0.78, 1.0];
 const WINDOW_HEIGHT: u32 = 800;
 const WINDOW_WIDTH: u32 = 600;
 const SCALE: f64 = 10.;
-
-const INPUT_UP: u8 = 1 << 0;
-const INPUT_DOWN: u8 = 1 << 1;
-const INPUT_LEFT: u8 = 1 << 2;
-const INPUT_RIGHT: u8 = 1 << 3;
 
 //const GRAVITY: Vec<f32> = vector![0.0, -9.81];
 
@@ -87,7 +82,6 @@ where
 pub struct RapierGame {
     num_players: usize,
     game_state: BoxGameState,
-    pub key_states: [bool; 8],
     font: PathBuf,
     freetype: Library,
     last_checksum: (Frame, u64),
@@ -95,6 +89,11 @@ pub struct RapierGame {
 
     // rapier stuff
     physics_pipeline: PhysicsPipeline,
+    integration_parameters: IntegrationParameters,
+    gravity: Vector2<f32>,
+    ccd_solver: CCDSolver,
+    physics_hooks: (),
+    event_handler: (),
 }
 
 impl RapierGame {
@@ -107,13 +106,17 @@ impl RapierGame {
         Self {
             num_players,
             game_state: BoxGameState::new(num_players, num_bodies),
-            key_states: [false; 8],
             font: assets.join("FiraSans-Regular.ttf"),
             freetype: ft::Library::init().unwrap(),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
 
             physics_pipeline: PhysicsPipeline::new(),
+            gravity: vector![0.0, -9.81],
+            integration_parameters: IntegrationParameters::default(),
+            ccd_solver: CCDSolver::new(),
+            physics_hooks: (),
+            event_handler: (),
         }
     }
 
@@ -131,6 +134,7 @@ impl RapierGame {
     // serialize current gamestate, create a checksum
     // creating a checksum here is only relevant for SyncTestSessions
     fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
+        let now = Instant::now();
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
@@ -142,6 +146,7 @@ impl RapierGame {
         }
 
         cell.save(GameState::new(frame, Some(buffer), Some(checksum)));
+        println!("SAVE TOOK {} microseconds.", now.elapsed().as_micros());
     }
 
     // deserialize gamestate to load and overwrite current gamestate
@@ -167,17 +172,17 @@ impl RapierGame {
 
         // physics update
         self.physics_pipeline.step(
-            &self.game_state.gravity,
-            &self.game_state.integration_parameters,
+            &self.gravity,
+            &self.integration_parameters,
             &mut self.game_state.island_manager,
             &mut self.game_state.broad_phase,
             &mut self.game_state.narrow_phase,
             &mut self.game_state.bodies,
             &mut self.game_state.colliders,
             &mut self.game_state.joint_set,
-            &mut self.game_state.ccd_solver,
-            &self.game_state.physics_hooks,
-            &self.game_state.event_handler,
+            &mut self.ccd_solver,
+            &self.physics_hooks,
+            &self.event_handler,
         );
     }
 
@@ -243,43 +248,8 @@ impl RapierGame {
 
     #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
-    pub fn local_input(&self, handle: PlayerHandle) -> Vec<u8> {
-        let mut input: u8 = 0;
-
-        // ugly, but it works...
-        if handle == 0 {
-            if self.key_states[0] {
-                input |= INPUT_UP;
-            }
-            if self.key_states[1] {
-                input |= INPUT_LEFT;
-            }
-            if self.key_states[2] {
-                input |= INPUT_DOWN;
-            }
-            if self.key_states[3] {
-                input |= INPUT_RIGHT;
-            }
-        }
-
-        if handle == 1 {
-            if self.key_states[4] {
-                input |= INPUT_UP;
-            }
-            if self.key_states[5] {
-                input |= INPUT_LEFT;
-            }
-            if self.key_states[6] {
-                input |= INPUT_DOWN;
-            }
-            if self.key_states[7] {
-                input |= INPUT_RIGHT;
-            }
-        }
-
-        // serialization is completely unnecessary here, since the data is already u8
-        // this is for demonstration
-        bincode::serialize(&input).unwrap()
+    pub fn local_input(&self, _handle: PlayerHandle) -> Vec<u8> {
+        vec![0u8]
     }
 }
 
@@ -292,16 +262,10 @@ struct BoxGameState {
     // rapier stuff
     bodies: RigidBodySet,
     colliders: ColliderSet,
-    gravity: Vector2<f32>,
-    integration_parameters: IntegrationParameters,
-
-    island_manager: IslandManager,
+    joint_set: JointSet,
     broad_phase: BroadPhase,
     narrow_phase: NarrowPhase,
-    joint_set: JointSet,
-    ccd_solver: CCDSolver,
-    physics_hooks: (),
-    event_handler: (),
+    island_manager: IslandManager,
 
     cube_handles: Vec<RigidBodyHandle>,
     sphere_handles: Vec<RigidBodyHandle>,
@@ -377,15 +341,10 @@ impl BoxGameState {
 
             bodies,
             colliders,
-            gravity: vector![0.0, -9.81],
-            integration_parameters: IntegrationParameters::default(),
-            island_manager: IslandManager::new(),
+            joint_set: JointSet::new(),
             broad_phase: BroadPhase::new(),
             narrow_phase: NarrowPhase::new(),
-            joint_set: JointSet::new(),
-            ccd_solver: CCDSolver::new(),
-            physics_hooks: (),
-            event_handler: (),
+            island_manager: IslandManager::new(),
 
             cube_handles,
             sphere_handles,
