@@ -233,6 +233,19 @@ impl P2PSpectatorSession {
         self.input_size
     }
 
+    /// Sets the FPS this session is used with. This influences ping estimates.
+    pub fn set_fps(&mut self, fps: u32) -> Result<(), GGRSError> {
+        if fps == 0 {
+            return Err(GGRSError::InvalidRequest {
+                info: "FPS should be higher than 0.".to_owned(),
+            });
+        }
+
+        self.host.set_fps(fps);
+
+        Ok(())
+    }
+
     fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput>, GGRSError> {
         let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 

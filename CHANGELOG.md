@@ -5,6 +5,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 ## Unreleased
 
 - added `local_player_handle()` to `P2PSession`, which returns the handle of the local player
+- added `set_fps(desired_fps)` to `P2PSpectatorSession`
 
 ## 0.4.2
 
