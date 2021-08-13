@@ -11,7 +11,7 @@ use graphics::{Context, Graphics, ImageSize};
 use opengl_graphics::{GlGraphics, Texture, TextureSettings};
 use piston::input::RenderArgs;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, time::Instant};
+use std::path::PathBuf;
 
 const CHECKSUM_PERIOD: i32 = 100;
 
@@ -81,7 +81,7 @@ where
 // RapierGame will handle rendering, gamestate, inputs and GGRSRequests
 pub struct RapierGame {
     num_players: usize,
-    game_state: BoxGameState,
+    state: RapierState,
     font: PathBuf,
     freetype: Library,
     last_checksum: (Frame, u64),
@@ -105,7 +105,7 @@ impl RapierGame {
         assert!(num_players <= MAX_PLAYERS as usize);
         Self {
             num_players,
-            game_state: BoxGameState::new(num_players, num_bodies),
+            state: RapierState::new(num_players, num_bodies),
             font: assets.join("FiraSans-Regular.ttf"),
             freetype: ft::Library::init().unwrap(),
             last_checksum: (NULL_FRAME, 0),
@@ -134,30 +134,28 @@ impl RapierGame {
     // serialize current gamestate, create a checksum
     // creating a checksum here is only relevant for SyncTestSessions
     fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
-        let now = Instant::now();
-        assert_eq!(self.game_state.frame, frame);
-        let buffer = bincode::serialize(&self.game_state).unwrap();
+        assert_eq!(self.state.frame, frame);
+        let buffer = bincode::serialize(&self.state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
 
         // remember checksum to render it later
-        self.last_checksum = (self.game_state.frame, checksum);
-        if self.game_state.frame % CHECKSUM_PERIOD == 0 {
-            self.periodic_checksum = (self.game_state.frame, checksum);
+        self.last_checksum = (self.state.frame, checksum);
+        if self.state.frame % CHECKSUM_PERIOD == 0 {
+            self.periodic_checksum = (self.state.frame, checksum);
         }
 
         cell.save(GameState::new(frame, Some(buffer), Some(checksum)));
-        println!("SAVE TOOK {} microseconds.", now.elapsed().as_micros());
     }
 
     // deserialize gamestate to load and overwrite current gamestate
     fn load_game_state(&mut self, cell: GameStateCell) {
         let state_to_load = cell.load();
-        self.game_state = bincode::deserialize(&state_to_load.buffer.unwrap()).unwrap();
+        self.state = bincode::deserialize(&state_to_load.buffer.unwrap()).unwrap();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
         // increase the frame counter
-        self.game_state.frame += 1;
+        self.state.frame += 1;
 
         for i in 0..self.num_players {
             // get input of that player
@@ -174,12 +172,12 @@ impl RapierGame {
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,
-            &mut self.game_state.island_manager,
-            &mut self.game_state.broad_phase,
-            &mut self.game_state.narrow_phase,
-            &mut self.game_state.bodies,
-            &mut self.game_state.colliders,
-            &mut self.game_state.joint_set,
+            &mut self.state.island_manager,
+            &mut self.state.broad_phase,
+            &mut self.state.narrow_phase,
+            &mut self.state.bodies,
+            &mut self.state.colliders,
+            &mut self.state.joint_set,
             &mut self.ccd_solver,
             &self.physics_hooks,
             &self.event_handler,
@@ -214,8 +212,8 @@ impl RapierGame {
             render_text(&checksum_glyphs, &c.trans(0.0, 40.0), gl);
             render_text(&periodic_glyphs, &c.trans(0.0, 80.0), gl);
 
-            for sphere_handle in &self.game_state.sphere_handles {
-                let sphere_body = &self.game_state.bodies[*sphere_handle];
+            for sphere_handle in &self.state.sphere_handles {
+                let sphere_body = &self.state.bodies[*sphere_handle];
                 let rect = rectangle::square(0.0, 0.0, SCALE);
                 let transform = c
                     .transform
@@ -229,8 +227,8 @@ impl RapierGame {
                 ellipse(BLUE, rect, transform, gl);
             }
 
-            for cube_handle in &self.game_state.cube_handles {
-                let cube_body = &self.game_state.bodies[*cube_handle];
+            for cube_handle in &self.state.cube_handles {
+                let cube_body = &self.state.bodies[*cube_handle];
                 let rect = rectangle::square(0.0, 0.0, SCALE);
                 let transform = c
                     .transform
@@ -255,7 +253,7 @@ impl RapierGame {
 
 // BoxGameState holds all relevant information about the game state
 #[derive(Serialize, Deserialize)]
-struct BoxGameState {
+struct RapierState {
     pub frame: i32,
     pub num_players: usize,
 
@@ -271,7 +269,7 @@ struct BoxGameState {
     sphere_handles: Vec<RigidBodyHandle>,
 }
 
-impl BoxGameState {
+impl RapierState {
     pub fn new(num_players: usize, num_bodies: usize) -> Self {
         /*
          * World
