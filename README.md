@@ -26,6 +26,12 @@ GGRS is in an early stage, but the main functionality for multiple players and s
 - [Issues](https://github.com/gschup/ggrs/issues)
 - [Contribution Guide](https://gschup.github.io/ggrs/docs/contributing/how-to-contribute/)
 
+## Bevy Plugin
+
+GGRS has a Bevy plugin currently in development. Check it out!
+
+- [Bevy GGRS](https://github.com/gschup/bevy_ggrs)
+
 ## Other Rollback Implementations in Rust
 
 Also take a look at the awesome [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)!
