@@ -259,6 +259,8 @@
 							                           
 									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">Introduction</a></li>
 							                           
+									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/getting-started/bevy-ggrs/">Bevy GGRS</a></li>
+							                           
 									<li><a class="docs-link active" href="https://gschup.github.io/ggrs/docs/getting-started/quick-start/">Quick Start</a></li>
 							
 					</ul>
@@ -344,7 +346,7 @@
 </ul>
 <h2 id="setup">Setup</h2>
 <p>For all sessions, you will have to define the number of active players contributing to the game input via <code>num_players</code> as well as the size of such inputs via <code>input_size</code>. The <code>local_port</code> is where your client will receive packets of remote clients.</p>
-<p>GGRS does not handle NAT hole punching. Check out <a href="https://keithjohnston.wordpress.com/2014/02/17/nat-punch-through-for-multiplayer-games/">this article</a> for more information on the topic.</p>
+<p>GGRS does not handle NAT hole punching. Check out 👉<a href="https://keithjohnston.wordpress.com/2014/02/17/nat-punch-through-for-multiplayer-games/">this article</a> for more information on the topic.</p>
 <h3 id="p2psession">P2PSession</h3>
 <p>First, create a new session.</p>
 <pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#b48ead;">let</span><span> local_port: </span><span style="color:#b48ead;">u16 </span><span>= </span><span style="color:#d08770;">7000</span><span>;</span><span>
@@ -408,8 +410,8 @@
 </span></code></pre>
 <p>You don't need to define players or start the session. Because there are no remote clients to synchronize with, a <code>SyncTestSession</code> will immediately be ready to advance the game.</p>
 <h2 id="main-loop">Main Loop</h2>
-<p>In your main game loop, you should call <code>advance_frame(...)</code> in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out <a href="https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75">this article</a> or <a href="https://gafferongames.com/post/fix_your_timestep/">this article</a> to learn more about running your own gameloop.</p>
-<p>Please see <a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_p2p.rs">BoxGame P2P</a>, <a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_spectator.rs">BoxGame Spectator</a> or <a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_synctest.rs">BoxGame SyncTest</a> for a full code example.</p>
+<p>In your main game loop, you should call <code>advance_frame(...)</code> in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out 👉<a href="https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75">this article</a> or 👉<a href="https://gafferongames.com/post/fix_your_timestep/">this article</a> to learn more about running your own gameloop.</p>
+<p>Please see 👉<a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_p2p.rs">BoxGame P2P</a>, 👉<a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_spectator.rs">BoxGame Spectator</a> or 👉<a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_synctest.rs">BoxGame SyncTest</a> for a full code example.</p>
 <h3 id="handling-requests">Handling Requests</h3>
 <p>If calling <code>advance_frame(...)</code> succeeds, it will return a <code>Vec&lt;GGRSRequest&gt;</code>. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests:</p>
 <ul>
@@ -417,7 +419,7 @@
 <li><code>LoadGameState { cell: GameStateCell }</code>: Save the current gamestate by calling <code>cell.save(your_state)</code>.</li>
 <li><code>SaveGameState { cell: GameStateCell, frame: Frame }</code>: Load a previous gamestate by calling <code>your_state = cell.load()</code>. The provided <code>frame</code> defines frame from which this gamestate is at.</li>
 </ul>
-<p>Please see <a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game.rs">BoxGame</a> for a full code example.</p>
+<p>Please see 👉<a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game.rs">BoxGame</a> for a full code example.</p>
 <h3 id="polling-remote-clients">Polling Remote Clients</h3>
 <p>If you have spare time between rendering and updating your game, you can always call:</p>
 <pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>sess.</span><span style="color:#96b5b4;">poll_remote_clients</span><span>();</span><span>
@@ -434,10 +436,10 @@
   
   
   
-  <a href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;getting-started&#x2F;introduction&#x2F;">
+  <a href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;getting-started&#x2F;bevy-ggrs&#x2F;">
     <div class="card my-1">
       <div class="card-body py-2">
-        &larr; Introduction
+        &larr; Bevy GGRS
       </div>
     </div>
   </a>

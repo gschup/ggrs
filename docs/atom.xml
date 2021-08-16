@@ -5,8 +5,29 @@
 	<link href="https://gschup.github.io/ggrs/atom.xml" rel="self" type="application/atom+xml"/>
   <link href="https://gschup.github.io/ggrs/"/>
 	<generator uri="https://www.getzola.org/">Zola</generator>
-	<updated>2021-08-06T12:00:00+00:00</updated>
+	<updated>2021-08-16T10:27:00+00:00</updated>
 	<id>https://gschup.github.io/ggrs/atom.xml</id>
+	<entry xml:lang="en">
+		<title>Bevy GGRS</title>
+		<published>2021-08-16T10:27:00+00:00</published>
+		<updated>2021-08-16T10:27:00+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/docs/getting-started/bevy-ggrs/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/docs/getting-started/bevy-ggrs/</id>
+		<content type="html">&lt;h2 id=&quot;bevy&quot;&gt;Bevy&lt;&#x2F;h2&gt;
+&lt;p&gt;The 👉&lt;a href=&quot;https:&#x2F;&#x2F;bevyengine.org&#x2F;&quot;&gt;Bevy engine&lt;&#x2F;a&gt; is a refreshingly simple data-driven game engine built in Rust, emplyoing the
+👉&lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;Entity_component_system&quot;&gt;ECS paradigm&lt;&#x2F;a&gt;. It is free and Open Source!&lt;&#x2F;p&gt;
+&lt;p&gt;The plugin is currently being developed and is available on 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;bevy_ggrs&quot;&gt;GitHub&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>Introducing: Bevy_GGRS</title>
+		<published>2021-08-06T12:00:00+00:00</published>
+		<updated>2021-08-06T12:00:00+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/blog/bevy-plugin/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/blog/bevy-plugin/</id>
+		<content type="html">&lt;p&gt;The plugin is currently being developed and is available on 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;bevy_ggrs&quot;&gt;GitHub&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+</content>
+	</entry>
 	<entry xml:lang="en">
 		<title>Introducing: Sparse Saving Feature</title>
 		<published>2021-08-06T12:00:00+00:00</published>
@@ -63,7 +84,7 @@
 &lt;&#x2F;ul&gt;
 &lt;h2 id=&quot;setup&quot;&gt;Setup&lt;&#x2F;h2&gt;
 &lt;p&gt;For all sessions, you will have to define the number of active players contributing to the game input via &lt;code&gt;num_players&lt;&#x2F;code&gt; as well as the size of such inputs via &lt;code&gt;input_size&lt;&#x2F;code&gt;. The &lt;code&gt;local_port&lt;&#x2F;code&gt; is where your client will receive packets of remote clients.&lt;&#x2F;p&gt;
-&lt;p&gt;GGRS does not handle NAT hole punching. Check out &lt;a href=&quot;https:&#x2F;&#x2F;keithjohnston.wordpress.com&#x2F;2014&#x2F;02&#x2F;17&#x2F;nat-punch-through-for-multiplayer-games&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; for more information on the topic.&lt;&#x2F;p&gt;
+&lt;p&gt;GGRS does not handle NAT hole punching. Check out 👉&lt;a href=&quot;https:&#x2F;&#x2F;keithjohnston.wordpress.com&#x2F;2014&#x2F;02&#x2F;17&#x2F;nat-punch-through-for-multiplayer-games&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; for more information on the topic.&lt;&#x2F;p&gt;
 &lt;h3 id=&quot;p2psession&quot;&gt;P2PSession&lt;&#x2F;h3&gt;
 &lt;p&gt;First, create a new session.&lt;&#x2F;p&gt;
 &lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; local_port: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u16 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7000&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
@@ -127,8 +148,8 @@
 &lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;You don&#x27;t need to define players or start the session. Because there are no remote clients to synchronize with, a &lt;code&gt;SyncTestSession&lt;&#x2F;code&gt; will immediately be ready to advance the game.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;main-loop&quot;&gt;Main Loop&lt;&#x2F;h2&gt;
-&lt;p&gt;In your main game loop, you should call &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out &lt;a href=&quot;https:&#x2F;&#x2F;medium.com&#x2F;@tglaiel&#x2F;how-to-make-your-game-run-at-60fps-24c61210fe75&quot;&gt;this article&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;gafferongames.com&#x2F;post&#x2F;fix_your_timestep&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; to learn more about running your own gameloop.&lt;&#x2F;p&gt;
-&lt;p&gt;Please see &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_p2p.rs&quot;&gt;BoxGame P2P&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_spectator.rs&quot;&gt;BoxGame Spectator&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_synctest.rs&quot;&gt;BoxGame SyncTest&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
+&lt;p&gt;In your main game loop, you should call &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out 👉&lt;a href=&quot;https:&#x2F;&#x2F;medium.com&#x2F;@tglaiel&#x2F;how-to-make-your-game-run-at-60fps-24c61210fe75&quot;&gt;this article&lt;&#x2F;a&gt; or 👉&lt;a href=&quot;https:&#x2F;&#x2F;gafferongames.com&#x2F;post&#x2F;fix_your_timestep&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; to learn more about running your own gameloop.&lt;&#x2F;p&gt;
+&lt;p&gt;Please see 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_p2p.rs&quot;&gt;BoxGame P2P&lt;&#x2F;a&gt;, 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_spectator.rs&quot;&gt;BoxGame Spectator&lt;&#x2F;a&gt; or 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_synctest.rs&quot;&gt;BoxGame SyncTest&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
 &lt;h3 id=&quot;handling-requests&quot;&gt;Handling Requests&lt;&#x2F;h3&gt;
 &lt;p&gt;If calling &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; succeeds, it will return a &lt;code&gt;Vec&amp;lt;GGRSRequest&amp;gt;&lt;&#x2F;code&gt;. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests:&lt;&#x2F;p&gt;
 &lt;ul&gt;
@@ -136,7 +157,7 @@
 &lt;li&gt;&lt;code&gt;LoadGameState { cell: GameStateCell }&lt;&#x2F;code&gt;: Save the current gamestate by calling &lt;code&gt;cell.save(your_state)&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
 &lt;li&gt;&lt;code&gt;SaveGameState { cell: GameStateCell, frame: Frame }&lt;&#x2F;code&gt;: Load a previous gamestate by calling &lt;code&gt;your_state = cell.load()&lt;&#x2F;code&gt;. The provided &lt;code&gt;frame&lt;&#x2F;code&gt; defines frame from which this gamestate is at.&lt;&#x2F;li&gt;
 &lt;&#x2F;ul&gt;
-&lt;p&gt;Please see &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game.rs&quot;&gt;BoxGame&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
+&lt;p&gt;Please see 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game.rs&quot;&gt;BoxGame&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
 &lt;h3 id=&quot;polling-remote-clients&quot;&gt;Polling Remote Clients&lt;&#x2F;h3&gt;
 &lt;p&gt;If you have spare time between rendering and updating your game, you can always call:&lt;&#x2F;p&gt;
 &lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;poll_remote_clients&lt;&#x2F;span&gt;&lt;span&gt;();&lt;&#x2F;span&gt;&lt;span&gt;
@@ -153,9 +174,9 @@
 		<link href="https://gschup.github.io/ggrs/docs/help/faq/" type="text/html"/>
 		<id>https://gschup.github.io/ggrs/docs/help/faq/</id>
 		<content type="html">&lt;h2 id=&quot;what-is-ggrs&quot;&gt;What is GGRS?&lt;&#x2F;h2&gt;
-&lt;p&gt;GGRS (Good Game Rollback System) is a reimagination of the &lt;a href=&quot;https:&#x2F;&#x2F;www.ggpo.net&#x2F;&quot;&gt;GGPO&lt;&#x2F;a&gt; P2P rollback networking library written in 100% safe Rust.&lt;&#x2F;p&gt;
+&lt;p&gt;GGRS (Good Game Rollback System) is a reimagination of the 👉&lt;a href=&quot;https:&#x2F;&#x2F;www.ggpo.net&#x2F;&quot;&gt;GGPO&lt;&#x2F;a&gt; P2P rollback networking library written in 100% safe Rust.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;what-is-ggpo-rollback&quot;&gt;What is GGPO &#x2F; Rollback?&lt;&#x2F;h2&gt;
-&lt;p&gt;Taken from &lt;a href=&quot;https:&#x2F;&#x2F;ggpo.net&#x2F;&quot;&gt;the official GGPO website&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;p&gt;Taken from 👉&lt;a href=&quot;https:&#x2F;&#x2F;ggpo.net&#x2F;&quot;&gt;the official GGPO website&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;Rollback networking is designed to be integrated into a fully deterministic peer-to-peer engine.  With full determinism, the game is guaranteed to play out the same way on all players computers if we simply feed them the same inputs.  One way to achieve this is to exchange inputs for all players over the network, only execution a frame of gameplay logic when all players have received all the inputs from their peers.  This often results in sluggish, unresponsive gameplay.  The longer it takes to get inputs over the network, the slower the game becomes.&lt;&#x2F;p&gt;
 &lt;&#x2F;blockquote&gt;
@@ -165,7 +186,7 @@
 &lt;blockquote&gt;
 &lt;p&gt;Don&#x27;t worry if that sounds like a headache.  GGPO was designed specifically to implement the rollback algorithms and low-level networking logic in a way that&#x27;s easy to integrate into your existing game loop.  If you simply implement the functionality to save your game state, load it back up, and execute a frame of game state without rendering its outcome, GGPO can take care of the rest.&lt;&#x2F;p&gt;
 &lt;&#x2F;blockquote&gt;
-&lt;p&gt;For more information about GGPO, check out &lt;a href=&quot;http:&#x2F;&#x2F;ggpo.net&#x2F;&quot;&gt;the official website&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;pond3r&#x2F;ggpo&quot;&gt;the official github repository&lt;&#x2F;a&gt;. A very good pseudocode explanation for general rollback networking can be found &lt;a href=&quot;https:&#x2F;&#x2F;gist.github.com&#x2F;rcmagic&#x2F;f8d76bca32b5609e85ab156db38387e9&quot;&gt;in this Gist&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;For more information about GGPO, check out 👉&lt;a href=&quot;http:&#x2F;&#x2F;ggpo.net&#x2F;&quot;&gt;the official website&lt;&#x2F;a&gt; or 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;pond3r&#x2F;ggpo&quot;&gt;the official github repository&lt;&#x2F;a&gt;. A very good pseudocode explanation for general rollback networking can be found 👉&lt;a href=&quot;https:&#x2F;&#x2F;gist.github.com&#x2F;rcmagic&#x2F;f8d76bca32b5609e85ab156db38387e9&quot;&gt;in this Gist&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;even-more-questions&quot;&gt;Even more questions?&lt;&#x2F;h2&gt;
 &lt;p&gt;Send &lt;em&gt;Georg Schuppe&lt;&#x2F;em&gt; an E-mail:&lt;&#x2F;p&gt;
 &lt;ul&gt;
@@ -180,13 +201,13 @@
 		<link href="https://gschup.github.io/ggrs/docs/getting-started/introduction/" type="text/html"/>
 		<id>https://gschup.github.io/ggrs/docs/getting-started/introduction/</id>
 		<content type="html">&lt;h2 id=&quot;quick-start&quot;&gt;Quick Start&lt;&#x2F;h2&gt;
-&lt;p&gt;One page summary of how to start developing with GGRS. &lt;a href=&quot;..&#x2F;quick-start&#x2F;&quot;&gt;Quick Start →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;One page summary of how to start developing with GGRS. 👉&lt;a href=&quot;..&#x2F;quick-start&#x2F;&quot;&gt;Quick Start&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;examples&quot;&gt;Examples&lt;&#x2F;h2&gt;
-&lt;p&gt;Find full game examples. &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&quot;&gt;Examples →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Find full game examples. 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&quot;&gt;Examples&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;contributing&quot;&gt;Contributing&lt;&#x2F;h2&gt;
-&lt;p&gt;Find out how to contribute. &lt;a href=&quot;..&#x2F;..&#x2F;contributing&#x2F;how-to-contribute&#x2F;&quot;&gt;Contributing →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Find out how to contribute. 👉&lt;a href=&quot;..&#x2F;..&#x2F;contributing&#x2F;how-to-contribute&#x2F;&quot;&gt;Contributing&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;help&quot;&gt;Help&lt;&#x2F;h2&gt;
-&lt;p&gt;See the FAQ. &lt;a href=&quot;..&#x2F;..&#x2F;help&#x2F;faq&#x2F;&quot;&gt;Help →&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;See the FAQ. 👉&lt;a href=&quot;..&#x2F;..&#x2F;help&#x2F;faq&#x2F;&quot;&gt;Help&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 </content>
 	</entry>
 	<entry xml:lang="en">
@@ -315,16 +336,24 @@ at &lt;a href=&quot;https:&#x2F;&#x2F;www.contributor-covenant.org&#x2F;translat
 		<updated>2021-04-01T08:50:45+00:00</updated>
 		<link href="https://gschup.github.io/ggrs/docs/contributing/how-to-contribute/" type="text/html"/>
 		<id>https://gschup.github.io/ggrs/docs/contributing/how-to-contribute/</id>
-		<content type="html">&lt;p&gt;👉 Make sure to read the &lt;a href=&quot;..&#x2F;code-of-conduct&#x2F;&quot;&gt;Code of Conduct&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
-&lt;p&gt;👉 The code can be found in the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&quot;&gt;&lt;code&gt;ggrs&lt;&#x2F;code&gt; repository&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
-&lt;p&gt;👉 If you have a cool example or showcase of GGRS in use, let me know so your project can be highlighted!&lt;&#x2F;p&gt;
+		<content type="html">&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Make sure to read the 👉&lt;a href=&quot;..&#x2F;code-of-conduct&#x2F;&quot;&gt;Code of Conduct&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;The code can be found in the 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&quot;&gt;GGRS repository&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;If you have a cool example or showcase of GGRS in use, let me know so your project can be highlighted!&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
 &lt;h2 id=&quot;create-an-issue&quot;&gt;Create an issue&lt;&#x2F;h2&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;issues&#x2F;new?assignees=&amp;amp;labels=bug&amp;amp;template=bug_report.md&amp;amp;title=&quot;&gt;Bug report&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
-&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;issues&#x2F;new?assignees=&amp;amp;labels=enhancement&amp;amp;template=feature_request.md&amp;amp;title=&quot;&gt;Feature request&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;issues&#x2F;new?assignees=&amp;amp;labels=bug&amp;amp;template=bug_report.md&amp;amp;title=&quot;&gt;Bug report&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;issues&#x2F;new?assignees=&amp;amp;labels=enhancement&amp;amp;template=feature_request.md&amp;amp;title=&quot;&gt;Feature request&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
 &lt;&#x2F;ul&gt;
 &lt;h2 id=&quot;contribute-to-ggrs&quot;&gt;Contribute to GGRS&lt;&#x2F;h2&gt;
-&lt;p&gt;Please send a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;pull&#x2F;new&#x2F;main&quot;&gt;GitHub Pull Request&lt;&#x2F;a&gt; with a clear list of what you&#x27;ve done (read more about &lt;a href=&quot;http:&#x2F;&#x2F;help.github.com&#x2F;pull-requests&#x2F;&quot;&gt;pull requests&lt;&#x2F;a&gt;). When you send a pull request, it would be great if you wrote unit- or integration tests for your changes. Please format your code via &lt;code&gt;cargo fmt&lt;&#x2F;code&gt; and make sure all of your commits are atomic (one feature per commit).&lt;&#x2F;p&gt;
+&lt;p&gt;Please send a 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;pull&#x2F;new&#x2F;main&quot;&gt;GitHub Pull Request&lt;&#x2F;a&gt; with a clear list of what you&#x27;ve done (read more about 👉&lt;a href=&quot;http:&#x2F;&#x2F;help.github.com&#x2F;pull-requests&#x2F;&quot;&gt;pull requests&lt;&#x2F;a&gt;). When you send a pull request, it would be great if you wrote unit- or integration tests for your changes. Please format your code via &lt;code&gt;cargo fmt&lt;&#x2F;code&gt; and make sure all of your commits are atomic (one feature per commit).&lt;&#x2F;p&gt;
 &lt;p&gt;Always write a clear log message for your commits. One-line messages are fine for small changes, but bigger changes should look like this:&lt;&#x2F;p&gt;
 &lt;pre style=&quot;background-color:#2b303b;color:#c0c5ce;&quot;&gt;&lt;code&gt;&lt;span&gt;&amp;gt;$ git commit -m &amp;quot;prefix: brief summary of the commit&lt;&#x2F;span&gt;&lt;span&gt;
 &lt;&#x2F;span&gt;&lt;span&gt;&amp;gt; &lt;&#x2F;span&gt;&lt;span&gt;
@@ -338,8 +367,8 @@ at &lt;a href=&quot;https:&#x2F;&#x2F;www.contributor-covenant.org&#x2F;translat
 &lt;li&gt;&lt;code&gt;test&lt;&#x2F;code&gt;: for adding&#x2F;changing tests&lt;&#x2F;li&gt;
 &lt;li&gt;&lt;code&gt;chore&lt;&#x2F;code&gt;: for any minor code cleanups&lt;&#x2F;li&gt;
 &lt;&#x2F;ul&gt;
-&lt;p&gt;More about the &lt;a href=&quot;https:&#x2F;&#x2F;guides.github.com&#x2F;introduction&#x2F;flow&#x2F;&quot;&gt;GitHub flow&lt;&#x2F;a&gt;.
-More about the &lt;a href=&quot;https:&#x2F;&#x2F;www.conventionalcommits.org&#x2F;en&#x2F;v1.0.0&#x2F;&quot;&gt;Conventional Commits Specification&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;More about the 👉&lt;a href=&quot;https:&#x2F;&#x2F;guides.github.com&#x2F;introduction&#x2F;flow&#x2F;&quot;&gt;GitHub flow&lt;&#x2F;a&gt;.
+More about the 👉&lt;a href=&quot;https:&#x2F;&#x2F;www.conventionalcommits.org&#x2F;en&#x2F;v1.0.0&#x2F;&quot;&gt;Conventional Commits Specification&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 </content>
 	</entry>
 </feed>

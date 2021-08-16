@@ -14,11 +14,18 @@
         <loc>https://gschup.github.io/ggrs/blog/</loc>
     </url>
     <url>
+        <loc>https://gschup.github.io/ggrs/blog/bevy-plugin/</loc>
+        <lastmod>2021-08-06T12:00:00+00:00</lastmod>
+    </url>
+    <url>
         <loc>https://gschup.github.io/ggrs/blog/hello-world/</loc>
         <lastmod>2021-08-04T19:17:23+00:00</lastmod>
     </url>
     <url>
         <loc>https://gschup.github.io/ggrs/blog/page/1/</loc>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/blog/page/2/</loc>
     </url>
     <url>
         <loc>https://gschup.github.io/ggrs/blog/sparse-saving/</loc>
@@ -40,6 +47,10 @@
     </url>
     <url>
         <loc>https://gschup.github.io/ggrs/docs/getting-started/</loc>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/docs/getting-started/bevy-ggrs/</loc>
+        <lastmod>2021-08-16T10:27:00+00:00</lastmod>
     </url>
     <url>
         <loc>https://gschup.github.io/ggrs/docs/getting-started/introduction/</loc>
