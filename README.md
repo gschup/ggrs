@@ -20,7 +20,7 @@ To get started with GGRS, check out the following resources:
 
 ## Development Status
 
-GGRS is in an early stage, but the main functionality for two players and spectators should be quite stable. See the Changelog for the latest changes, even those yet unreleased on crates.io! If you want to contribute, check out existing issues, as well as the contribution guide!
+GGRS is in an early stage, but the main functionality for multiple players and spectators should be quite stable. See the Changelog for the latest changes, even those yet unreleased on crates.io! If you want to contribute, check out existing issues, as well as the contribution guide!
 
 - [Changelog](./CHANGELOG.md)
 - [Issues](https://github.com/gschup/ggrs/issues)
