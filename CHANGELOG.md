@@ -4,6 +4,11 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- nothing here yet...
+
+## 0.4.3
+
+- changed license from MIT to MIT or Apache 2.0 at the users option
 - added `local_player_handle()` to `P2PSession`, which returns the handle of the local player
 - added `set_fps(desired_fps)` to `P2PSpectatorSession`
 
