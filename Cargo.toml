@@ -19,6 +19,7 @@ bincode = "1.3"
 rand = "0.8"
 bitfield-rle = "0.2"
 parking_lot = "0.11"
+instant = "0.1"
 
 [dev-dependencies]
 serial_test = "0.5"

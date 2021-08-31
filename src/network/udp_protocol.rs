@@ -11,12 +11,13 @@ use crate::sessions::p2p_session::{
 use crate::time_sync::TimeSync;
 use crate::{Frame, PlayerHandle, NULL_FRAME};
 
+use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::ops::Add;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::network_stats::NetworkStats;
 

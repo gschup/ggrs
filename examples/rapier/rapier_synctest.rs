@@ -1,6 +1,6 @@
 extern crate freetype as ft;
 
-use std::time::Instant;
+use instant::Instant;
 
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
