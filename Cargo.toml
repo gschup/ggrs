@@ -21,6 +21,9 @@ bitfield-rle = "0.2"
 parking_lot = "0.11"
 instant = "0.1"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+
 [dev-dependencies]
 serial_test = "0.5"
 piston = "0.53"

@@ -17,7 +17,6 @@ use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::ops::Add;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::network_stats::NetworkStats;
 
@@ -32,10 +31,17 @@ const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
 
 fn millis_since_epoch() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis()
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        js_sys::Date::new_0().get_time() as u128
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
