@@ -298,8 +298,11 @@ impl P2PSession {
             requests.push(self.sync_layer.save_current_state());
         }
 
-        // find the total minimum confirmed frame and propagate disconnects
-        let min_confirmed = self.min_confirmed_frame();
+        // propagate disconnects to multiple players
+        self.update_player_disconnects();
+
+        // find the confirmed frame for which we received all inputs
+        let confirmed_frame = self.confirmed_frame();
 
         // check game consistency and rollback, if necessary.
         // The disconnect frame indicates if a rollback is necessary due to a previously disconnected player
@@ -307,7 +310,7 @@ impl P2PSession {
             .sync_layer
             .check_simulation_consistency(self.disconnect_frame);
         if first_incorrect != NULL_FRAME {
-            self.adjust_gamestate(first_incorrect, min_confirmed, &mut requests);
+            self.adjust_gamestate(first_incorrect, confirmed_frame, &mut requests);
             self.disconnect_frame = NULL_FRAME;
         }
 
@@ -317,27 +320,27 @@ impl P2PSession {
             && self.sync_layer.current_frame() - last_saved >= MAX_PREDICTION_FRAMES as i32
         {
             // check if the current frame is confirmed, otherwise we need to roll back
-            if min_confirmed >= self.sync_layer.current_frame() {
+            if confirmed_frame >= self.sync_layer.current_frame() {
                 // the current frame is confirmed, save it
                 requests.push(self.sync_layer.save_current_state());
             } else {
                 // roll back to the last saved state, resimulate and save on the way
-                self.adjust_gamestate(last_saved, min_confirmed, &mut requests);
+                self.adjust_gamestate(last_saved, confirmed_frame, &mut requests);
             }
 
             // after all this, we should have saved the confirmed state
             assert_eq!(
                 self.sync_layer.last_saved_frame(),
-                std::cmp::min(min_confirmed, self.sync_layer.current_frame())
+                std::cmp::min(confirmed_frame, self.sync_layer.current_frame())
             );
         }
 
         // send confirmed inputs to remotes
-        self.send_confirmed_inputs_to_spectators(min_confirmed);
+        self.send_confirmed_inputs_to_spectators(confirmed_frame);
 
         // set the last confirmed frame and discard all saved inputs before that frame
         self.sync_layer
-            .set_last_confirmed_frame(min_confirmed, self.sparse_saving);
+            .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
 
         // check time sync between clients and send wait recommendation, if appropriate
         if self.sync_layer.current_frame() > self.next_recommended_sleep {
@@ -828,16 +831,28 @@ impl P2PSession {
         }
     }
 
-    /// For each player, find out if they are still connected and what their minimum confirmed frame is.
-    /// Disconnects players if the remote clients have disconnected them already.
-    fn min_confirmed_frame(&mut self) -> Frame {
-        let mut total_min_confirmed = i32::MAX;
+    /// Returns the confirmed frame. We have received all input for this frame and it is thus correct.
+    fn confirmed_frame(&mut self) -> Frame {
+        let mut confirmed_frame = i32::MAX;
 
+        for con_stat in &self.local_connect_status {
+            if !con_stat.disconnected {
+                confirmed_frame = std::cmp::min(confirmed_frame, con_stat.last_frame);
+            }
+        }
+
+        assert!(confirmed_frame < i32::MAX);
+        confirmed_frame
+    }
+
+    /// Check if players are registered as disconnected for earlier frames on other remote players in comparison to our local assumption.
+    /// Disconnect players that are disconnected for other players and update the frame they disconnected
+    fn update_player_disconnects(&mut self) {
         for handle in 0..self.num_players as usize {
             let mut queue_connected = true;
             let mut queue_min_confirmed = i32::MAX;
 
-            // check all remote players for that player
+            // check all player connection status for every remote player
             for endpoint in self.players.values().filter_map(Player::remote_as_endpoint) {
                 if !endpoint.is_running() {
                     continue;
@@ -850,7 +865,7 @@ impl P2PSession {
                 queue_min_confirmed = std::cmp::min(queue_min_confirmed, min_confirmed);
             }
 
-            // check the local status for that player
+            // check our local info for that player
             let local_connected = !self.local_connect_status[handle].disconnected;
             let local_min_confirmed = self.local_connect_status[handle].last_frame;
 
@@ -858,9 +873,7 @@ impl P2PSession {
                 queue_min_confirmed = std::cmp::min(queue_min_confirmed, local_min_confirmed);
             }
 
-            if queue_connected {
-                total_min_confirmed = std::cmp::min(queue_min_confirmed, total_min_confirmed);
-            } else {
+            if !queue_connected {
                 // check to see if the remote disconnect is further back than we have disconnected that player.
                 // If so, we need to re-adjust. This can happen when we e.g. detect our own disconnect at frame n
                 // and later receive a disconnect notification for frame n-1.
@@ -869,9 +882,6 @@ impl P2PSession {
                 }
             }
         }
-
-        assert!(total_min_confirmed < i32::MAX);
-        total_min_confirmed
     }
 
     /// Gather delay recommendations from each remote client and return the maximum.
