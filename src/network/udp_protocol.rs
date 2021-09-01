@@ -1,10 +1,10 @@
 use crate::frame_info::{GameInput, BLANK_INPUT};
 use crate::network::compression::{decode, encode};
+use crate::network::non_blocking_socket::NonBlockingSocket;
 use crate::network::udp_msg::{
     ConnectionStatus, Input, InputAck, MessageBody, MessageHeader, QualityReply, QualityReport,
     SyncReply, SyncRequest, UdpMessage,
 };
-use crate::network::udp_socket::NonBlockingSocket;
 use crate::sessions::p2p_session::{
     Event, DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_FPS,
 };
@@ -342,7 +342,7 @@ impl UdpProtocol {
      *  SENDING MESSAGES
      */
 
-    pub(crate) fn send_all_messages(&mut self, socket: &NonBlockingSocket) {
+    pub(crate) fn send_all_messages(&mut self, socket: &Box<dyn NonBlockingSocket>) {
         if self.state == ProtocolState::Shutdown {
             self.send_queue.drain(..);
             return;
