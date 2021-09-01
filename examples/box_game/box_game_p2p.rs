@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             //skip frames if recommended
             if frames_to_skip > 0 {
                 frames_to_skip -= 1;
-                println!("Skipping a frame: WaitRecommendation");
+                println!("Frame {} skipped: WaitRecommendation", game.current_frame());
                 continue;
             }
 
@@ -112,9 +112,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let local_input = game.local_input(0);
 
                 match sess.advance_frame(local_handle, &local_input) {
-                    Ok(requests) => game.handle_requests(requests),
+                    Ok(requests) => {
+                        game.handle_requests(requests);
+                    }
                     Err(ggrs::GGRSError::PredictionThreshold) => {
-                        //println!("Skipping a frame: PredictionThreshold")
+                        println!(
+                            "Frame {} skipped: PredictionThreshold",
+                            game.current_frame()
+                        );
                     }
                     Err(e) => return Err(Box::new(e)),
                 }
