@@ -4,6 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- nothing here yet...
+
+## 0.4.4
+
 - fixed a bug where p2p sessions would falsely skip frames even when there able to run the frame
 - implemented some first steps towards WASM compatability
 
