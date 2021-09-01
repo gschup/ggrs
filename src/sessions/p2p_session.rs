@@ -335,7 +335,7 @@ impl P2PSession {
             );
         }
 
-        // send confirmed inputs to remotes
+        // send confirmed inputs to spectators
         self.send_confirmed_inputs_to_spectators(confirmed_frame);
 
         // set the last confirmed frame and discard all saved inputs before that frame
@@ -380,7 +380,7 @@ impl P2PSession {
             }
         }
 
-        // without sparse saving, always save the current frame
+        // without sparse saving, always save the current frame after correcting and rollbacking
         if !self.sparse_saving {
             requests.push(self.sync_layer.save_current_state());
         }
@@ -394,7 +394,7 @@ impl P2PSession {
             assert!(input.frame == NULL_FRAME || input.frame == self.sync_layer.current_frame());
         }
 
-        // advance the frame
+        // advance the frame count
         self.sync_layer.advance_frame();
         requests.push(GGRSRequest::AdvanceFrame { inputs });
 
@@ -792,12 +792,12 @@ impl P2PSession {
     }
 
     /// For each spectator, send all confirmed input up until the minimum confirmed frame.
-    fn send_confirmed_inputs_to_spectators(&mut self, min_confirmed_frame: Frame) {
+    fn send_confirmed_inputs_to_spectators(&mut self, confirmed_frame: Frame) {
         if self.num_spectators() == 0 {
             return;
         }
 
-        while self.next_spectator_frame <= min_confirmed_frame {
+        while self.next_spectator_frame <= confirmed_frame {
             let inputs = self
                 .sync_layer
                 .confirmed_inputs(self.next_spectator_frame, &self.local_connect_status);
