@@ -12,7 +12,9 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 pub use error::GGRSError;
 pub use frame_info::{GameInput, GameState};
 pub use network::network_stats::NetworkStats;
+pub use network::non_blocking_socket::NonBlockingSocket;
 use network::non_blocking_socket::UdpNonBlockingSocket;
+pub use network::udp_msg::UdpMessage;
 pub use sessions::p2p_session::P2PSession;
 pub use sessions::p2p_spectator_session::P2PSpectatorSession;
 pub use sessions::sync_test_session::SyncTestSession;
@@ -217,6 +219,26 @@ pub fn start_p2p_session(
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), local_port); //TODO: IpV6?
     let socket =
         Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
+
+    Ok(P2PSession::new(num_players, input_size, socket))
+}
+
+pub fn start_p2p_session_with_socket(
+    num_players: u32,
+    input_size: usize,
+    // TODO: Could be generic and do boxing inside
+    socket: Box<dyn NonBlockingSocket>,
+) -> Result<P2PSession, GGRSError> {
+    if num_players > MAX_PLAYERS {
+        return Err(GGRSError::InvalidRequest {
+            info: "Too many players.".to_owned(),
+        });
+    }
+    if input_size > MAX_INPUT_BYTES {
+        return Err(GGRSError::InvalidRequest {
+            info: "Input size too big.".to_owned(),
+        });
+    }
 
     Ok(P2PSession::new(num_players, input_size, socket))
 }
