@@ -28,7 +28,7 @@ GGRS is in an early stage, but the main functionality for multiple players and s
 
 ## Bevy Plugin
 
-The authors of GGRS are also maintaining a Bevy plugin. Check it out!
+The authors of GGRS are also maintaining a [Bevy](https://bevyengine.org/) plugin. Check it out!
 
 - [Bevy GGRS](https://github.com/gschup/bevy_ggrs)
 
