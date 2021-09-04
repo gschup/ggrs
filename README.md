@@ -28,9 +28,15 @@ GGRS is in an early stage, but the main functionality for multiple players and s
 
 ## Bevy Plugin
 
-GGRS has a Bevy plugin currently in development. Check it out!
+The authors of GGRS are also maintaining a Bevy plugin. Check it out!
 
 - [Bevy GGRS](https://github.com/gschup/bevy_ggrs)
+
+## Godot Wrapper
+
+marcello505 is currently developing a wrapper for [Godot](https://godotengine.org/).
+
+- [Godot GGRS Wrapper](https://github.com/marcello505/godot-ggrs-wrapper)
 
 ## Other Rollback Implementations in Rust
 
