@@ -36,12 +36,12 @@ The authors of GGRS are also maintaining a [Bevy](https://bevyengine.org/) plugi
 ### Godot Wrapper
 
 marcello505 is currently developing a wrapper for [Godot](https://godotengine.org/). Find the repository here: 
--👉[Godot GGRS Wrapper](https://github.com/marcello505/godot-ggrs-wrapper)
+- 👉[Godot GGRS Wrapper](https://github.com/marcello505/godot-ggrs-wrapper)
 
 ### Other Rollback Implementations in Rust
 
 Also take a look at the awesome 
--👉[backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)!
+- 👉[backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)!
 
 ## Licensing
 
