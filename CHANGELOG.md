@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- fixed a bug where packet transmission time would be accounted for with RTT instead of RTT / 2
 
 ## 0.4.4
 
