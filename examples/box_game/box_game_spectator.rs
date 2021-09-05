@@ -81,7 +81,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match sess.advance_frame() {
                     Ok(requests) => game.handle_requests(requests),
                     Err(GGRSError::PredictionThreshold) => {
-                        println!("Skipping a frame: Waiting for input from host.");
+                        println!(
+                            "Frame {} skipped: Waiting for input from host.",
+                            game.current_frame()
+                        );
                     }
                     Err(e) => return Err(Box::new(e)),
                 }
