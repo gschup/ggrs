@@ -213,8 +213,12 @@ impl UdpProtocol {
         }
 
         let now = millis_since_epoch();
-        let total_bytes_sent = self.bytes_sent + (self.packets_sent * UDP_HEADER_SIZE);
         let seconds = (now - self.stats_start_time) / 1000;
+        if seconds == 0 {
+            return None;
+        }
+
+        let total_bytes_sent = self.bytes_sent + (self.packets_sent * UDP_HEADER_SIZE);
         let bps = total_bytes_sent / seconds as usize;
         //let upd_overhead = (self.packets_sent * UDP_HEADER_SIZE) / self.bytes_sent;
 
