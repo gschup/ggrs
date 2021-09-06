@@ -1,9 +1,9 @@
 use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::network_stats::NetworkStats;
+use crate::network::non_blocking_socket::NonBlockingSocket;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::UdpProtocol;
-use crate::network::udp_socket::NonBlockingSocket;
 use crate::sync_layer::SyncLayer;
 use crate::{
     Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_PREDICTION_FRAMES,
@@ -13,7 +13,7 @@ use crate::{
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
@@ -118,8 +118,8 @@ pub struct P2PSession {
     /// Internal State of the Session.
     state: SessionState,
 
-    /// The `P2PSession` uses this UDP socket to send and receive all messages for remote players.
-    socket: NonBlockingSocket,
+    /// The `P2PSession` uses this socket to send and receive all messages for remote players.
+    socket: Box<dyn NonBlockingSocket>,
     /// A map of player handle to a player struct that handles receiving and sending messages for remote players, remote spectators and register local players.
     players: HashMap<PlayerHandle, Player>,
     /// This struct contains information about remote players, like connection status and the frame of last received input.
@@ -138,19 +138,15 @@ impl P2PSession {
     pub(crate) fn new(
         num_players: u32,
         input_size: usize,
-        port: u16,
-    ) -> Result<Self, std::io::Error> {
+        socket: Box<dyn NonBlockingSocket>,
+    ) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {
             local_connect_status.push(ConnectionStatus::default());
         }
 
-        // udp nonblocking socket creation
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port); //TODO: IpV6?
-        let socket = NonBlockingSocket::new(addr)?;
-
-        Ok(Self {
+        Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
@@ -166,7 +162,7 @@ impl P2PSession {
             disconnect_frame: NULL_FRAME,
             players: HashMap::new(),
             event_queue: VecDeque::new(),
-        })
+        }
     }
 
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session. Returns the player handle

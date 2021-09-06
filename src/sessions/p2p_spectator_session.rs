@@ -1,12 +1,13 @@
 use std::{
     collections::{vec_deque::Drain, VecDeque},
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::SocketAddr,
 };
 
 use crate::{
     frame_info::BLANK_INPUT,
     network::{
-        udp_msg::ConnectionStatus, udp_protocol::UdpProtocol, udp_socket::NonBlockingSocket,
+        non_blocking_socket::NonBlockingSocket, udp_msg::ConnectionStatus,
+        udp_protocol::UdpProtocol,
     },
     Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, SessionState, NULL_FRAME,
 };
@@ -33,7 +34,7 @@ pub struct P2PSpectatorSession {
     input_size: usize,
     inputs: [GameInput; SPECTATOR_BUFFER_SIZE],
     host_connect_status: Vec<ConnectionStatus>,
-    socket: NonBlockingSocket,
+    socket: Box<dyn NonBlockingSocket>,
     host: UdpProtocol,
     event_queue: VecDeque<GGRSEvent>,
     current_frame: Frame,
@@ -46,20 +47,16 @@ impl P2PSpectatorSession {
     pub(crate) fn new(
         num_players: u32,
         input_size: usize,
-        local_port: u16,
+        socket: Box<dyn NonBlockingSocket>,
         host_addr: SocketAddr,
-    ) -> Result<Self, std::io::Error> {
-        // udp nonblocking socket creation
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), local_port); //TODO: IpV6?
-        let socket = NonBlockingSocket::new(addr)?;
-
+    ) -> Self {
         // host connection status
         let mut host_connect_status = Vec::new();
         for _ in 0..num_players {
             host_connect_status.push(ConnectionStatus::default());
         }
 
-        Ok(Self {
+        Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
@@ -72,7 +69,7 @@ impl P2PSpectatorSession {
             last_recv_frame: NULL_FRAME,
             max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
             catchup_speed: DEFAULT_CATCHUP_SPEED,
-        })
+        }
     }
 
     /// Returns the current `SessionState` of a session.
