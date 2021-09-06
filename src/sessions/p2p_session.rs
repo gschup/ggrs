@@ -372,7 +372,7 @@ impl P2PSession {
             {
                 // send the input directly
                 endpoint.send_input(game_input, &self.local_connect_status);
-                endpoint.send_all_messages(&self.socket);
+                endpoint.send_all_messages(&mut self.socket);
             }
         }
 
@@ -450,7 +450,7 @@ impl P2PSession {
             .values_mut()
             .filter_map(Player::as_endpoint_mut)
         {
-            endpoint.send_all_messages(&self.socket);
+            endpoint.send_all_messages(&mut self.socket);
         }
     }
 
