@@ -228,8 +228,7 @@ pub fn start_p2p_session(
 pub fn start_p2p_session_with_socket(
     num_players: u32,
     input_size: usize,
-    // TODO: Could be generic and do boxing inside
-    socket: Box<dyn NonBlockingSocket>,
+    socket: impl NonBlockingSocket + 'static,
 ) -> Result<P2PSession, GGRSError> {
     if num_players > MAX_PLAYERS {
         return Err(GGRSError::InvalidRequest {
@@ -242,7 +241,7 @@ pub fn start_p2p_session_with_socket(
         });
     }
 
-    Ok(P2PSession::new(num_players, input_size, socket))
+    Ok(P2PSession::new(num_players, input_size, Box::new(socket)))
 }
 
 /// Used to create a new `P2PSpectatorSession` for a spectator.
