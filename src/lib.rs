@@ -195,10 +195,12 @@ pub fn start_synctest_session(
 /// # }
 /// ```
 ///
+/// The created session will use the default socket type (currently UDP).
+///
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
-/// - Will return `SocketCreationFailed` if the UPD socket could not be created.
+/// - Will return `SocketCreationFailed` if the socket could not be created.
 pub fn start_p2p_session(
     num_players: u32,
     input_size: usize,
@@ -259,10 +261,12 @@ pub fn start_p2p_session_with_socket(
 /// # }
 /// ```
 ///
+/// The created session will use the default socket type (currently UDP).
+///
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
-/// - Will return `SocketCreationFailed` if the UPD socket could not be created.
+/// - Will return `SocketCreationFailed` if the socket could not be created.
 pub fn start_p2p_spectator_session(
     num_players: u32,
     input_size: usize,
