@@ -10,6 +10,10 @@ pub(crate) use udp_socket::UdpNonBlockingSocket;
 /// Messages should be sent in an UDP-like fashion, unordered and unreliable.
 /// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
 pub trait NonBlockingSocket: std::fmt::Debug + Send + Sync {
+    /// Takes an `UdpMessage` and sends it to the given `SocketAddr`.
     fn send_to(&mut self, msg: &UdpMessage, addr: SocketAddr);
+
+    /// This method should return all messages received since the last time this method was called. `
+    /// The pairs `(SocketAddr, UdpMessage)` indicate from which adress each packet was received.
     fn receive_all_messages(&mut self) -> Vec<(SocketAddr, UdpMessage)>;
 }
