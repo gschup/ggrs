@@ -12,7 +12,9 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 pub use error::GGRSError;
 pub use frame_info::{GameInput, GameState};
 pub use network::network_stats::NetworkStats;
+pub use network::non_blocking_socket::NonBlockingSocket;
 use network::non_blocking_socket::UdpNonBlockingSocket;
+pub use network::udp_msg::UdpMessage;
 pub use sessions::p2p_session::P2PSession;
 pub use sessions::p2p_spectator_session::P2PSpectatorSession;
 pub use sessions::sync_test_session::SyncTestSession;
@@ -193,10 +195,12 @@ pub fn start_synctest_session(
 /// # }
 /// ```
 ///
+/// The created session will use the default socket type (currently UDP).
+///
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
-/// - Will return `SocketCreationFailed` if the UPD socket could not be created.
+/// - Will return `SocketCreationFailed` if the socket could not be created.
 pub fn start_p2p_session(
     num_players: u32,
     input_size: usize,
@@ -221,6 +225,31 @@ pub fn start_p2p_session(
     Ok(P2PSession::new(num_players, input_size, socket))
 }
 
+/// Used to create a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+/// set input delay for local players and then start the session. The session will use the provided socket.
+///
+/// # Errors
+/// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+pub fn start_p2p_session_with_socket(
+    num_players: u32,
+    input_size: usize,
+    socket: impl NonBlockingSocket + 'static,
+) -> Result<P2PSession, GGRSError> {
+    if num_players > MAX_PLAYERS {
+        return Err(GGRSError::InvalidRequest {
+            info: "Too many players.".to_owned(),
+        });
+    }
+    if input_size > MAX_INPUT_BYTES {
+        return Err(GGRSError::InvalidRequest {
+            info: "Input size too big.".to_owned(),
+        });
+    }
+
+    Ok(P2PSession::new(num_players, input_size, Box::new(socket)))
+}
+
 /// Used to create a new `P2PSpectatorSession` for a spectator.
 /// The session will receive inputs from all players from the given host directly.
 /// # Example
@@ -237,10 +266,12 @@ pub fn start_p2p_session(
 /// # }
 /// ```
 ///
+/// The created session will use the default socket type (currently UDP).
+///
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
-/// - Will return `SocketCreationFailed` if the UPD socket could not be created.
+/// - Will return `SocketCreationFailed` if the socket could not be created.
 pub fn start_p2p_spectator_session(
     num_players: u32,
     input_size: usize,
@@ -267,6 +298,38 @@ pub fn start_p2p_spectator_session(
         num_players,
         input_size,
         socket,
+        host_addr,
+    ))
+}
+
+/// Used to create a new `P2PSpectatorSession` for a spectator.
+/// The session will receive inputs from all players from the given host directly.
+/// The session will use the provided socket.
+///
+/// # Errors
+/// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+pub fn start_p2p_spectator_session_with_socket(
+    num_players: u32,
+    input_size: usize,
+    socket: impl NonBlockingSocket + 'static,
+    host_addr: SocketAddr,
+) -> Result<P2PSpectatorSession, GGRSError> {
+    if num_players > MAX_PLAYERS {
+        return Err(GGRSError::InvalidRequest {
+            info: "Too many players.".to_owned(),
+        });
+    }
+    if input_size > MAX_INPUT_BYTES {
+        return Err(GGRSError::InvalidRequest {
+            info: "Input size too big.".to_owned(),
+        });
+    }
+
+    Ok(P2PSpectatorSession::new(
+        num_players,
+        input_size,
+        Box::new(socket),
         host_addr,
     ))
 }
