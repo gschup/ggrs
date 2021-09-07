@@ -88,6 +88,8 @@ pub(crate) enum MessageBody {
     KeepAlive,
 }
 
+/// A messages that `NonBlockingSocket` sends and receives. When implementing `NonBlockingSocket`,
+/// you should deserialize received messages into this type and pass them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UdpMessage {
     pub(crate) header: MessageHeader,

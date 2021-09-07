@@ -4,8 +4,9 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- turned NonBlockingSocket into trait to allow alternate socket types in the future.
-- fixed a bug where calling network_stats would lead to a division by 0.
+- added functions to create sessions with own sockets provided
+- turned NonBlockingSocket into a trait to allow alternate socket types in the future.
+- fixed a bug where calling network_stats without any time passed would lead to a division by 0.
 - fixed a bug where packet transmission time would be accounted for with RTT instead of RTT / 2
 
 ## 0.4.4
