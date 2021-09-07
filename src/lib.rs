@@ -316,3 +316,50 @@ pub fn start_p2p_spectator_session(
         host_addr,
     ))
 }
+
+/// Used to create a new `P2PSpectatorSession` for a spectator.
+/// The session will receive inputs from all players from the given host directly.
+/// # Example
+///
+/// ```
+/// # use std::net::SocketAddr;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let local_port: u16 = 7777;
+/// let num_players : u32 = 2;
+/// let input_size : usize = std::mem::size_of::<u32>();
+/// let socket = YourSocket::new();
+/// let host_addr: SocketAddr = "127.0.0.1:8888".parse()?;
+/// let mut sess = ggrs::start_p2p_spectator_session_with_socket(num_players, input_size, socket, host_addr)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// The created session will use the provided socket.
+///
+/// # Errors
+/// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+pub fn start_p2p_spectator_session_with_socket(
+    num_players: u32,
+    input_size: usize,
+    socket: impl NonBlockingSocket + 'static,
+    host_addr: SocketAddr,
+) -> Result<P2PSpectatorSession, GGRSError> {
+    if num_players > MAX_PLAYERS {
+        return Err(GGRSError::InvalidRequest {
+            info: "Too many players.".to_owned(),
+        });
+    }
+    if input_size > MAX_INPUT_BYTES {
+        return Err(GGRSError::InvalidRequest {
+            info: "Input size too big.".to_owned(),
+        });
+    }
+
+    Ok(P2PSpectatorSession::new(
+        num_players,
+        input_size,
+        Box::new(socket),
+        host_addr,
+    ))
+}
