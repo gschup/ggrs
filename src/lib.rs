@@ -225,6 +225,27 @@ pub fn start_p2p_session(
     Ok(P2PSession::new(num_players, input_size, socket))
 }
 
+/// Used to create a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+/// set input delay for local players and then start the session.
+/// # Example
+///
+/// ```
+/// # use ggrs::GGRSError;
+/// # fn main() -> Result<(), GGRSError> {
+/// let local_port: u16 = 7777;
+/// let num_players : u32 = 2;
+/// let input_size : usize = std::mem::size_of::<u32>();
+/// let socket = YourSocket::new();
+/// let mut sess = ggrs::start_p2p_session_with_socket(num_players, input_size, socket)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// The created session will use the provided socket.
+///
+/// # Errors
+/// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+/// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
 pub fn start_p2p_session_with_socket(
     num_players: u32,
     input_size: usize,
