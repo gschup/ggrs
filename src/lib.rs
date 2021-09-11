@@ -144,7 +144,7 @@ pub enum GGRSRequest {
 /// let check_distance : u32 = 7;
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
-/// let mut sess = ggrs::start_synctest_session(num_players, input_size, check_distance)?;
+/// let mut sess = ggrs::new_synctest_session(num_players, input_size, check_distance)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -153,7 +153,7 @@ pub enum GGRSRequest {
 /// - Will return a `InvalidRequestError` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequestError` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
 /// - Will return a `InvalidRequestError` if the `check_distance is` higher than or equal to `MAX_PREDICTION_FRAMES`.
-pub fn start_synctest_session(
+pub fn new_synctest_session(
     num_players: u32,
     input_size: usize,
     check_distance: u32,
@@ -190,7 +190,7 @@ pub fn start_synctest_session(
 /// let local_port: u16 = 7777;
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
-/// let mut sess = ggrs::start_p2p_session(num_players, input_size, local_port)?;
+/// let mut sess = ggrs::new_p2p_session(num_players, input_size, local_port)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -201,7 +201,7 @@ pub fn start_synctest_session(
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
 /// - Will return `SocketCreationFailed` if the socket could not be created.
-pub fn start_p2p_session(
+pub fn new_p2p_session(
     num_players: u32,
     input_size: usize,
     local_port: u16,
@@ -231,7 +231,7 @@ pub fn start_p2p_session(
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
-pub fn start_p2p_session_with_socket(
+pub fn new_p2p_session_with_socket(
     num_players: u32,
     input_size: usize,
     socket: impl NonBlockingSocket + 'static,
@@ -261,7 +261,7 @@ pub fn start_p2p_session_with_socket(
 /// let num_players : u32 = 2;
 /// let input_size : usize = std::mem::size_of::<u32>();
 /// let host_addr: SocketAddr = "127.0.0.1:8888".parse()?;
-/// let mut sess = ggrs::start_p2p_spectator_session(num_players, input_size, local_port, host_addr)?;
+/// let mut sess = ggrs::new_p2p_spectator_session(num_players, input_size, local_port, host_addr)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -272,7 +272,7 @@ pub fn start_p2p_session_with_socket(
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
 /// - Will return `SocketCreationFailed` if the socket could not be created.
-pub fn start_p2p_spectator_session(
+pub fn new_p2p_spectator_session(
     num_players: u32,
     input_size: usize,
     local_port: u16,
@@ -309,7 +309,7 @@ pub fn start_p2p_spectator_session(
 /// # Errors
 /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
 /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
-pub fn start_p2p_spectator_session_with_socket(
+pub fn new_p2p_spectator_session_with_socket(
     num_players: u32,
     input_size: usize,
     socket: impl NonBlockingSocket + 'static,

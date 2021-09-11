@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // create a GGRS session for a spectator
-    let mut sess = ggrs::start_p2p_spectator_session(
+    let mut sess = ggrs::new_p2p_spectator_session(
         opt.num_players as u32,
         INPUT_SIZE,
         opt.local_port,

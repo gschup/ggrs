@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a GGRS session
     let mut sess =
-        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
+        ggrs::new_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
 
     // set input delay for any player you want
     for i in 0..opt.num_players {

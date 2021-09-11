@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS session
-    let mut sess = ggrs::start_p2p_session(num_players as u32, INPUT_SIZE, opt.local_port)?;
+    let mut sess = ggrs::new_p2p_session(num_players as u32, INPUT_SIZE, opt.local_port)?;
 
     // turn on sparse saving
     sess.set_sparse_saving(true)?;
