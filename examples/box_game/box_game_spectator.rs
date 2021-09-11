@@ -1,6 +1,6 @@
 extern crate freetype as ft;
 
-use ggrs::{GGRSError, GGRSEvent, SessionState};
+use ggrs::{GGRSError, GGRSEvent, P2PSpectatorSession, SessionState};
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
@@ -33,12 +33,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // create a GGRS session for a spectator
-    let mut sess = ggrs::new_p2p_spectator_session(
-        opt.num_players as u32,
-        INPUT_SIZE,
-        opt.local_port,
-        opt.host,
-    )?;
+    let mut sess =
+        P2PSpectatorSession::new(opt.num_players as u32, INPUT_SIZE, opt.local_port, opt.host)?;
 
     // change catch-up parameters, if desired
     sess.set_max_frames_behind(5)?; // when the spectator is more than this amount of frames behind, it will catch up

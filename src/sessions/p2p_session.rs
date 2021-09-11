@@ -1,19 +1,19 @@
 use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::network_stats::NetworkStats;
-use crate::network::non_blocking_socket::NonBlockingSocket;
+use crate::network::non_blocking_socket::{NonBlockingSocket, UdpNonBlockingSocket};
 use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::UdpProtocol;
 use crate::sync_layer::SyncLayer;
 use crate::{
-    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_PREDICTION_FRAMES,
-    NULL_FRAME,
+    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_INPUT_BYTES,
+    MAX_PLAYERS, MAX_PREDICTION_FRAMES, NULL_FRAME,
 };
 
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
@@ -135,11 +135,77 @@ pub struct P2PSession {
 }
 
 impl P2PSession {
-    pub(crate) fn new(
+    /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+    /// set input delay for local players and then start the session.
+    /// # Example
+    ///
+    /// ```
+    /// # use ggrs::{GGRSError, P2PSession};
+    /// # fn main() -> Result<(), GGRSError> {
+    /// let local_port: u16 = 7777;
+    /// let num_players : u32 = 2;
+    /// let input_size : usize = std::mem::size_of::<u32>();
+    /// let mut session = P2PSession::new(num_players, input_size, local_port)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// The created session will use the default socket type (currently UDP).
+    ///
+    /// # Errors
+    /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+    /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+    /// - Will return `SocketCreationFailed` if the socket could not be created.
+    pub fn new(
         num_players: u32,
         input_size: usize,
-        socket: Box<dyn NonBlockingSocket>,
-    ) -> Self {
+        local_port: u16,
+    ) -> Result<P2PSession, GGRSError> {
+        if num_players > MAX_PLAYERS {
+            return Err(GGRSError::InvalidRequest {
+                info: "Too many players.".to_owned(),
+            });
+        }
+        if input_size > MAX_INPUT_BYTES {
+            return Err(GGRSError::InvalidRequest {
+                info: "Input size too big.".to_owned(),
+            });
+        }
+
+        // udp nonblocking socket creation
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
+        let socket =
+            Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
+
+        Ok(Self::new_impl(num_players, input_size, socket))
+    }
+
+    /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+    /// set input delay for local players and then start the session. The session will use the provided socket.
+    ///
+    /// # Errors
+    /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+    /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+    pub fn new_with_socket(
+        num_players: u32,
+        input_size: usize,
+        socket: impl NonBlockingSocket + 'static,
+    ) -> Result<P2PSession, GGRSError> {
+        if num_players > MAX_PLAYERS {
+            return Err(GGRSError::InvalidRequest {
+                info: "Too many players.".to_owned(),
+            });
+        }
+        if input_size > MAX_INPUT_BYTES {
+            return Err(GGRSError::InvalidRequest {
+                info: "Input size too big.".to_owned(),
+            });
+        }
+
+        Ok(Self::new_impl(num_players, input_size, Box::new(socket)))
+    }
+
+    fn new_impl(num_players: u32, input_size: usize, socket: Box<dyn NonBlockingSocket>) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {

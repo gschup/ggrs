@@ -1,5 +1,6 @@
 extern crate freetype as ft;
 
+use ggrs::SyncTestSession;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
@@ -29,8 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // create a GGRS session
-    let mut sess =
-        ggrs::new_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
+    let mut sess = SyncTestSession::new(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
 
     // set input delay for any player you want
     for i in 0..opt.num_players {
