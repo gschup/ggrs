@@ -156,28 +156,12 @@ impl P2PSession {
     /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
     /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
     /// - Will return `SocketCreationFailed` if the socket could not be created.
-    pub fn new(
-        num_players: u32,
-        input_size: usize,
-        local_port: u16,
-    ) -> Result<P2PSession, GGRSError> {
-        if num_players > MAX_PLAYERS {
-            return Err(GGRSError::InvalidRequest {
-                info: "Too many players.".to_owned(),
-            });
-        }
-        if input_size > MAX_INPUT_BYTES {
-            return Err(GGRSError::InvalidRequest {
-                info: "Input size too big.".to_owned(),
-            });
-        }
-
+    pub fn new(num_players: u32, input_size: usize, local_port: u16) -> Result<Self, GGRSError> {
         // udp nonblocking socket creation
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
         let socket =
             Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
-
-        Ok(Self::new_impl(num_players, input_size, socket))
+        Self::new_impl(num_players, input_size, socket)
     }
 
     /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
@@ -190,7 +174,15 @@ impl P2PSession {
         num_players: u32,
         input_size: usize,
         socket: impl NonBlockingSocket + 'static,
-    ) -> Result<P2PSession, GGRSError> {
+    ) -> Result<Self, GGRSError> {
+        Self::new_impl(num_players, input_size, Box::new(socket))
+    }
+
+    fn new_impl(
+        num_players: u32,
+        input_size: usize,
+        socket: Box<dyn NonBlockingSocket>,
+    ) -> Result<Self, GGRSError> {
         if num_players > MAX_PLAYERS {
             return Err(GGRSError::InvalidRequest {
                 info: "Too many players.".to_owned(),
@@ -202,17 +194,13 @@ impl P2PSession {
             });
         }
 
-        Ok(Self::new_impl(num_players, input_size, Box::new(socket)))
-    }
-
-    fn new_impl(num_players: u32, input_size: usize, socket: Box<dyn NonBlockingSocket>) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {
             local_connect_status.push(ConnectionStatus::default());
         }
 
-        Self {
+        Ok(Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
@@ -228,7 +216,7 @@ impl P2PSession {
             disconnect_frame: NULL_FRAME,
             players: HashMap::new(),
             event_queue: VecDeque::new(),
-        }
+        })
     }
 
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session. Returns the player handle

@@ -74,24 +74,12 @@ impl P2PSpectatorSession {
         input_size: usize,
         local_port: u16,
         host_addr: SocketAddr,
-    ) -> Result<P2PSpectatorSession, GGRSError> {
-        if num_players > MAX_PLAYERS {
-            return Err(GGRSError::InvalidRequest {
-                info: "Too many players.".to_owned(),
-            });
-        }
-        if input_size > MAX_INPUT_BYTES {
-            return Err(GGRSError::InvalidRequest {
-                info: "Input size too big.".to_owned(),
-            });
-        }
-
+    ) -> Result<Self, GGRSError> {
         // udp nonblocking socket creation
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
         let socket =
             Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
-
-        Ok(Self::new_impl(num_players, input_size, socket, host_addr))
+        Self::new_impl(num_players, input_size, socket, host_addr)
     }
 
     /// Creates a new `P2PSpectatorSession` for a spectator.
@@ -106,7 +94,16 @@ impl P2PSpectatorSession {
         input_size: usize,
         socket: impl NonBlockingSocket + 'static,
         host_addr: SocketAddr,
-    ) -> Result<P2PSpectatorSession, GGRSError> {
+    ) -> Result<Self, GGRSError> {
+        Self::new_impl(num_players, input_size, Box::new(socket), host_addr)
+    }
+
+    fn new_impl(
+        num_players: u32,
+        input_size: usize,
+        socket: Box<dyn NonBlockingSocket>,
+        host_addr: SocketAddr,
+    ) -> Result<Self, GGRSError> {
         if num_players > MAX_PLAYERS {
             return Err(GGRSError::InvalidRequest {
                 info: "Too many players.".to_owned(),
@@ -118,27 +115,13 @@ impl P2PSpectatorSession {
             });
         }
 
-        Ok(Self::new_impl(
-            num_players,
-            input_size,
-            Box::new(socket),
-            host_addr,
-        ))
-    }
-
-    fn new_impl(
-        num_players: u32,
-        input_size: usize,
-        socket: Box<dyn NonBlockingSocket>,
-        host_addr: SocketAddr,
-    ) -> Self {
         // host connection status
         let mut host_connect_status = Vec::new();
         for _ in 0..num_players {
             host_connect_status.push(ConnectionStatus::default());
         }
 
-        Self {
+        Ok(Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
@@ -151,7 +134,7 @@ impl P2PSpectatorSession {
             last_recv_frame: NULL_FRAME,
             max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
             catchup_speed: DEFAULT_CATCHUP_SPEED,
-        }
+        })
     }
 
     /// Returns the current `SessionState` of a session.

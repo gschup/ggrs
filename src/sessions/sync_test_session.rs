@@ -47,7 +47,7 @@ impl SyncTestSession {
         num_players: u32,
         input_size: usize,
         check_distance: u32,
-    ) -> Result<SyncTestSession, GGRSError> {
+    ) -> Result<Self, GGRSError> {
         if num_players > MAX_PLAYERS {
             return Err(GGRSError::InvalidRequest {
                 info: "Too many players.".to_owned(),
