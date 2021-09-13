@@ -5,18 +5,139 @@
 	<link href="https://gschup.github.io/ggrs/atom.xml" rel="self" type="application/atom+xml"/>
   <link href="https://gschup.github.io/ggrs/"/>
 	<generator uri="https://www.getzola.org/">Zola</generator>
-	<updated>2021-08-16T10:27:00+00:00</updated>
+	<updated>2021-09-13T00:00:00+00:00</updated>
 	<id>https://gschup.github.io/ggrs/atom.xml</id>
 	<entry xml:lang="en">
-		<title>Bevy GGRS</title>
-		<published>2021-08-16T10:27:00+00:00</published>
-		<updated>2021-08-16T10:27:00+00:00</updated>
-		<link href="https://gschup.github.io/ggrs/docs/getting-started/bevy-ggrs/" type="text/html"/>
-		<id>https://gschup.github.io/ggrs/docs/getting-started/bevy-ggrs/</id>
-		<content type="html">&lt;h2 id=&quot;bevy&quot;&gt;Bevy&lt;&#x2F;h2&gt;
-&lt;p&gt;The 👉&lt;a href=&quot;https:&#x2F;&#x2F;bevyengine.org&#x2F;&quot;&gt;Bevy engine&lt;&#x2F;a&gt; is a refreshingly simple data-driven game engine built in Rust, emplyoing the
-👉&lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;Entity_component_system&quot;&gt;ECS paradigm&lt;&#x2F;a&gt;. It is free and Open Source!&lt;&#x2F;p&gt;
-&lt;p&gt;The plugin is currently being developed and is available on 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;bevy_ggrs&quot;&gt;GitHub&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+		<title>Main Loop</title>
+		<published>2021-09-13T00:00:00+00:00</published>
+		<updated>2021-09-13T00:00:00+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/docs/tutorial/main-loop/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/docs/tutorial/main-loop/</id>
+		<content type="html">&lt;p&gt;In your main game loop, you should call &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out 👉&lt;a href=&quot;https:&#x2F;&#x2F;medium.com&#x2F;@tglaiel&#x2F;how-to-make-your-game-run-at-60fps-24c61210fe75&quot;&gt;this article&lt;&#x2F;a&gt; or 👉&lt;a href=&quot;https:&#x2F;&#x2F;gafferongames.com&#x2F;post&#x2F;fix_your_timestep&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; to learn more about running your own gameloop.&lt;&#x2F;p&gt;
+&lt;p&gt;For full code examples, take a look at:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_p2p.rs&quot;&gt;BoxGame P2P&lt;&#x2F;a&gt;,&lt;&#x2F;li&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_spectator.rs&quot;&gt;BoxGame Spectator&lt;&#x2F;a&gt;,&lt;&#x2F;li&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_synctest.rs&quot;&gt;BoxGame SyncTest&lt;&#x2F;a&gt;,&lt;&#x2F;li&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;bevy_ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&quot;&gt;Bevy variants&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;polling-remote-clients&quot;&gt;Polling Remote Clients&lt;&#x2F;h2&gt;
+&lt;p&gt;If you have spare time between rendering and updating your game, you can always call:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;poll_remote_clients&lt;&#x2F;span&gt;&lt;span&gt;();&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This will receive and handle incoming UDP packets and send queued packets to other remote clients. GGRS should work without explicitly calling this method, but frequent polling leads to timely communication between sessions.&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>Requests and Events</title>
+		<published>2021-09-13T00:00:00+00:00</published>
+		<updated>2021-09-13T00:00:00+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/docs/tutorial/requests-events/</id>
+		<content type="html">&lt;h2 id=&quot;handling-requests&quot;&gt;Handling Requests&lt;&#x2F;h2&gt;
+&lt;p&gt;If calling &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; succeeds, GGRS will return a &lt;code&gt;Vec&amp;lt;GGRSRequest&amp;gt;&lt;&#x2F;code&gt;. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests: AdvanceFrame, LoadGameState and SaveGameState. Please see 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game.rs&quot;&gt;BoxGame&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;advanceframe&quot;&gt;AdvanceFrame&lt;&#x2F;h3&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;AdvanceFrame { inputs: Vec&amp;lt;GameInput&amp;gt; }&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Advance the frame with the provided inputs.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;loadgamestate&quot;&gt;LoadGameState&lt;&#x2F;h3&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;LoadGameState { cell: GameStateCell }&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Load a previous gamestate by calling &lt;code&gt;your_state = cell.load()&lt;&#x2F;code&gt;. The provided &lt;code&gt;frame&lt;&#x2F;code&gt; defines from which frame this gamestate is from.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;savegamestate&quot;&gt;SaveGameState&lt;&#x2F;h3&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;SaveGameState { cell: GameStateCell, frame: Frame }&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Save the current gamestate by calling &lt;code&gt;cell.save(your_state)&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;handling-events&quot;&gt;Handling Events&lt;&#x2F;h2&gt;
+&lt;p&gt;Events are notifications from the session for the user. It is recommended to fetch events after every update. Most events are simply of informative nature, requiring no special action from the user. Please see the examples or refer to the documentation what kind of &lt;code&gt;GGRSEvent&lt;&#x2F;code&gt; can occur.&lt;&#x2F;p&gt;
+&lt;p&gt;One exception to this is the &lt;code&gt;WaitRecommendation&lt;&#x2F;code&gt; event, which GGRS gives out when your local clients runs too far ahead of remote clients, leading to a lot of one-sided rollbacks on your end. A simple way to mitigate this discrepancy by skipping the indicated amount of frames. More elaborate means to synchronize the clients are described 👉&lt;a href=&quot;..&#x2F;time_sync&#x2F;&quot;&gt;here&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>Sessions</title>
+		<published>2021-09-13T00:00:00+00:00</published>
+		<updated>2021-09-13T00:00:00+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/docs/tutorial/sessions/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/docs/tutorial/sessions/</id>
+		<content type="html">&lt;p&gt;GGRS mainly operates through one of three sessions; each providing different functionalities:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;P2PSession&lt;&#x2F;code&gt;: Communicate with other remote sessions; send and receive inputs to synchronize your game between clients. All Clients participating in the game create their own session and connect to each other in a peer-to-peer fashion.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;P2PSpectatorSession&lt;&#x2F;code&gt;: Connects to another &lt;code&gt;P2PSession&lt;&#x2F;code&gt; in order to receive confirmed game inputs without contributing to the game input itself. If you want clients to spectate games, this is the session to use.&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;SyncTestSession&lt;&#x2F;code&gt;: Used mainly for debugging purposes, this session simulates a configurable amount of rollbacks each frame. This is a great way to test if your game updates deterministically. The &lt;code&gt;SyncTestSession&lt;&#x2F;code&gt; will compare checksums between original and resimulated gamestates and raise an error if something went wrong.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;setup&quot;&gt;Setup&lt;&#x2F;h2&gt;
+&lt;p&gt;For all sessions, you will have to define the number of active players contributing to the game input via &lt;code&gt;num_players&lt;&#x2F;code&gt; as well as the size of such inputs via &lt;code&gt;input_size&lt;&#x2F;code&gt;. The &lt;code&gt;local_port&lt;&#x2F;code&gt; is where your client will receive packets of remote clients.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;p2psession&quot;&gt;P2PSession&lt;&#x2F;h2&gt;
+&lt;p&gt;A P2PSession communicates with other P2PSessions and P2PSpectatorSessions. They send and receive inputs to synchronize your game between clients. All Clients participating in the game create their own session and connect to each other in a peer-to-peer fashion.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; local_port: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u16 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7000&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; num_players : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_size : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;usize &lt;&#x2F;span&gt;&lt;span&gt;= std::mem::size_of::&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;();&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span&gt; sess = P2PSession::new(num_players, input_size, local_port)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Then, you should specify the players participating in the game, exactly as many as you defined through &lt;code&gt;num_players&lt;&#x2F;code&gt;. You can add exactly one &lt;code&gt;PlayerType::Local&lt;&#x2F;code&gt;, the rest should be &lt;code&gt;PlayerType::Remote(addr)&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; local_handle = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; remote_handle = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; remote_addr: SocketAddr = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;127.0.0.1:7001&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_player&lt;&#x2F;span&gt;&lt;span&gt;(PlayerType::Local, local_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_player&lt;&#x2F;span&gt;&lt;span&gt;(PlayerType::Remote(remote_addr), remote_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Optionally, define any spectators you wish to add. The &lt;code&gt;spectator_handle&lt;&#x2F;code&gt; should be greater or equal to &lt;code&gt;num_players&lt;&#x2F;code&gt;. Internally, GGRS will add 1000 to the provided handle to identify the spectator client, so the resulting internal handle will be 1002 in this example.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; spectator_handle = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; spec_addr: SocketAddr = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;127.0.0.1:7002&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_player&lt;&#x2F;span&gt;&lt;span&gt;(PlayerType::Spectator(spec_addr), spectator_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You can set input delay for the local player. You do not need to do this for remote players.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; desired_delay = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_frame_delay&lt;&#x2F;span&gt;&lt;span&gt;(desired_delay, local_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Per default, GGRS requests to save the gamestate after every update step in order to minimize rollbacks as much as possible. If saving your game state takes much longer than performing multiple update steps, GGRS has an alternative sparse saving mode where instead the amount of save requests are minimized at the cost of some additional state update requests.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_sparse_saving&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Finally, you can start the session. GGRS will then make an effort to establish communication between all clients. Only if the connection to all remotes (including spectators) has been established, the session will be able to advance the gamestate and send inputs.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;start_session&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h2 id=&quot;p2pspectatorsession&quot;&gt;P2PSpectatorSession&lt;&#x2F;h2&gt;
+&lt;p&gt;The &lt;code&gt;P2PSpectatorSession&lt;&#x2F;code&gt; connects to another &lt;code&gt;P2PSession&lt;&#x2F;code&gt; in order to receive confirmed game inputs without contributing to the game input itself. If you want clients to spectate games, this is the session to use. For the spectator, you will have to define a &lt;code&gt;host_addr&lt;&#x2F;code&gt; from which this session will receive inputs from all players. The defined host needs to add this client as a spectator, as well.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; local_port: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u16 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7002&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; num_players : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_size : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;usize &lt;&#x2F;span&gt;&lt;span&gt;= std::mem::size_of::&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;();&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; host_addr: SocketAddr = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;127.0.0.1:7000&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span&gt; sess = P2PSpectatorSession::new(num_players, input_size, local_port, host_addr)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Optionally, you can change the default catch-up parameters. Setting the catch-up speed to 1 will prevent any catch-up measures.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_max_frames_behind&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;5&lt;&#x2F;span&gt;&lt;span&gt;)?; &lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_catchup_speed&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Then, you can start the session. GGRS will then make an effort to establish communication to the host. Only then will the session be able to advance the gamestate.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;start_session&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h2 id=&quot;synctestsession&quot;&gt;SyncTestSession&lt;&#x2F;h2&gt;
+&lt;p&gt;Used mainly for debugging purposes, this session simulates a configurable amount of rollbacks each frame. This is a great way to test if your game updates deterministically. The &lt;code&gt;SyncTestSession&lt;&#x2F;code&gt; will compare checksums between original and resimulated gamestates and raise an error if something went wrong. &lt;code&gt;check_distance&lt;&#x2F;code&gt; specifies how many frames of rollback you want to induce every frame. This value cannot exceed the maximum predicition frames allowed. Currently, 7 is the maximum distance of rollback that can occur.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; check_distance : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; num_players : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_size : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;usize &lt;&#x2F;span&gt;&lt;span&gt;= std::mem::size_of::&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;();&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span&gt; sess = SyncTestSession::new(num_players, input_size, check_distance)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Afterwards, you can optionally define input delays for any player you wish.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_delay = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_frame_delay&lt;&#x2F;span&gt;&lt;span&gt;(input_delay, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_frame_delay&lt;&#x2F;span&gt;&lt;span&gt;(input_delay, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You don&#x27;t need to define players or start the session. Because there are no remote clients to synchronize with, a &lt;code&gt;SyncTestSession&lt;&#x2F;code&gt; will immediately be ready to advance the game.&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
+		<title>Time Synchronization</title>
+		<published>2021-09-13T00:00:00+00:00</published>
+		<updated>2021-09-13T00:00:00+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/docs/tutorial/time-sync/</id>
+		<content type="html">&lt;p&gt;TODO.&lt;&#x2F;p&gt;
 </content>
 	</entry>
 	<entry xml:lang="en">
@@ -68,106 +189,6 @@
 		<content type="html"></content>
 	</entry>
 	<entry xml:lang="en">
-		<title>Quick Start</title>
-		<published>2021-08-04T19:17:23+00:00</published>
-		<updated>2021-08-04T19:17:23+00:00</updated>
-		<link href="https://gschup.github.io/ggrs/docs/getting-started/quick-start/" type="text/html"/>
-		<id>https://gschup.github.io/ggrs/docs/getting-started/quick-start/</id>
-		<content type="html">&lt;pre data-lang=&quot;toml&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-toml &quot;&gt;&lt;code class=&quot;language-toml&quot; data-lang=&quot;toml&quot;&gt;&lt;span&gt;[dependencies]&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;ggrs &lt;&#x2F;span&gt;&lt;span&gt;= &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;0.4&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;GGRS mainly operates through one of three sessions; each providing different functionalities:&lt;&#x2F;p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;P2PSession&lt;&#x2F;code&gt;: Communicate with other remote sessions; send and receive inputs to synchronize your game between clients. All Clients participating in the game create their own session and connect to each other in a peer-to-peer fashion.&lt;&#x2F;li&gt;
-&lt;li&gt;&lt;code&gt;P2PSpectatorSession&lt;&#x2F;code&gt;: Connects to another &lt;code&gt;P2PSession&lt;&#x2F;code&gt; in order to receive confirmed game inputs without contributing to the game input itself. If you want clients to spectate games, this is the session to use.&lt;&#x2F;li&gt;
-&lt;li&gt;&lt;code&gt;SyncTestSession&lt;&#x2F;code&gt;: Used mainly for debugging purposes, this session simulates a configurable amount of rollbacks each frame. This is a great way to test if your game updates deterministically. The &lt;code&gt;SyncTestSession&lt;&#x2F;code&gt; will compare checksums between original and resimulated gamestates and raise an error if something went wrong.&lt;&#x2F;li&gt;
-&lt;&#x2F;ul&gt;
-&lt;h2 id=&quot;setup&quot;&gt;Setup&lt;&#x2F;h2&gt;
-&lt;p&gt;For all sessions, you will have to define the number of active players contributing to the game input via &lt;code&gt;num_players&lt;&#x2F;code&gt; as well as the size of such inputs via &lt;code&gt;input_size&lt;&#x2F;code&gt;. The &lt;code&gt;local_port&lt;&#x2F;code&gt; is where your client will receive packets of remote clients.&lt;&#x2F;p&gt;
-&lt;p&gt;GGRS does not handle NAT hole punching. Check out 👉&lt;a href=&quot;https:&#x2F;&#x2F;keithjohnston.wordpress.com&#x2F;2014&#x2F;02&#x2F;17&#x2F;nat-punch-through-for-multiplayer-games&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; for more information on the topic.&lt;&#x2F;p&gt;
-&lt;h3 id=&quot;p2psession&quot;&gt;P2PSession&lt;&#x2F;h3&gt;
-&lt;p&gt;First, create a new session.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; local_port: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u16 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7000&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; num_players : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_size : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;usize &lt;&#x2F;span&gt;&lt;span&gt;= std::mem::size_of::&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;();&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span&gt; sess = ggrs::start_p2p_session(num_players, input_size, local_port)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Then, you should specify the players participating in the game, exactly as many as you defined through &lt;code&gt;num_players&lt;&#x2F;code&gt;. You can add exactly one &lt;code&gt;PlayerType::Local&lt;&#x2F;code&gt;, the rest should be &lt;code&gt;PlayerType::Remote(addr)&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; local_handle = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; remote_handle = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; remote_addr: SocketAddr = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;127.0.0.1:7001&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_player&lt;&#x2F;span&gt;&lt;span&gt;(PlayerType::Local, local_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_player&lt;&#x2F;span&gt;&lt;span&gt;(PlayerType::Remote(remote_addr), remote_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Optionally, define any spectators you wish to add. The &lt;code&gt;spectator_handle&lt;&#x2F;code&gt; should be greater or equal to &lt;code&gt;num_players&lt;&#x2F;code&gt;. Internally, GGRS will add 1000 to the provided handle to identify the spectator client, so the resulting internal handle will be 1002 in this example.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; spectator_handle = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; spec_addr: SocketAddr = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;127.0.0.1:7002&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_player&lt;&#x2F;span&gt;&lt;span&gt;(PlayerType::Spectator(spec_addr), spectator_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;You can set input delay for the local player. You do not need to do this for remote players.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; desired_delay = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_frame_delay&lt;&#x2F;span&gt;&lt;span&gt;(desired_delay, local_handle)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Per default, GGRS requests to save the gamestate after every update step in order to minimize rollbacks as much as possible. If saving your game state takes much longer than performing multiple update steps, GGRS has an alternative sparse saving mode where instead the amount of save requests are minimized at the cost of some additional state update requests.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_sparse_saving&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Finally, you can start the session. GGRS will then make an effort to establish communication between all clients. Only if the connection to all remotes (including spectators) has been established, the session will be able to advance the gamestate and send inputs.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;start_session&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;h3 id=&quot;p2pspectatorsession&quot;&gt;P2PSpectatorSession&lt;&#x2F;h3&gt;
-&lt;p&gt;First, create a new session. For the spectator, you will have to define a &lt;code&gt;host_addr&lt;&#x2F;code&gt; from which this session will receive inputs from all players. The defined host needs to add this client as a spectator, as well.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; local_port: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u16 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7002&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; num_players : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_size : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;usize &lt;&#x2F;span&gt;&lt;span&gt;= std::mem::size_of::&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;();&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; host_addr: SocketAddr = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;127.0.0.1:7000&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;parse&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span&gt; sess = ggrs::start_p2p_spectator_session(num_players, input_size, local_port, host_addr)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Optionally, you can change the default catch-up parameters. Setting the catch-up speed to 1 will prevent any catch-up measures.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_max_frames_behind&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;5&lt;&#x2F;span&gt;&lt;span&gt;)?; &lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_catchup_speed&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Then, you can start the session. GGRS will then make an effort to establish communication to the host. Only then will the session be able to advance the gamestate.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;start_session&lt;&#x2F;span&gt;&lt;span&gt;()?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;h3 id=&quot;synctestsession&quot;&gt;SyncTestSession&lt;&#x2F;h3&gt;
-&lt;p&gt;First, create a new session. &lt;code&gt;check_distance&lt;&#x2F;code&gt; specifies how many frames of rollback you want to induce every frame. This value cannot exceed the maximum predicition frames allowed. Currently, 7 is the maximum distance of rollback that can occur.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; check_distance : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;7&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; num_players : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32 &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_size : &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;usize &lt;&#x2F;span&gt;&lt;span&gt;= std::mem::size_of::&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;();&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span&gt; sess = ggrs::start_synctest_session(num_players, input_size, check_distance)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Afterwards, you can optionally define input delays for any player you wish.&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input_delay = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_frame_delay&lt;&#x2F;span&gt;&lt;span&gt;(input_delay, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_frame_delay&lt;&#x2F;span&gt;&lt;span&gt;(input_delay, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span&gt;)?;&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;You don&#x27;t need to define players or start the session. Because there are no remote clients to synchronize with, a &lt;code&gt;SyncTestSession&lt;&#x2F;code&gt; will immediately be ready to advance the game.&lt;&#x2F;p&gt;
-&lt;h2 id=&quot;main-loop&quot;&gt;Main Loop&lt;&#x2F;h2&gt;
-&lt;p&gt;In your main game loop, you should call &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; in fixed intervals. How to do that exactly depends heavily on your software stack. You can also check out 👉&lt;a href=&quot;https:&#x2F;&#x2F;medium.com&#x2F;@tglaiel&#x2F;how-to-make-your-game-run-at-60fps-24c61210fe75&quot;&gt;this article&lt;&#x2F;a&gt; or 👉&lt;a href=&quot;https:&#x2F;&#x2F;gafferongames.com&#x2F;post&#x2F;fix_your_timestep&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; to learn more about running your own gameloop.&lt;&#x2F;p&gt;
-&lt;p&gt;Please see 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_p2p.rs&quot;&gt;BoxGame P2P&lt;&#x2F;a&gt;, 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_spectator.rs&quot;&gt;BoxGame Spectator&lt;&#x2F;a&gt; or 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_synctest.rs&quot;&gt;BoxGame SyncTest&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
-&lt;h3 id=&quot;handling-requests&quot;&gt;Handling Requests&lt;&#x2F;h3&gt;
-&lt;p&gt;If calling &lt;code&gt;advance_frame(...)&lt;&#x2F;code&gt; succeeds, it will return a &lt;code&gt;Vec&amp;lt;GGRSRequest&amp;gt;&lt;&#x2F;code&gt;. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests:&lt;&#x2F;p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;AdvanceFrame { inputs: Vec&amp;lt;GameInput&amp;gt; }&lt;&#x2F;code&gt;: Advance the frame with the provided inputs&lt;&#x2F;li&gt;
-&lt;li&gt;&lt;code&gt;LoadGameState { cell: GameStateCell }&lt;&#x2F;code&gt;: Save the current gamestate by calling &lt;code&gt;cell.save(your_state)&lt;&#x2F;code&gt;.&lt;&#x2F;li&gt;
-&lt;li&gt;&lt;code&gt;SaveGameState { cell: GameStateCell, frame: Frame }&lt;&#x2F;code&gt;: Load a previous gamestate by calling &lt;code&gt;your_state = cell.load()&lt;&#x2F;code&gt;. The provided &lt;code&gt;frame&lt;&#x2F;code&gt; defines frame from which this gamestate is at.&lt;&#x2F;li&gt;
-&lt;&#x2F;ul&gt;
-&lt;p&gt;Please see 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game.rs&quot;&gt;BoxGame&lt;&#x2F;a&gt; for a full code example.&lt;&#x2F;p&gt;
-&lt;h3 id=&quot;polling-remote-clients&quot;&gt;Polling Remote Clients&lt;&#x2F;h3&gt;
-&lt;p&gt;If you have spare time between rendering and updating your game, you can always call:&lt;&#x2F;p&gt;
-&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;poll_remote_clients&lt;&#x2F;span&gt;&lt;span&gt;();&lt;&#x2F;span&gt;&lt;span&gt;
-&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;This will receive and handle incoming UDP packets and send queued packets to other remote clients. GGRS should work without explicitly calling this method, but frequent polling leads to timely communication between sessions.&lt;&#x2F;p&gt;
-&lt;h3 id=&quot;handling-events&quot;&gt;Handling Events&lt;&#x2F;h3&gt;
-&lt;p&gt;Events are notifications from the session for the user. Please see the examples or refer to the documentation what kind of &lt;code&gt;GGRSEvent&lt;&#x2F;code&gt; can occur.&lt;&#x2F;p&gt;
-</content>
-	</entry>
-	<entry xml:lang="en">
 		<title>FAQ</title>
 		<published>2021-08-04T19:17:23+00:00</published>
 		<updated>2021-08-04T19:17:23+00:00</updated>
@@ -195,15 +216,50 @@
 </content>
 	</entry>
 	<entry xml:lang="en">
+		<title>Setup</title>
+		<published>2021-08-04T19:17:23+00:00</published>
+		<updated>2021-08-04T19:17:23+00:00</updated>
+		<link href="https://gschup.github.io/ggrs/docs/tutorial/setup/" type="text/html"/>
+		<id>https://gschup.github.io/ggrs/docs/tutorial/setup/</id>
+		<content type="html">&lt;p&gt;To start, add GGRS to your dependencies:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;toml&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-toml &quot;&gt;&lt;code class=&quot;language-toml&quot; data-lang=&quot;toml&quot;&gt;&lt;span&gt;[dependencies]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;ggrs &lt;&#x2F;span&gt;&lt;span&gt;= &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;0.5&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h2 id=&quot;assumptions&quot;&gt;Assumptions&lt;&#x2F;h2&gt;
+&lt;p&gt;GGRS assumes that you have addresses and ports of every client you want to synchronize with. It does not handle NAT traversal nor does does it provide a signalling server. Check out 👉&lt;a href=&quot;https:&#x2F;&#x2F;keithjohnston.wordpress.com&#x2F;2014&#x2F;02&#x2F;17&#x2F;nat-punch-through-for-multiplayer-games&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; or 👉&lt;a href=&quot;https:&#x2F;&#x2F;bford.info&#x2F;pub&#x2F;net&#x2F;p2pnat&#x2F;&quot;&gt;this article&lt;&#x2F;a&gt; for more information on the topic.&lt;&#x2F;p&gt;
+&lt;p&gt;TODO determinism requirements&lt;&#x2F;p&gt;
+</content>
+	</entry>
+	<entry xml:lang="en">
 		<title>Introduction</title>
 		<published>2021-05-01T08:00:00+00:00</published>
 		<updated>2021-05-01T08:00:00+00:00</updated>
 		<link href="https://gschup.github.io/ggrs/docs/getting-started/introduction/" type="text/html"/>
 		<id>https://gschup.github.io/ggrs/docs/getting-started/introduction/</id>
-		<content type="html">&lt;h2 id=&quot;quick-start&quot;&gt;Quick Start&lt;&#x2F;h2&gt;
-&lt;p&gt;One page summary of how to start developing with GGRS. 👉&lt;a href=&quot;..&#x2F;quick-start&#x2F;&quot;&gt;Quick Start&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+		<content type="html">&lt;h2 id=&quot;tutorial&quot;&gt;Tutorial&lt;&#x2F;h2&gt;
+&lt;p&gt;Tutorial and code snippets on how to start developing with GGRS. 👉&lt;a href=&quot;..&#x2F;..&#x2F;tutorial&#x2F;setup&#x2F;&quot;&gt;Tutorial&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;examples&quot;&gt;Examples&lt;&#x2F;h2&gt;
-&lt;p&gt;Find full game examples. 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&quot;&gt;Examples&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Find full application examples. 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&quot;&gt;Examples&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;documentation&quot;&gt;Documentation&lt;&#x2F;h2&gt;
+&lt;p&gt;Find the full documentation. 👉&lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;ggrs&#x2F;newest&#x2F;ggrs&#x2F;&quot;&gt;Documentation&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;bevy-plugin&quot;&gt;Bevy Plugin&lt;&#x2F;h2&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;bevyengine.org&#x2F;&quot;&gt;Bevy engine&lt;&#x2F;a&gt; is a refreshingly simple data-driven game engine built in Rust, emplyoing the
+&lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;Entity_component_system&quot;&gt;ECS paradigm&lt;&#x2F;a&gt;. It is free and Open Source!&lt;&#x2F;p&gt;
+&lt;p&gt;The plugin is currently under development.&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;bevy_ggrs&quot;&gt;Bevy_GGRS&lt;&#x2F;a&gt;.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;wasm-support-through-webrtc-sockets&quot;&gt;WASM support through WebRTC sockets&lt;&#x2F;h2&gt;
+&lt;p&gt;If you are interested to run a GGRS application in your browser, check the amazing Matchbox project! The repository includes a full running demo you can try right now.
+The matchbox sockets are compatible with GGRS through a feature flag:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;johanhelsing&#x2F;matchbox&quot;&gt;Matchbox&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;godot-wrapper&quot;&gt;Godot Wrapper&lt;&#x2F;h2&gt;
+&lt;p&gt;marcello505 is currently developing a wrapper for &lt;a href=&quot;https:&#x2F;&#x2F;godotengine.org&#x2F;&quot;&gt;Godot&lt;&#x2F;a&gt;. Find the repository here:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;marcello505&#x2F;godot-ggrs-wrapper&quot;&gt;Godot GGRS Wrapper&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
 &lt;h2 id=&quot;contributing&quot;&gt;Contributing&lt;&#x2F;h2&gt;
 &lt;p&gt;Find out how to contribute. 👉&lt;a href=&quot;..&#x2F;..&#x2F;contributing&#x2F;how-to-contribute&#x2F;&quot;&gt;Contributing&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;help&quot;&gt;Help&lt;&#x2F;h2&gt;

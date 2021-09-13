@@ -14,8 +14,8 @@ If you are interested in integrating rollback networking into your game or just 
 To get started with GGRS, check out the following resources:
 
 - [Website](https://gschup.github.io/ggrs/)
-- [Tutorial](https://gschup.github.io/ggrs/docs/getting-started/quick-start/)
-- [Examples](./examples/README.md)
+- [Tutorial](https://gschup.github.io/ggrs/docs/tutorial/setup/)
+- [Examples](./examples/)
 - [Documentation](https://docs.rs/ggrs/newest/ggrs/)
 
 ## Development Status

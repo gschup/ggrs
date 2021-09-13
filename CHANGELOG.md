@@ -4,7 +4,11 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- renamed session constructors to make them more idiomatic. They are now called `P2PSession::new(...)` and `P2PSession::new_with_socket(...)`.
+- nothing here yet...
+
+## 0.5.0
+
+- renamed session constructors to make them more idiomatic. Sessions are now created through `P2PSession::new(...)` and `P2PSession::new_with_socket(...)`.
 - added functions to create sessions with own sockets provided
 - turned NonBlockingSocket into a trait to allow alternate socket types in the future.
 - fixed a bug where calling network_stats without any time passed would lead to a division by 0.

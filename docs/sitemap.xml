@@ -49,16 +49,8 @@
         <loc>https://gschup.github.io/ggrs/docs/getting-started/</loc>
     </url>
     <url>
-        <loc>https://gschup.github.io/ggrs/docs/getting-started/bevy-ggrs/</loc>
-        <lastmod>2021-08-16T10:27:00+00:00</lastmod>
-    </url>
-    <url>
         <loc>https://gschup.github.io/ggrs/docs/getting-started/introduction/</loc>
         <lastmod>2021-05-01T08:00:00+00:00</lastmod>
-    </url>
-    <url>
-        <loc>https://gschup.github.io/ggrs/docs/getting-started/quick-start/</loc>
-        <lastmod>2021-08-04T19:17:23+00:00</lastmod>
     </url>
     <url>
         <loc>https://gschup.github.io/ggrs/docs/help/</loc>
@@ -66,6 +58,29 @@
     <url>
         <loc>https://gschup.github.io/ggrs/docs/help/faq/</loc>
         <lastmod>2021-08-04T19:17:23+00:00</lastmod>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/docs/tutorial/</loc>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/docs/tutorial/main-loop/</loc>
+        <lastmod>2021-09-13T00:00:00+00:00</lastmod>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/docs/tutorial/requests-events/</loc>
+        <lastmod>2021-09-13T00:00:00+00:00</lastmod>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/docs/tutorial/sessions/</loc>
+        <lastmod>2021-09-13T00:00:00+00:00</lastmod>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/docs/tutorial/setup/</loc>
+        <lastmod>2021-08-04T19:17:23+00:00</lastmod>
+    </url>
+    <url>
+        <loc>https://gschup.github.io/ggrs/docs/tutorial/time-sync/</loc>
+        <lastmod>2021-09-13T00:00:00+00:00</lastmod>
     </url>
     <url>
         <loc>https://gschup.github.io/ggrs/privacy-policy/</loc>
