@@ -30,17 +30,27 @@ GGRS is in an early stage, but the main functionality for multiple players and s
 
 ### Bevy Plugin
 
-The authors of GGRS are also maintaining a [Bevy](https://bevyengine.org/) plugin. Check it out: 
+The authors of GGRS are also maintaining a [Bevy](https://bevyengine.org/) plugin. Check it out:
+
 - 👉[Bevy GGRS](https://github.com/gschup/bevy_ggrs)
+
+### WASM support through WebRTC sockets
+
+If you are interested to run a GGRS application in your browser, check the amazing Matchbox project! The repository includes a full running demo you can try right now.
+The matchbox sockets are compatible with GGRS through a feature flag:
+
+- 👉[Matchbox](https://github.com/johanhelsing/matchbox)
 
 ### Godot Wrapper
 
-marcello505 is currently developing a wrapper for [Godot](https://godotengine.org/). Find the repository here: 
+marcello505 is currently developing a wrapper for [Godot](https://godotengine.org/). Find the repository here:
+
 - 👉[Godot GGRS Wrapper](https://github.com/marcello505/godot-ggrs-wrapper)
 
 ### Other Rollback Implementations in Rust
 
-Also take a look at the awesome 
+Also take a look at the awesome
+
 - 👉[backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)!
 
 ## Licensing
