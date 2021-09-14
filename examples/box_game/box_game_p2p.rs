@@ -41,6 +41,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // turn on sparse saving
     sess.set_sparse_saving(true)?;
 
+    // set FPS (default is 60, so this doesn't change anything as is)
+    sess.set_fps(FPS as u32)?;
+
     // add players
     for (i, player_addr) in opt.players.iter().enumerate() {
         // local player
