@@ -18,6 +18,7 @@ use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
 const RECOMMENDATION_INTERVAL: Frame = 40;
+const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 const DEFAULT_SAVE_MODE: bool = false;
 pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
@@ -129,6 +130,8 @@ pub struct P2PSession {
     next_spectator_frame: Frame,
     /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
     next_recommended_sleep: Frame,
+    /// How many frames we estimate we are ahead of every remote client
+    frames_ahead: u32,
 
     ///Contains all events to be forwarded to the user.
     event_queue: VecDeque<GGRSEvent>,
@@ -210,6 +213,7 @@ impl P2PSession {
             local_connect_status,
             next_recommended_sleep: 0,
             next_spectator_frame: 0,
+            frames_ahead: 0,
             sync_layer: SyncLayer::new(num_players, input_size),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
@@ -393,14 +397,14 @@ impl P2PSession {
             .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
 
         // check time sync between clients and send wait recommendation, if appropriate
-        if self.sync_layer.current_frame() > self.next_recommended_sleep {
-            let skip_frames = self.max_delay_recommendation(true);
-            if skip_frames > 0 {
-                self.next_recommended_sleep =
-                    self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
-                self.event_queue
-                    .push_back(GGRSEvent::WaitRecommendation { skip_frames });
-            }
+        self.frames_ahead = self.max_delay_recommendation();
+        if self.sync_layer.current_frame() > self.next_recommended_sleep
+            && self.frames_ahead >= MIN_RECOMMENDATION
+        {
+            self.next_recommended_sleep = self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
+            self.event_queue.push_back(GGRSEvent::WaitRecommendation {
+                skip_frames: self.frames_ahead,
+            });
         }
 
         //create an input struct for current frame
@@ -652,6 +656,11 @@ impl P2PSession {
     /// Returns the input size this session was constructed with.
     pub const fn input_size(&self) -> usize {
         self.input_size
+    }
+
+    /// Returns the number of frames this session is estimated to be ahead of other sessions
+    pub const fn frames_ahead(&self) -> u32 {
+        self.frames_ahead
     }
 
     fn add_local_player(&mut self, player_handle: PlayerHandle) -> Result<PlayerHandle, GGRSError> {
@@ -935,7 +944,7 @@ impl P2PSession {
     }
 
     /// Gather delay recommendations from each remote client and return the maximum.
-    fn max_delay_recommendation(&self, require_idle_input: bool) -> u32 {
+    fn max_delay_recommendation(&self) -> u32 {
         let mut interval = 0;
         for (player_handle, endpoint) in self
             .players
@@ -944,8 +953,7 @@ impl P2PSession {
             .enumerate()
         {
             if !self.local_connect_status[player_handle].disconnected {
-                interval =
-                    std::cmp::max(interval, endpoint.recommend_frame_delay(require_idle_input));
+                interval = std::cmp::max(interval, endpoint.recommend_frame_delay());
             }
         }
         interval

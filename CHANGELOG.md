@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- added `P2PSession::frames_ahead()` that shows how many frames the session believes to be ahead of other sessions.
 
 ## 0.5.0
 

@@ -267,9 +267,8 @@ impl UdpProtocol {
         self.send_sync_request();
     }
 
-    pub(crate) fn recommend_frame_delay(&self, require_idle_input: bool) -> u32 {
-        self.time_sync_layer
-            .recommend_frame_delay(require_idle_input)
+    pub(crate) fn recommend_frame_delay(&self) -> u32 {
+        self.time_sync_layer.recommend_frame_delay()
     }
 
     pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event> {
@@ -360,7 +359,7 @@ impl UdpProtocol {
 
         // register the input and advantages in the time sync layer
         self.time_sync_layer.advance_frame(
-            input,
+            input.frame,
             self.local_frame_advantage,
             self.remote_frame_advantage,
         );
