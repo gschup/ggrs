@@ -13,6 +13,7 @@ use crate::{
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::convert::TryInto;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
@@ -131,7 +132,7 @@ pub struct P2PSession {
     /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
     next_recommended_sleep: Frame,
     /// How many frames we estimate we are ahead of every remote client
-    frames_ahead: u32,
+    frames_ahead: i32,
 
     ///Contains all events to be forwarded to the user.
     event_queue: VecDeque<GGRSEvent>,
@@ -397,13 +398,16 @@ impl P2PSession {
             .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
 
         // check time sync between clients and send wait recommendation, if appropriate
-        self.frames_ahead = self.max_delay_recommendation();
+        self.frames_ahead = self.max_frame_advantage();
         if self.sync_layer.current_frame() > self.next_recommended_sleep
-            && self.frames_ahead >= MIN_RECOMMENDATION
+            && self.frames_ahead >= MIN_RECOMMENDATION as i32
         {
             self.next_recommended_sleep = self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
             self.event_queue.push_back(GGRSEvent::WaitRecommendation {
-                skip_frames: self.frames_ahead,
+                skip_frames: self
+                    .frames_ahead
+                    .try_into()
+                    .expect("frames ahead is negative despite being positive."),
             });
         }
 
@@ -659,7 +663,7 @@ impl P2PSession {
     }
 
     /// Returns the number of frames this session is estimated to be ahead of other sessions
-    pub const fn frames_ahead(&self) -> u32 {
+    pub const fn frames_ahead(&self) -> i32 {
         self.frames_ahead
     }
 
@@ -943,9 +947,9 @@ impl P2PSession {
         }
     }
 
-    /// Gather delay recommendations from each remote client and return the maximum.
-    fn max_delay_recommendation(&self) -> u32 {
-        let mut interval = 0;
+    /// Gather average frame advantage from each remote client and return the maximum.
+    fn max_frame_advantage(&self) -> i32 {
+        let mut interval = i32::MIN;
         for (player_handle, endpoint) in self
             .players
             .values()
@@ -953,9 +957,16 @@ impl P2PSession {
             .enumerate()
         {
             if !self.local_connect_status[player_handle].disconnected {
-                interval = std::cmp::max(interval, endpoint.recommend_frame_delay());
+                // TODO: is this still what we want for >2 players?
+                interval = std::cmp::max(interval, endpoint.average_frame_advantage());
             }
         }
+
+        // if no remote player is connected
+        if interval == i32::MIN {
+            interval = 0;
+        }
+
         interval
     }
 

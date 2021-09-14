@@ -267,8 +267,8 @@ impl UdpProtocol {
         self.send_sync_request();
     }
 
-    pub(crate) fn recommend_frame_delay(&self) -> u32 {
-        self.time_sync_layer.recommend_frame_delay()
+    pub(crate) fn average_frame_advantage(&self) -> i32 {
+        self.time_sync_layer.average_frame_advantage()
     }
 
     pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event> {
