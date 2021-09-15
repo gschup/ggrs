@@ -38,8 +38,9 @@ impl NonBlockingSocket for UdpNonBlockingSocket {
             match self.socket.recv_from(&mut self.buffer) {
                 Ok((number_of_bytes, src_addr)) => {
                     assert!(number_of_bytes <= RECV_BUFFER_SIZE);
-                    let msg = bincode::deserialize(&self.buffer[0..number_of_bytes]).unwrap();
-                    received_messages.push((src_addr, msg));
+                    if let Ok(msg) = bincode::deserialize(&self.buffer[0..number_of_bytes]) {
+                        received_messages.push((src_addr, msg));
+                    }
                 }
                 // there are no more messages
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => return received_messages,
