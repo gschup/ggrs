@@ -137,7 +137,43 @@
 		<updated>2021-09-13T00:00:00+00:00</updated>
 		<link href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/" type="text/html"/>
 		<id>https://gschup.github.io/ggrs/docs/tutorial/time-sync/</id>
-		<content type="html">&lt;p&gt;TODO.&lt;&#x2F;p&gt;
+		<content type="html">&lt;p&gt;When running a P2PSession, one client may over time get ahead of another. This can happen due to numerous reasons, such as one machine running slow or one session starting slightly early. Running ahead like this is a disadvantage, as the other clients receive inputs well in time, while the client ahead has to rollback much more frequently. There are multiple ways to mitigate this and bring the clients back to running in sync. GGRS exposes two main ways to handle time rift: The &lt;code&gt;WaitRecommendation&lt;&#x2F;code&gt; Event and &lt;code&gt;P2PSession::frames_ahead&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;synchronizing-via-events&quot;&gt;Synchronizing via Events&lt;&#x2F;h2&gt;
+&lt;p&gt;The easiest way is to fetch GGRSEvents via &lt;code&gt;session.events()&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span&gt; event in sess.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;events&lt;&#x2F;span&gt;&lt;span&gt;() {&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span&gt;GGRSEvent::WaitRecommendation { skip_frames } = event {&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        frames_to_skip += skip_frames&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    }&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    println!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Event: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{:?}&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;, event);&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;}&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;When executing frame updates, simply skip a number of frames in your game loop:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span&gt;[...]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span&gt; frames_to_skip &amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0 &lt;&#x2F;span&gt;&lt;span&gt;{&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    frames_to_skip -= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    println!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Frame &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt; skipped: WaitRecommendation&lt;&#x2F;span&gt;&lt;span&gt;&amp;quot;, game.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;current_frame&lt;&#x2F;span&gt;&lt;span&gt;());&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;continue&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;}&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[...]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;GGRS will send &lt;code&gt;WaitRecommendation&lt;&#x2F;code&gt; events no more than once per second and only if the local client has consistenly been three or more frames ahead for at least 30 frames.
+This method is a simple way to keep clients running in sync, but is has drawbacks, since skipping frames may be jarring to the user.
+Additionally, even with only a two-frame rift, one client will experience more rollbacks than the other.&lt;&#x2F;p&gt;
+&lt;p&gt;You can check out this approach in 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;ggrs&#x2F;tree&#x2F;main&#x2F;examples&#x2F;box_game&#x2F;box_game_p2p.rs&quot;&gt;BoxGame P2P&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;manual-time-rift-synchronization&quot;&gt;Manual Time Rift Synchronization&lt;&#x2F;h2&gt;
+&lt;p&gt;In addition to the event-based recommendations, GGRS exposes &lt;code&gt;P2PSession::frames_ahead()&lt;&#x2F;code&gt;, which will give you a number indicating how many frames the client believes to be ahead
+based on the last 30 frames. If this number is negative, your local client is behind. If positive, your local client is ahead. If you have control over exact frame timings, you can run the client who&#x27;s ahead slightly slower than usual, allowing for remote clients to catch up.&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#2b303b;color:#c0c5ce;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span&gt; fps_delta = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1. &lt;&#x2F;span&gt;&lt;span&gt;&#x2F; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span&gt;.fps as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span&gt;.run_slow {&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    fps_delta *= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1.1&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;}&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[...]&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span&gt;.run_slow = session.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;frames_ahead&lt;&#x2F;span&gt;&lt;span&gt;() &amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;;&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This way, the user will not experience stutters due to skipped frames. Additionally, the time rift will consistently be smaller. Optionally, you could think about running the client behind slightly faster or having a scalable slowdown or speedup based on the discrepancy size. When handling time rift via &lt;code&gt;session.frames_ahead()&lt;&#x2F;code&gt;, you might want to disregard &lt;code&gt;WaitRecommendation&lt;&#x2F;code&gt; events, based on your implementation.&lt;&#x2F;p&gt;
+&lt;p&gt;You can check out this approach in 👉&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;gschup&#x2F;bevy_ggrs&#x2F;blob&#x2F;main&#x2F;src&#x2F;ggrs_stage.rs&quot;&gt;Bevy GGRS&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
 </content>
 	</entry>
 	<entry xml:lang="en">

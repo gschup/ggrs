@@ -311,6 +311,12 @@
   			<nav id="TableOfContents">
   					<ul>
   							
+  							<li><a href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/#synchronizing-via-events">Synchronizing via Events</a></li>
+  							
+  							
+  							<li><a href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/#manual-time-rift-synchronization">Manual Time Rift Synchronization</a></li>
+  							
+  							
   					</ul>
   			</nav>
   	</div>
@@ -320,7 +326,43 @@
       <main class="docs-content col-lg-11 col-xl-9">
         <h1>Time Synchronization</h1>
         
-        <p>TODO.</p>
+        <p>When running a P2PSession, one client may over time get ahead of another. This can happen due to numerous reasons, such as one machine running slow or one session starting slightly early. Running ahead like this is a disadvantage, as the other clients receive inputs well in time, while the client ahead has to rollback much more frequently. There are multiple ways to mitigate this and bring the clients back to running in sync. GGRS exposes two main ways to handle time rift: The <code>WaitRecommendation</code> Event and <code>P2PSession::frames_ahead</code>.</p>
+<h2 id="synchronizing-via-events">Synchronizing via Events</h2>
+<p>The easiest way is to fetch GGRSEvents via <code>session.events()</code>:</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#b48ead;">for</span><span> event in sess.</span><span style="color:#96b5b4;">events</span><span>() {</span><span>
+</span><span>    </span><span style="color:#b48ead;">if let </span><span>GGRSEvent::WaitRecommendation { skip_frames } = event {</span><span>
+</span><span>        frames_to_skip += skip_frames</span><span>
+</span><span>    }</span><span>
+</span><span>    println!(&quot;</span><span style="color:#a3be8c;">Event: </span><span style="color:#d08770;">{:?}</span><span>&quot;, event);</span><span>
+</span><span>}</span><span>
+</span></code></pre>
+<p>When executing frame updates, simply skip a number of frames in your game loop:</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>[...]</span><span>
+</span><span style="color:#b48ead;">if</span><span> frames_to_skip &gt; </span><span style="color:#d08770;">0 </span><span>{</span><span>
+</span><span>    frames_to_skip -= </span><span style="color:#d08770;">1</span><span>;</span><span>
+</span><span>    println!(&quot;</span><span style="color:#a3be8c;">Frame </span><span style="color:#d08770;">{}</span><span style="color:#a3be8c;"> skipped: WaitRecommendation</span><span>&quot;, game.</span><span style="color:#96b5b4;">current_frame</span><span>());</span><span>
+</span><span>    </span><span style="color:#b48ead;">continue</span><span>;</span><span>
+</span><span>}</span><span>
+</span><span>[...]</span><span>
+</span></code></pre>
+<p>GGRS will send <code>WaitRecommendation</code> events no more than once per second and only if the local client has consistenly been three or more frames ahead for at least 30 frames.
+This method is a simple way to keep clients running in sync, but is has drawbacks, since skipping frames may be jarring to the user.
+Additionally, even with only a two-frame rift, one client will experience more rollbacks than the other.</p>
+<p>You can check out this approach in 👉<a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_p2p.rs">BoxGame P2P</a>.</p>
+<h2 id="manual-time-rift-synchronization">Manual Time Rift Synchronization</h2>
+<p>In addition to the event-based recommendations, GGRS exposes <code>P2PSession::frames_ahead()</code>, which will give you a number indicating how many frames the client believes to be ahead
+based on the last 30 frames. If this number is negative, your local client is behind. If positive, your local client is ahead. If you have control over exact frame timings, you can run the client who's ahead slightly slower than usual, allowing for remote clients to catch up.</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#b48ead;">let mut</span><span> fps_delta = </span><span style="color:#d08770;">1. </span><span>/ </span><span style="color:#bf616a;">self</span><span>.fps as </span><span style="color:#b48ead;">f64</span><span>;</span><span>
+</span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">self</span><span>.run_slow {</span><span>
+</span><span>    fps_delta *= </span><span style="color:#d08770;">1.1</span><span>;</span><span>
+</span><span>}</span><span>
+</span><span>
+</span><span>[...]</span><span>
+</span><span>
+</span><span style="color:#bf616a;">self</span><span>.run_slow = session.</span><span style="color:#96b5b4;">frames_ahead</span><span>() &gt; </span><span style="color:#d08770;">0</span><span>;</span><span>
+</span></code></pre>
+<p>This way, the user will not experience stutters due to skipped frames. Additionally, the time rift will consistently be smaller. Optionally, you could think about running the client behind slightly faster or having a scalable slowdown or speedup based on the discrepancy size. When handling time rift via <code>session.frames_ahead()</code>, you might want to disregard <code>WaitRecommendation</code> events, based on your implementation.</p>
+<p>You can check out this approach in 👉<a href="https://github.com/gschup/bevy_ggrs/blob/main/src/ggrs_stage.rs">Bevy GGRS</a>.</p>
 
         
         
