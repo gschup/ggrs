@@ -82,8 +82,7 @@ impl SavedStates {
     fn peek(&mut self, frame: Frame) -> GameStateCell {
         assert!(frame >= 0);
         let pos = frame as usize % self.states.len();
-        let saved_cell = self.states[pos].clone();
-        saved_cell
+        self.states[pos].clone()
     }
 
     fn by_frame(&self, frame: Frame) -> Option<GameStateCell> {

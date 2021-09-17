@@ -35,9 +35,7 @@ impl TimeSync {
         let remote_avg = remote_sum as f32 / self.remote.len() as f32;
 
         // meet in the middle
-        let sleep_frames = ((remote_avg - local_avg) / 2.0) as i32;
-
-        sleep_frames
+        ((remote_avg - local_avg) / 2.0) as i32
     }
 }
 
