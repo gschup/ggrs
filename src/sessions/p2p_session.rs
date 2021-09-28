@@ -1,23 +1,25 @@
 use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::network_stats::NetworkStats;
-use crate::network::non_blocking_socket::NonBlockingSocket;
+use crate::network::non_blocking_socket::{NonBlockingSocket, UdpNonBlockingSocket};
 use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::UdpProtocol;
 use crate::sync_layer::SyncLayer;
 use crate::{
-    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_PREDICTION_FRAMES,
-    NULL_FRAME,
+    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_INPUT_BYTES,
+    MAX_PLAYERS, MAX_PREDICTION_FRAMES, NULL_FRAME,
 };
 
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::net::SocketAddr;
+use std::convert::TryInto;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
-const RECOMMENDATION_INTERVAL: Frame = 40;
+const RECOMMENDATION_INTERVAL: Frame = 60;
+const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 const DEFAULT_SAVE_MODE: bool = false;
 pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
@@ -129,24 +131,80 @@ pub struct P2PSession {
     next_spectator_frame: Frame,
     /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
     next_recommended_sleep: Frame,
+    /// How many frames we estimate we are ahead of every remote client
+    frames_ahead: i32,
 
     ///Contains all events to be forwarded to the user.
     event_queue: VecDeque<GGRSEvent>,
 }
 
 impl P2PSession {
-    pub(crate) fn new(
+    /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+    /// set input delay for local players and then start the session.
+    /// # Example
+    ///
+    /// ```
+    /// # use ggrs::{GGRSError, P2PSession};
+    /// # fn main() -> Result<(), GGRSError> {
+    /// let local_port: u16 = 7777;
+    /// let num_players : u32 = 2;
+    /// let input_size : usize = std::mem::size_of::<u32>();
+    /// let mut session = P2PSession::new(num_players, input_size, local_port)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// The created session will use the default socket type (currently UDP).
+    ///
+    /// # Errors
+    /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+    /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+    /// - Will return `SocketCreationFailed` if the socket could not be created.
+    pub fn new(num_players: u32, input_size: usize, local_port: u16) -> Result<Self, GGRSError> {
+        // udp nonblocking socket creation
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
+        let socket =
+            Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
+        Self::new_impl(num_players, input_size, socket)
+    }
+
+    /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+    /// set input delay for local players and then start the session. The session will use the provided socket.
+    ///
+    /// # Errors
+    /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+    /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+    pub fn new_with_socket(
+        num_players: u32,
+        input_size: usize,
+        socket: impl NonBlockingSocket + 'static,
+    ) -> Result<Self, GGRSError> {
+        Self::new_impl(num_players, input_size, Box::new(socket))
+    }
+
+    fn new_impl(
         num_players: u32,
         input_size: usize,
         socket: Box<dyn NonBlockingSocket>,
-    ) -> Self {
+    ) -> Result<Self, GGRSError> {
+        if num_players > MAX_PLAYERS {
+            return Err(GGRSError::InvalidRequest {
+                info: "Too many players.".to_owned(),
+            });
+        }
+        if input_size > MAX_INPUT_BYTES {
+            return Err(GGRSError::InvalidRequest {
+                info: "Input size too big.".to_owned(),
+            });
+        }
+
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {
             local_connect_status.push(ConnectionStatus::default());
         }
 
-        Self {
+        Ok(Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
@@ -156,13 +214,14 @@ impl P2PSession {
             local_connect_status,
             next_recommended_sleep: 0,
             next_spectator_frame: 0,
+            frames_ahead: 0,
             sync_layer: SyncLayer::new(num_players, input_size),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             disconnect_frame: NULL_FRAME,
             players: HashMap::new(),
             event_queue: VecDeque::new(),
-        }
+        })
     }
 
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session. Returns the player handle
@@ -339,14 +398,17 @@ impl P2PSession {
             .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
 
         // check time sync between clients and send wait recommendation, if appropriate
-        if self.sync_layer.current_frame() > self.next_recommended_sleep {
-            let skip_frames = self.max_delay_recommendation(true);
-            if skip_frames > 0 {
-                self.next_recommended_sleep =
-                    self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
-                self.event_queue
-                    .push_back(GGRSEvent::WaitRecommendation { skip_frames });
-            }
+        self.frames_ahead = self.max_frame_advantage();
+        if self.sync_layer.current_frame() > self.next_recommended_sleep
+            && self.frames_ahead >= MIN_RECOMMENDATION as i32
+        {
+            self.next_recommended_sleep = self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
+            self.event_queue.push_back(GGRSEvent::WaitRecommendation {
+                skip_frames: self
+                    .frames_ahead
+                    .try_into()
+                    .expect("frames ahead is negative despite being positive."),
+            });
         }
 
         //create an input struct for current frame
@@ -598,6 +660,11 @@ impl P2PSession {
     /// Returns the input size this session was constructed with.
     pub const fn input_size(&self) -> usize {
         self.input_size
+    }
+
+    /// Returns the number of frames this session is estimated to be ahead of other sessions
+    pub const fn frames_ahead(&self) -> i32 {
+        self.frames_ahead
     }
 
     fn add_local_player(&mut self, player_handle: PlayerHandle) -> Result<PlayerHandle, GGRSError> {
@@ -880,9 +947,9 @@ impl P2PSession {
         }
     }
 
-    /// Gather delay recommendations from each remote client and return the maximum.
-    fn max_delay_recommendation(&self, require_idle_input: bool) -> u32 {
-        let mut interval = 0;
+    /// Gather average frame advantage from each remote client and return the maximum.
+    fn max_frame_advantage(&self) -> i32 {
+        let mut interval = i32::MIN;
         for (player_handle, endpoint) in self
             .players
             .values()
@@ -890,10 +957,16 @@ impl P2PSession {
             .enumerate()
         {
             if !self.local_connect_status[player_handle].disconnected {
-                interval =
-                    std::cmp::max(interval, endpoint.recommend_frame_delay(require_idle_input));
+                // TODO: is this still what we want for >2 players?
+                interval = std::cmp::max(interval, endpoint.average_frame_advantage());
             }
         }
+
+        // if no remote player is connected
+        if interval == i32::MIN {
+            interval = 0;
+        }
+
         interval
     }
 

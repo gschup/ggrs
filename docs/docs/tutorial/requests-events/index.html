@@ -46,29 +46,29 @@
 
 	
 
-<title>Introduction | GGRS</title>
+<title>Requests and Events | GGRS</title>
 <meta name="description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
-<link rel="canonical" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">
+<link rel="canonical" href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/">
 
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="doks.png">
-  <meta name="twitter:title" content="Introduction">
+  <meta name="twitter:title" content="Requests and Events">
   <meta name="twitter:description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
   <meta name="twitter:site" content="@g_schup">
   <meta name="twitter:creator" content="@g_schup">
   
-  <meta property="og:title" content="Introduction">
+  <meta property="og:title" content="Requests and Events">
   <meta property="og:description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
   <meta property="og:type" content="article">
-  <meta property="og:url" content="https://gschup.github.io/ggrs/docs/getting-started/introduction/">
+  <meta property="og:url" content="https://gschup.github.io/ggrs/docs/tutorial/requests-events/">
 
   
     <meta property="og:image" content="doks.png">
   
 
-  <meta property="og:updated_time" content="2021-05-01T08:00:00+00:00">
-  <meta property="og:site_name" content="Introduction">
+  <meta property="og:updated_time" content="2021-09-13T00:00:00+00:00">
+  <meta property="og:site_name" content="Requests and Events">
 
   
 
@@ -128,19 +128,19 @@
         
         
         
-        
-        
-        
           
           
           {
             "@type": "ListItem",
             "position":  3 ,
-            "name": "Getting Started",
-            "item": "https://gschup.github.io/ggrs/docs/getting-started/"
+            "name": "Tutorial",
+            "item": "https://gschup.github.io/ggrs/docs/tutorial/"
           },
         
       
+        
+        
+        
         
         
         
@@ -154,8 +154,8 @@
           {
             "@type": "ListItem",
             "position":  4 ,
-            "name": "Introduction",
-            "item": "https://gschup.github.io/ggrs/docs/getting-started/introduction/"
+            "name": "Requests Events",
+            "item": "https://gschup.github.io/ggrs/docs/tutorial/requests-events/"
           },
         
       
@@ -254,7 +254,7 @@
 							<h3>Getting Started</h3>
 							<ul class="list-unstyled">
 							                           
-									<li><a class="docs-link active" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">Introduction</a></li>
+									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">Introduction</a></li>
 							
 					</ul>
 					
@@ -270,7 +270,7 @@
 							                           
 									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/tutorial/main-loop/">Main Loop</a></li>
 							                           
-									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/">Requests and Events</a></li>
+									<li><a class="docs-link active" href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/">Requests and Events</a></li>
 							                           
 									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/">Time Synchronization</a></li>
 							
@@ -311,28 +311,20 @@
   			<nav id="TableOfContents">
   					<ul>
   							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#tutorial">Tutorial</a></li>
+  							<li><a href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/#handling-requests">Handling Requests</a></li>
+  							
+  									<ul>
+  											
+  											<li><a href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/#advanceframe">AdvanceFrame</a></li>
+  											
+  											<li><a href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/#loadgamestate">LoadGameState</a></li>
+  											
+  											<li><a href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/#savegamestate">SaveGameState</a></li>
+  											
+  									</ul>
   							
   							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#examples">Examples</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#documentation">Documentation</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#bevy-plugin">Bevy Plugin</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#wasm-support-through-webrtc-sockets">WASM support through WebRTC sockets</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#godot-wrapper">Godot Wrapper</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#contributing">Contributing</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#help">Help</a></li>
+  							<li><a href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/#handling-events">Handling Events</a></li>
   							
   							
   					</ul>
@@ -342,36 +334,25 @@
   
 
       <main class="docs-content col-lg-11 col-xl-9">
-        <h1>Introduction</h1>
-        <p class="lead">GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.</p>
-        <h2 id="tutorial">Tutorial</h2>
-<p>Tutorial and code snippets on how to start developing with GGRS. 👉<a href="../../tutorial/setup/">Tutorial</a></p>
-<h2 id="examples">Examples</h2>
-<p>Find full application examples. 👉<a href="https://github.com/gschup/ggrs/tree/main/examples">Examples</a></p>
-<h2 id="documentation">Documentation</h2>
-<p>Find the full documentation. 👉<a href="https://docs.rs/ggrs/newest/ggrs/">Documentation</a></p>
-<h2 id="bevy-plugin">Bevy Plugin</h2>
-<p>The <a href="https://bevyengine.org/">Bevy engine</a> is a refreshingly simple data-driven game engine built in Rust, emplyoing the
-<a href="https://en.wikipedia.org/wiki/Entity_component_system">ECS paradigm</a>. It is free and Open Source!</p>
-<p>The plugin is currently under development.</p>
-<ul>
-<li>👉<a href="https://github.com/gschup/bevy_ggrs">Bevy_GGRS</a>.</li>
-</ul>
-<h2 id="wasm-support-through-webrtc-sockets">WASM support through WebRTC sockets</h2>
-<p>If you are interested to run a GGRS application in your browser, check the amazing Matchbox project! The repository includes a full running demo you can try right now.
-The matchbox sockets are compatible with GGRS through a feature flag:</p>
-<ul>
-<li>👉<a href="https://github.com/johanhelsing/matchbox">Matchbox</a></li>
-</ul>
-<h2 id="godot-wrapper">Godot Wrapper</h2>
-<p>marcello505 is currently developing a wrapper for <a href="https://godotengine.org/">Godot</a>. Find the repository here:</p>
-<ul>
-<li>👉<a href="https://github.com/marcello505/godot-ggrs-wrapper">Godot GGRS Wrapper</a></li>
-</ul>
-<h2 id="contributing">Contributing</h2>
-<p>Find out how to contribute. 👉<a href="../../contributing/how-to-contribute/">Contributing</a></p>
-<h2 id="help">Help</h2>
-<p>See the FAQ. 👉<a href="../../help/faq/">Help</a></p>
+        <h1>Requests and Events</h1>
+        
+        <h2 id="handling-requests">Handling Requests</h2>
+<p>If calling <code>advance_frame(...)</code> succeeds, GGRS will return a <code>Vec&lt;GGRSRequest&gt;</code>. Handling requests is mandatory. This sequence of requests is order-sensitive! You need to fulfill all requests in order. There are three types of requests: AdvanceFrame, LoadGameState and SaveGameState. Please see 👉<a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game.rs">BoxGame</a> for a full code example.</p>
+<h3 id="advanceframe">AdvanceFrame</h3>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>AdvanceFrame { inputs: Vec&lt;GameInput&gt; }</span><span>
+</span></code></pre>
+<p>Advance the frame with the provided inputs.</p>
+<h3 id="loadgamestate">LoadGameState</h3>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>LoadGameState { cell: GameStateCell }</span><span>
+</span></code></pre>
+<p>Load a previous gamestate by calling <code>your_state = cell.load()</code>. The provided <code>frame</code> defines from which frame this gamestate is from.</p>
+<h3 id="savegamestate">SaveGameState</h3>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>SaveGameState { cell: GameStateCell, frame: Frame }</span><span>
+</span></code></pre>
+<p>Save the current gamestate by calling <code>cell.save(your_state)</code>.</p>
+<h2 id="handling-events">Handling Events</h2>
+<p>Events are notifications from the session for the user. It is recommended to fetch events after every update. Most events are simply of informative nature, requiring no special action from the user. Please see the examples or refer to the documentation what kind of <code>GGRSEvent</code> can occur.</p>
+<p>One exception to this is the <code>WaitRecommendation</code> event, which GGRS gives out when your local clients runs too far ahead of remote clients, leading to a lot of one-sided rollbacks on your end. A simple way to mitigate this discrepancy by skipping the indicated amount of frames. More elaborate means to synchronize the clients are described 👉<a href="../time_sync/">here</a>.</p>
 
         
         
@@ -381,12 +362,13 @@ The matchbox sockets are compatible with GGRS through a feature flag:</p>
   
   
   
-    
-    
-    
-    
-      
-    
+  <a href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;tutorial&#x2F;main-loop&#x2F;">
+    <div class="card my-1">
+      <div class="card-body py-2">
+        &larr; Main Loop
+      </div>
+    </div>
+  </a>
   
 
   
@@ -394,42 +376,13 @@ The matchbox sockets are compatible with GGRS through a feature flag:</p>
   
   
   
-    
-    
-    
-      
-      
-        
-      
-    
-      
-      
-        
-          
-          
-          <a class="ms-auto" href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;tutorial&#x2F;setup&#x2F;">
-            <div class="card my-1">
-              <div class="card-body py-2">
-                Setup &rarr;
-              </div>
-            </div>
-          </a>
-          
-          
-          
-        
-      
-    
-      
-      
-        
-      
-    
-      
-      
-        
-      
-    
+    <a class="ms-auto" href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;tutorial&#x2F;time-sync&#x2F;">
+      <div class="card my-1">
+        <div class="card-body py-2">
+          Time Synchronization &rarr;
+        </div>
+      </div>
+    </a>
   
 </div>
 

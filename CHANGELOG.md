@@ -4,6 +4,12 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- ggrs no longer panics when packets have been tampered with
+- added `P2PSession::frames_ahead()` that shows how many frames the session believes to be ahead of other sessions.
+
+## 0.5.0
+
+- renamed session constructors to make them more idiomatic. Sessions are now created through `P2PSession::new(...)` and `P2PSession::new_with_socket(...)`.
 - added functions to create sessions with own sockets provided
 - turned NonBlockingSocket into a trait to allow alternate socket types in the future.
 - fixed a bug where calling network_stats without any time passed would lead to a division by 0.

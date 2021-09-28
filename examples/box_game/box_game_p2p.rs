@@ -1,6 +1,6 @@
 extern crate freetype as ft;
 
-use ggrs::{GGRSEvent, PlayerType, SessionState};
+use ggrs::{GGRSEvent, P2PSession, PlayerType, SessionState};
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
@@ -36,10 +36,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS session
-    let mut sess = ggrs::start_p2p_session(num_players as u32, INPUT_SIZE, opt.local_port)?;
+    let mut sess = P2PSession::new(num_players as u32, INPUT_SIZE, opt.local_port)?;
 
     // turn on sparse saving
     sess.set_sparse_saving(true)?;
+
+    // set FPS (default is 60, so this doesn't change anything as is)
+    sess.set_fps(FPS as u32)?;
 
     // add players
     for (i, player_addr) in opt.players.iter().enumerate() {

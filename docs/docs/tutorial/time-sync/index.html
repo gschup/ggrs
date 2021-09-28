@@ -46,29 +46,29 @@
 
 	
 
-<title>Introduction | GGRS</title>
+<title>Time Synchronization | GGRS</title>
 <meta name="description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
-<link rel="canonical" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">
+<link rel="canonical" href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/">
 
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="doks.png">
-  <meta name="twitter:title" content="Introduction">
+  <meta name="twitter:title" content="Time Synchronization">
   <meta name="twitter:description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
   <meta name="twitter:site" content="@g_schup">
   <meta name="twitter:creator" content="@g_schup">
   
-  <meta property="og:title" content="Introduction">
+  <meta property="og:title" content="Time Synchronization">
   <meta property="og:description" content="GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.">
   <meta property="og:type" content="article">
-  <meta property="og:url" content="https://gschup.github.io/ggrs/docs/getting-started/introduction/">
+  <meta property="og:url" content="https://gschup.github.io/ggrs/docs/tutorial/time-sync/">
 
   
     <meta property="og:image" content="doks.png">
   
 
-  <meta property="og:updated_time" content="2021-05-01T08:00:00+00:00">
-  <meta property="og:site_name" content="Introduction">
+  <meta property="og:updated_time" content="2021-09-13T00:00:00+00:00">
+  <meta property="og:site_name" content="Time Synchronization">
 
   
 
@@ -128,19 +128,19 @@
         
         
         
-        
-        
-        
           
           
           {
             "@type": "ListItem",
             "position":  3 ,
-            "name": "Getting Started",
-            "item": "https://gschup.github.io/ggrs/docs/getting-started/"
+            "name": "Tutorial",
+            "item": "https://gschup.github.io/ggrs/docs/tutorial/"
           },
         
       
+        
+        
+        
         
         
         
@@ -154,8 +154,8 @@
           {
             "@type": "ListItem",
             "position":  4 ,
-            "name": "Introduction",
-            "item": "https://gschup.github.io/ggrs/docs/getting-started/introduction/"
+            "name": "Time Sync",
+            "item": "https://gschup.github.io/ggrs/docs/tutorial/time-sync/"
           },
         
       
@@ -254,7 +254,7 @@
 							<h3>Getting Started</h3>
 							<ul class="list-unstyled">
 							                           
-									<li><a class="docs-link active" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">Introduction</a></li>
+									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/getting-started/introduction/">Introduction</a></li>
 							
 					</ul>
 					
@@ -272,7 +272,7 @@
 							                           
 									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/tutorial/requests-events/">Requests and Events</a></li>
 							                           
-									<li><a class="docs-link" href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/">Time Synchronization</a></li>
+									<li><a class="docs-link active" href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/">Time Synchronization</a></li>
 							
 					</ul>
 					
@@ -311,28 +311,10 @@
   			<nav id="TableOfContents">
   					<ul>
   							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#tutorial">Tutorial</a></li>
+  							<li><a href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/#synchronizing-via-events">Synchronizing via Events</a></li>
   							
   							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#examples">Examples</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#documentation">Documentation</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#bevy-plugin">Bevy Plugin</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#wasm-support-through-webrtc-sockets">WASM support through WebRTC sockets</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#godot-wrapper">Godot Wrapper</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#contributing">Contributing</a></li>
-  							
-  							
-  							<li><a href="https://gschup.github.io/ggrs/docs/getting-started/introduction/#help">Help</a></li>
+  							<li><a href="https://gschup.github.io/ggrs/docs/tutorial/time-sync/#manual-time-rift-synchronization">Manual Time Rift Synchronization</a></li>
   							
   							
   					</ul>
@@ -342,36 +324,45 @@
   
 
       <main class="docs-content col-lg-11 col-xl-9">
-        <h1>Introduction</h1>
-        <p class="lead">GGRS is a reimagination of the GGPO network SDK written in 100% safe Rust.</p>
-        <h2 id="tutorial">Tutorial</h2>
-<p>Tutorial and code snippets on how to start developing with GGRS. 👉<a href="../../tutorial/setup/">Tutorial</a></p>
-<h2 id="examples">Examples</h2>
-<p>Find full application examples. 👉<a href="https://github.com/gschup/ggrs/tree/main/examples">Examples</a></p>
-<h2 id="documentation">Documentation</h2>
-<p>Find the full documentation. 👉<a href="https://docs.rs/ggrs/newest/ggrs/">Documentation</a></p>
-<h2 id="bevy-plugin">Bevy Plugin</h2>
-<p>The <a href="https://bevyengine.org/">Bevy engine</a> is a refreshingly simple data-driven game engine built in Rust, emplyoing the
-<a href="https://en.wikipedia.org/wiki/Entity_component_system">ECS paradigm</a>. It is free and Open Source!</p>
-<p>The plugin is currently under development.</p>
-<ul>
-<li>👉<a href="https://github.com/gschup/bevy_ggrs">Bevy_GGRS</a>.</li>
-</ul>
-<h2 id="wasm-support-through-webrtc-sockets">WASM support through WebRTC sockets</h2>
-<p>If you are interested to run a GGRS application in your browser, check the amazing Matchbox project! The repository includes a full running demo you can try right now.
-The matchbox sockets are compatible with GGRS through a feature flag:</p>
-<ul>
-<li>👉<a href="https://github.com/johanhelsing/matchbox">Matchbox</a></li>
-</ul>
-<h2 id="godot-wrapper">Godot Wrapper</h2>
-<p>marcello505 is currently developing a wrapper for <a href="https://godotengine.org/">Godot</a>. Find the repository here:</p>
-<ul>
-<li>👉<a href="https://github.com/marcello505/godot-ggrs-wrapper">Godot GGRS Wrapper</a></li>
-</ul>
-<h2 id="contributing">Contributing</h2>
-<p>Find out how to contribute. 👉<a href="../../contributing/how-to-contribute/">Contributing</a></p>
-<h2 id="help">Help</h2>
-<p>See the FAQ. 👉<a href="../../help/faq/">Help</a></p>
+        <h1>Time Synchronization</h1>
+        
+        <p>When running a P2PSession, one client may over time get ahead of another. This can happen due to numerous reasons, such as one machine running slow or one session starting slightly early. Running ahead like this is a disadvantage, as the other clients receive inputs well in time, while the client ahead has to rollback much more frequently. There are multiple ways to mitigate this and bring the clients back to running in sync. GGRS exposes two main ways to handle time rift: The <code>WaitRecommendation</code> Event and <code>P2PSession::frames_ahead</code>.</p>
+<h2 id="synchronizing-via-events">Synchronizing via Events</h2>
+<p>The easiest way is to fetch GGRSEvents via <code>session.events()</code>:</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#b48ead;">for</span><span> event in sess.</span><span style="color:#96b5b4;">events</span><span>() {</span><span>
+</span><span>    </span><span style="color:#b48ead;">if let </span><span>GGRSEvent::WaitRecommendation { skip_frames } = event {</span><span>
+</span><span>        frames_to_skip += skip_frames</span><span>
+</span><span>    }</span><span>
+</span><span>    println!(&quot;</span><span style="color:#a3be8c;">Event: </span><span style="color:#d08770;">{:?}</span><span>&quot;, event);</span><span>
+</span><span>}</span><span>
+</span></code></pre>
+<p>When executing frame updates, simply skip a number of frames in your game loop:</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span>[...]</span><span>
+</span><span style="color:#b48ead;">if</span><span> frames_to_skip &gt; </span><span style="color:#d08770;">0 </span><span>{</span><span>
+</span><span>    frames_to_skip -= </span><span style="color:#d08770;">1</span><span>;</span><span>
+</span><span>    println!(&quot;</span><span style="color:#a3be8c;">Frame </span><span style="color:#d08770;">{}</span><span style="color:#a3be8c;"> skipped: WaitRecommendation</span><span>&quot;, game.</span><span style="color:#96b5b4;">current_frame</span><span>());</span><span>
+</span><span>    </span><span style="color:#b48ead;">continue</span><span>;</span><span>
+</span><span>}</span><span>
+</span><span>[...]</span><span>
+</span></code></pre>
+<p>GGRS will send <code>WaitRecommendation</code> events no more than once per second and only if the local client has consistenly been three or more frames ahead for at least 30 frames.
+This method is a simple way to keep clients running in sync, but is has drawbacks, since skipping frames may be jarring to the user.
+Additionally, even with only a two-frame rift, one client will experience more rollbacks than the other.</p>
+<p>You can check out this approach in 👉<a href="https://github.com/gschup/ggrs/tree/main/examples/box_game/box_game_p2p.rs">BoxGame P2P</a>.</p>
+<h2 id="manual-time-rift-synchronization">Manual Time Rift Synchronization</h2>
+<p>In addition to the event-based recommendations, GGRS exposes <code>P2PSession::frames_ahead()</code>, which will give you a number indicating how many frames the client believes to be ahead
+based on the last 30 frames. If this number is negative, your local client is behind. If positive, your local client is ahead. If you have control over exact frame timings, you can run the client who's ahead slightly slower than usual, allowing for remote clients to catch up.</p>
+<pre data-lang="rust" style="background-color:#2b303b;color:#c0c5ce;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#b48ead;">let mut</span><span> fps_delta = </span><span style="color:#d08770;">1. </span><span>/ </span><span style="color:#bf616a;">self</span><span>.fps as </span><span style="color:#b48ead;">f64</span><span>;</span><span>
+</span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">self</span><span>.run_slow {</span><span>
+</span><span>    fps_delta *= </span><span style="color:#d08770;">1.1</span><span>;</span><span>
+</span><span>}</span><span>
+</span><span>
+</span><span>[...]</span><span>
+</span><span>
+</span><span style="color:#bf616a;">self</span><span>.run_slow = session.</span><span style="color:#96b5b4;">frames_ahead</span><span>() &gt; </span><span style="color:#d08770;">0</span><span>;</span><span>
+</span></code></pre>
+<p>This way, the user will not experience stutters due to skipped frames. Additionally, the time rift will consistently be smaller. Optionally, you could think about running the client behind slightly faster or having a scalable slowdown or speedup based on the discrepancy size. When handling time rift via <code>session.frames_ahead()</code>, you might want to disregard <code>WaitRecommendation</code> events, based on your implementation.</p>
+<p>You can check out this approach in 👉<a href="https://github.com/gschup/bevy_ggrs/blob/main/src/ggrs_stage.rs">Bevy GGRS</a>.</p>
 
         
         
@@ -381,12 +372,13 @@ The matchbox sockets are compatible with GGRS through a feature flag:</p>
   
   
   
-    
-    
-    
-    
-      
-    
+  <a href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;tutorial&#x2F;requests-events&#x2F;">
+    <div class="card my-1">
+      <div class="card-body py-2">
+        &larr; Requests and Events
+      </div>
+    </div>
+  </a>
   
 
   
@@ -405,23 +397,23 @@ The matchbox sockets are compatible with GGRS through a feature flag:</p>
       
       
         
+      
+    
+      
+      
+        
           
           
-          <a class="ms-auto" href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;tutorial&#x2F;setup&#x2F;">
+          <a class="ms-auto" href="https:&#x2F;&#x2F;gschup.github.io&#x2F;ggrs&#x2F;docs&#x2F;contributing&#x2F;how-to-contribute&#x2F;">
             <div class="card my-1">
               <div class="card-body py-2">
-                Setup &rarr;
+                How to Contribute &rarr;
               </div>
             </div>
           </a>
           
           
           
-        
-      
-    
-      
-      
         
       
     

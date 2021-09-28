@@ -4,7 +4,9 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Frame, GGRSRequest, PlayerHandle};
+use crate::{
+    Frame, GGRSRequest, PlayerHandle, MAX_INPUT_BYTES, MAX_PLAYERS, MAX_PREDICTION_FRAMES,
+};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -19,8 +21,53 @@ pub struct SyncTestSession {
 }
 
 impl SyncTestSession {
+    /// Creates a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
+    /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
+    /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
+    /// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
+    /// This is a great way to test if your system runs deterministically. After creating the session, add a local player, set input delay for them and then start the session.
+    /// # Example
+    ///
+    /// ```
+    /// # use ggrs::{GGRSError, SyncTestSession};
+    /// # fn main() -> Result<(), GGRSError> {
+    /// let check_distance : u32 = 7;
+    /// let num_players : u32 = 2;
+    /// let input_size : usize = std::mem::size_of::<u32>();
+    /// let mut session = SyncTestSession::new(num_players, input_size, check_distance)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    /// - Will return a `InvalidRequestError` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
+    /// - Will return a `InvalidRequestError` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
+    /// - Will return a `InvalidRequestError` if the `check_distance is` higher than or equal to `MAX_PREDICTION_FRAMES`.
+    pub fn new(
+        num_players: u32,
+        input_size: usize,
+        check_distance: u32,
+    ) -> Result<Self, GGRSError> {
+        if num_players > MAX_PLAYERS {
+            return Err(GGRSError::InvalidRequest {
+                info: "Too many players.".to_owned(),
+            });
+        }
+        if input_size > MAX_INPUT_BYTES {
+            return Err(GGRSError::InvalidRequest {
+                info: "Input size too big.".to_owned(),
+            });
+        }
+        if check_distance >= MAX_PREDICTION_FRAMES {
+            return Err(GGRSError::InvalidRequest {
+                info: "Check distance too big.".to_owned(),
+            });
+        }
+        Ok(Self::new_impl(num_players, input_size, check_distance))
+    }
+
     /// Creates a new `SyncTestSession` instance with given values.
-    pub(crate) fn new(num_players: u32, input_size: usize, check_distance: u32) -> Self {
+    fn new_impl(num_players: u32, input_size: usize, check_distance: u32) -> Self {
         let mut dummy_connect_status = Vec::new();
         for _ in 0..num_players {
             dummy_connect_status.push(ConnectionStatus::default());
@@ -41,10 +88,7 @@ impl SyncTestSession {
     ///
     /// # Errors
     /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
-    pub fn advance_frame(
-        &mut self,
-        all_inputs: &Vec<Vec<u8>>,
-    ) -> Result<Vec<GGRSRequest>, GGRSError> {
+    pub fn advance_frame(&mut self, all_inputs: &[Vec<u8>]) -> Result<Vec<GGRSRequest>, GGRSError> {
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
@@ -66,11 +110,11 @@ impl SyncTestSession {
 
         // pass all inputs into the sync layer
         assert_eq!(self.num_players as usize, all_inputs.len());
-        for i in 0..self.num_players as usize {
+        for (i, input_bytes) in all_inputs.iter().enumerate() {
             //create an input struct for current frame
             let mut input: GameInput =
                 GameInput::new(self.sync_layer.current_frame(), self.input_size);
-            input.copy_input(&all_inputs[i]);
+            input.copy_input(input_bytes);
 
             // send the input into the sync layer
             self.sync_layer.add_local_input(i, input)?;
