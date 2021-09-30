@@ -213,12 +213,18 @@ impl SyncTestSession {
         assert_eq!(self.sync_layer.current_frame(), frame_to);
 
         // step forward to the previous current state
-        for _ in 0..count {
+        for i in 0..count {
             let inputs = self
                 .sync_layer
                 .synchronized_inputs(&self.dummy_connect_status);
 
+            // first save (except in the first step, because we just loaded that state)
+            if i > 0 {
+                requests.push(self.sync_layer.save_current_state());
+            }
+            // then advance
             self.sync_layer.advance_frame();
+
             requests.push(GGRSRequest::AdvanceFrame { inputs });
         }
         assert_eq!(self.sync_layer.current_frame(), start_frame);

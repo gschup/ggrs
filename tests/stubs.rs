@@ -76,7 +76,6 @@ impl RandomChecksumGameStub {
         let buffer = bincode::serialize(&self.gs).unwrap();
 
         let random_checksum: u64 = self.rng.gen();
-        println!("saving frame {} with checksum {}", frame, random_checksum);
         cell.save(GameState::new(frame, Some(buffer), Some(random_checksum)));
     }
 
