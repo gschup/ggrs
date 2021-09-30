@@ -121,7 +121,10 @@ impl SyncTestSession {
         }
 
         // save the current frame in the syncronization layer
-        requests.push(self.sync_layer.save_current_state());
+        // we can skip all the saving if the check_distance is 0
+        if self.check_distance > 0 {
+            requests.push(self.sync_layer.save_current_state());
+        }
 
         // get the correct inputs for all players from the sync layer
         let inputs = self
