@@ -13,8 +13,7 @@ If you are interested in integrating rollback networking into your game or just 
 
 To get started with GGRS, check out the following resources:
 
-- [Website](https://gschup.github.io/ggrs/)
-- [Tutorial](https://gschup.github.io/ggrs/docs/tutorial/setup/)
+- [Wiki](https://github.com/gschup/ggrs/wiki)
 - [Examples](./examples/)
 - [Documentation](https://docs.rs/ggrs/newest/ggrs/)
 
@@ -24,7 +23,7 @@ GGRS is in an early stage, but the main functionality for multiple players and s
 
 - [Changelog](./CHANGELOG.md)
 - [Issues](https://github.com/gschup/ggrs/issues)
-- [Contribution Guide](https://gschup.github.io/ggrs/docs/contributing/how-to-contribute/)
+- [Contribution Guide](./CONTRIBUTING.md)
 
 ## Useful Links
 

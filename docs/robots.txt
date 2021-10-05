@@ -1,3 +1,0 @@
-User-agent: *
-Allow: /
-Sitemap: https://gschup.github.io/ggrs/sitemap.xml
