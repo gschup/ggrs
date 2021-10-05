@@ -4,6 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- nothing here yet
+
+## 0.5.1
+
 - ggrs no longer panics when packets have been tampered with
 - added `P2PSession::frames_ahead()` that shows how many frames the session believes to be ahead of other sessions.
 
