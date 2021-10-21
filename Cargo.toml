@@ -2,7 +2,7 @@
 name = "ggrs"
 version = "0.5.1"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "GGRS is a reimagination of GGPO, enabling P2P rollback networking in Rust. Rollback to the future!"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
