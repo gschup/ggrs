@@ -2,6 +2,24 @@
 
 Gathered here are some additional instructions on how to build and run the examples. Note that the examples are usually kept up-to-date with the most recent version of the code. If you are looking for example code compatible with a version published on crates.io, take a look at the [release tags](https://github.com/gschup/ggrs/tags).
 
+## Tug-of-War
+
+Tug-of-War is the smallest example in GGRS. Players are able to move a ball by holding down spacebar, resulting in a tug-of-war.
+
+### Launching Tug-of-War
+
+The example is launched by command-line arguments:
+
+- `--local-port / -l`: local port the client is listening to
+- `--players / -p`: a list of player addresses, with the local player being identified by `localhost`
+
+For example, run these commands in separate terminals:
+
+```shell
+cargo run --example tug-of-war -- --local-port 7000 --players localhost 127.0.0.1:7001
+cargo run --example tug-of-war -- --local-port 7001 --players 127.0.0.1:7000 localhost
+```
+
 ## BoxGame
 
 BoxGame is a very basic 2-4 player game example with each player controlling a coloured box.

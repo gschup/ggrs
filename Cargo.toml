@@ -33,6 +33,7 @@ freetype-rs = "0.27"
 find_folder = "0.3"
 structopt = "0.3"
 rapier2d = { version = "0.10", features = [ "serde-serialize", "enhanced-determinism" ] }
+macroquad = "0.3.10"
 
 # Examples
 [[example]]
@@ -50,3 +51,7 @@ path = "examples/box_game/box_game_synctest.rs"
 [[example]]
 name = "rapier_synctest"
 path = "examples/rapier/rapier_synctest.rs"
+
+[[example]]
+name = "tug-of-war"
+path = "examples/tug_of_war/tug_of_war.rs"
