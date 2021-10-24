@@ -1,38 +1,26 @@
-extern crate freetype as ft;
-
-use ft::Library;
 use ggrs::{
     Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, MAX_PLAYERS, NULL_FRAME,
 };
-use graphics::{Context, Graphics, ImageSize};
-use opengl_graphics::{GlGraphics, Texture, TextureSettings};
-use piston::input::RenderArgs;
+use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 const FPS: u64 = 60;
 const CHECKSUM_PERIOD: i32 = 100;
 
-const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
-const BLUE: [f32; 4] = [0.0, 0.35, 0.78, 1.0];
-const ORANGE: [f32; 4] = [0.78, 0.59, 0.2, 1.0];
-const MAGENTA: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
-const GREEN: [f32; 4] = [0.35, 0.7, 0.35, 1.0];
-const PLAYER_COLORS: [[f32; 4]; MAX_PLAYERS as usize] = [BLUE, ORANGE, MAGENTA, GREEN];
-
-const PLAYER_SIZE: f64 = 50.0;
-const WINDOW_HEIGHT: u32 = 800;
-const WINDOW_WIDTH: u32 = 600;
+const SHIP_HEIGHT: f32 = 50.;
+const SHIP_BASE: f32 = 40.;
+const WINDOW_HEIGHT: f32 = 800.0;
+const WINDOW_WIDTH: f32 = 600.0;
 
 const INPUT_UP: u8 = 1 << 0;
 const INPUT_DOWN: u8 = 1 << 1;
 const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 
-const MOVEMENT_SPEED: f64 = 15.0 / FPS as f64;
-const ROTATION_SPEED: f64 = 2.5 / FPS as f64;
-const MAX_SPEED: f64 = 7.0;
-const FRICTION: f64 = 0.98;
+const MOVEMENT_SPEED: f32 = 15.0 / FPS as f32;
+const ROTATION_SPEED: f32 = 2.5 / FPS as f32;
+const MAX_SPEED: f32 = 7.0;
+const FRICTION: f32 = 0.98;
 
 /// computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
 fn fletcher16(data: &[u8]) -> u16 {
@@ -47,70 +35,20 @@ fn fletcher16(data: &[u8]) -> u16 {
     (sum2 << 8) | sum1
 }
 
-fn glyphs(face: &mut ft::Face, text: &str) -> Vec<(Texture, [f64; 2])> {
-    let mut x = 10;
-    let mut y = 0;
-    let mut res = vec![];
-    for ch in text.chars() {
-        face.load_char(ch as usize, ft::face::LoadFlag::RENDER)
-            .unwrap();
-        let g = face.glyph();
-
-        let bitmap = g.bitmap();
-        let texture = Texture::from_memory_alpha(
-            bitmap.buffer(),
-            bitmap.width() as u32,
-            bitmap.rows() as u32,
-            &TextureSettings::new(),
-        )
-        .unwrap();
-        res.push((
-            texture,
-            [(x + g.bitmap_left()) as f64, (y - g.bitmap_top()) as f64],
-        ));
-
-        x += (g.advance().x >> 6) as i32;
-        y += (g.advance().y >> 6) as i32;
-    }
-    res
-}
-
-fn render_text<G, T>(glyphs: &[(T, [f64; 2])], c: &Context, gl: &mut G)
-where
-    G: Graphics<Texture = T>,
-    T: ImageSize,
-{
-    for &(ref texture, [x, y]) in glyphs {
-        use graphics::*;
-
-        Image::new_color(color::WHITE).draw(texture, &c.draw_state, c.transform.trans(x, y), gl);
-    }
-}
-
 // BoxGame will handle rendering, gamestate, inputs and GGRSRequests
 pub struct BoxGame {
     num_players: usize,
     game_state: BoxGameState,
-    pub key_states: [bool; 8],
-    font: PathBuf,
-    freetype: Library,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
 }
 
 impl BoxGame {
     pub fn new(num_players: usize) -> Self {
-        // load a font to render text
-        let assets = find_folder::Search::ParentsThenKids(3, 3)
-            .for_folder("assets")
-            .unwrap();
         assert!(num_players <= MAX_PLAYERS as usize);
         Self {
             num_players,
             game_state: BoxGameState::new(num_players),
-            key_states: [false; 8],
-            font: assets.join("FiraSans-Regular.ttf"),
-            freetype: ft::Library::init().unwrap(),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
         }
@@ -158,47 +96,46 @@ impl BoxGame {
     }
 
     // renders the game to the window
-    pub fn render(&mut self, gl: &mut GlGraphics, args: &RenderArgs) {
-        use graphics::*;
+    pub fn render(&self) {
+        clear_background(BLACK);
 
-        // preparation for last checksum rendering
-        let mut face = self.freetype.new_face(&self.font, 0).unwrap();
-        face.set_pixel_sizes(0, 40).unwrap();
-        let checksum_string = format!(
+        // render players TODO: rotate players?
+        for i in 0..self.num_players {
+            let color = match i {
+                0 => GOLD,
+                1 => BLUE,
+                2 => GREEN,
+                3 => RED,
+                _ => WHITE,
+            };
+            let (x, y) = self.game_state.positions[i];
+            let rotation = self.game_state.rotations[i] + std::f32::consts::PI / 2.0;
+            let v1 = Vec2::new(
+                x + rotation.sin() * SHIP_HEIGHT / 2.,
+                y - rotation.cos() * SHIP_HEIGHT / 2.,
+            );
+            let v2 = Vec2::new(
+                x - rotation.cos() * SHIP_BASE / 2. - rotation.sin() * SHIP_HEIGHT / 2.,
+                y - rotation.sin() * SHIP_BASE / 2. + rotation.cos() * SHIP_HEIGHT / 2.,
+            );
+            let v3 = Vec2::new(
+                x + rotation.cos() * SHIP_BASE / 2. - rotation.sin() * SHIP_HEIGHT / 2.,
+                y + rotation.sin() * SHIP_BASE / 2. + rotation.cos() * SHIP_HEIGHT / 2.,
+            );
+            draw_triangle(v1, v2, v3, color);
+        }
+
+        // render checksums
+        let last_checksum_str = format!(
             "Frame {}: Checksum {}",
             self.last_checksum.0, self.last_checksum.1
         );
-        let checksum_glyphs = glyphs(&mut face, &checksum_string);
-        // preparation for periodic checksum rendering
-        let periodic_string = format!(
+        let periodic_checksum_str = format!(
             "Frame {}: Checksum {}",
             self.periodic_checksum.0, self.periodic_checksum.1
         );
-        let periodic_glyphs = glyphs(&mut face, &periodic_string);
-
-        // start drawing
-        gl.draw(args.viewport(), |c, gl| {
-            // clear the screen
-            clear(BLACK, gl);
-
-            // render checksums
-            render_text(&checksum_glyphs, &c.trans(0.0, 40.0), gl);
-            render_text(&periodic_glyphs, &c.trans(0.0, 80.0), gl);
-
-            // draw the player rectangles
-            for i in 0..self.num_players {
-                let square = rectangle::square(0.0, 0.0, PLAYER_SIZE);
-                let (x, y) = self.game_state.positions[i];
-                let rotation = self.game_state.rotations[i];
-
-                let transform = c
-                    .transform
-                    .trans(x, y)
-                    .rot_rad(rotation)
-                    .trans(-PLAYER_SIZE / 2.0, -PLAYER_SIZE / 2.0);
-                rectangle(PLAYER_COLORS[i], square, transform, gl);
-            }
-        });
+        draw_text(&last_checksum_str, 20.0, 20.0, 30.0, WHITE);
+        draw_text(&periodic_checksum_str, 20.0, 40.0, 30.0, WHITE);
     }
 
     #[allow(dead_code)]
@@ -207,39 +144,38 @@ impl BoxGame {
         let mut input: u8 = 0;
 
         // ugly, but it works...
+        // player 1 with WASD
         if handle == 0 {
-            if self.key_states[0] {
+            if is_key_down(KeyCode::W) {
                 input |= INPUT_UP;
             }
-            if self.key_states[1] {
+            if is_key_down(KeyCode::A) {
                 input |= INPUT_LEFT;
             }
-            if self.key_states[2] {
+            if is_key_down(KeyCode::S) {
                 input |= INPUT_DOWN;
             }
-            if self.key_states[3] {
+            if is_key_down(KeyCode::D) {
                 input |= INPUT_RIGHT;
             }
         }
-
+        // player 2 with arrow keys
         if handle == 1 {
-            if self.key_states[4] {
+            if is_key_down(KeyCode::Up) {
                 input |= INPUT_UP;
             }
-            if self.key_states[5] {
+            if is_key_down(KeyCode::Left) {
                 input |= INPUT_LEFT;
             }
-            if self.key_states[6] {
+            if is_key_down(KeyCode::Down) {
                 input |= INPUT_DOWN;
             }
-            if self.key_states[7] {
+            if is_key_down(KeyCode::Right) {
                 input |= INPUT_RIGHT;
             }
         }
 
-        // serialization is completely unnecessary here, since the data is already u8
-        // this is for demonstration
-        bincode::serialize(&input).unwrap()
+        vec![input]
     }
 
     #[allow(dead_code)]
@@ -253,9 +189,9 @@ impl BoxGame {
 struct BoxGameState {
     pub frame: i32,
     pub num_players: usize,
-    pub positions: Vec<(f64, f64)>,
-    pub velocities: Vec<(f64, f64)>,
-    pub rotations: Vec<f64>,
+    pub positions: Vec<(f32, f32)>,
+    pub velocities: Vec<(f32, f32)>,
+    pub rotations: Vec<f32>,
 }
 
 impl BoxGameState {
@@ -264,15 +200,15 @@ impl BoxGameState {
         let mut velocities = Vec::new();
         let mut rotations = Vec::new();
 
-        let r = WINDOW_WIDTH as f64 / 4.0;
+        let r = WINDOW_WIDTH as f32 / 4.0;
 
         for i in 0..num_players as i32 {
-            let rot = i as f64 / num_players as f64 * 2.0 * std::f64::consts::PI;
-            let x = WINDOW_WIDTH as f64 / 2.0 + r * rot.cos();
-            let y = WINDOW_HEIGHT as f64 / 2.0 + r * rot.sin();
-            positions.push((x as f64, y as f64));
+            let rot = i as f32 / num_players as f32 * 2.0 * std::f32::consts::PI;
+            let x = WINDOW_WIDTH as f32 / 2.0 + r * rot.cos();
+            let y = WINDOW_HEIGHT as f32 / 2.0 + r * rot.sin();
+            positions.push((x as f32, y as f32));
             velocities.push((0.0, 0.0));
-            rotations.push((rot + std::f64::consts::PI) % (2.0 * std::f64::consts::PI));
+            rotations.push((rot + std::f32::consts::PI) % (2.0 * std::f32::consts::PI));
         }
 
         Self {
@@ -319,11 +255,11 @@ impl BoxGameState {
             }
             // turn left
             if input & INPUT_LEFT != 0 && input & INPUT_RIGHT == 0 {
-                rot = (rot - ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
+                rot = (rot - ROTATION_SPEED).rem_euclid(2.0 * std::f32::consts::PI);
             }
             // turn right
             if input & INPUT_LEFT == 0 && input & INPUT_RIGHT != 0 {
-                rot = (rot + ROTATION_SPEED).rem_euclid(2.0 * std::f64::consts::PI);
+                rot = (rot + ROTATION_SPEED).rem_euclid(2.0 * std::f32::consts::PI);
             }
 
             // limit speed
@@ -339,9 +275,9 @@ impl BoxGameState {
 
             // constrain boxes to canvas borders
             x = x.max(0.0);
-            x = x.min(WINDOW_WIDTH as f64);
+            x = x.min(WINDOW_WIDTH - SHIP_HEIGHT);
             y = y.max(0.0);
-            y = y.min(WINDOW_HEIGHT as f64);
+            y = y.min(WINDOW_HEIGHT - SHIP_HEIGHT);
 
             // update all state
             self.positions[i] = (x, y);

@@ -77,19 +77,3 @@ BoxGame SyncTest is launched by a single command-line argument:
 ```shell
 cargo run --example box_game_synctest -- --num-players 2 --check-distance 7
 ```
-
-## Rapier SyncTest
-
-A stress test with the deterministic physics engine [Rapier](https://rapier.rs/).
-You should run this with `--release` to ensure the code will be optimized.
-
-### Launching Rapier SyncTest
-
-The SyncTest is launched by a single command-line argument:
-
-- `--num-bodies / -n`: this number^2 many rigid bodies will be spawned
-- `--check-distance / -c`: number of frames that will be rolled back and resimulated each frame
-
-```shell
-cargo run --release --example rapier_synctest -- --num-bodies 20 --check-distance 7
-```

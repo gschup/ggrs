@@ -1,22 +1,25 @@
-extern crate freetype as ft;
-
-use ggrs::{GGRSEvent, P2PSession, PlayerType, SessionState};
-use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{GlGraphics, OpenGL};
-use piston::event_loop::{EventSettings, Events};
-use piston::input::{RenderEvent, UpdateEvent};
-use piston::window::WindowSettings;
-use piston::{Button, EventLoop, IdleEvent, Key, PressEvent, ReleaseEvent};
+use ggrs::{GGRSError, P2PSession, PlayerType, SessionState};
+use instant::{Duration, Instant};
+use macroquad::prelude::*;
 use std::net::SocketAddr;
 use structopt::StructOpt;
 
-const FPS: u64 = 60;
+const FPS: f64 = 60.0;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 
-const WINDOW_HEIGHT: u32 = 800;
-const WINDOW_WIDTH: u32 = 600;
-
 mod box_game;
+
+/// returns a window config for macroquad to use
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "Box Game P2P".to_owned(),
+        window_width: 600,
+        window_height: 800,
+        window_resizable: false,
+        high_dpi: true,
+        ..Default::default()
+    }
+}
 
 #[derive(StructOpt)]
 struct Opt {
@@ -28,7 +31,8 @@ struct Opt {
     spectators: Vec<SocketAddr>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[macroquad::main(window_conf)]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
     let mut local_handle = 0;
@@ -71,108 +75,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start the GGRS session
     sess.start_session()?;
 
-    // Change this to OpenGL::V2_1 if not working
-    let opengl = OpenGL::V3_2;
-
-    // Create a Glutin window
-    let mut window: Window = WindowSettings::new("Box Game", [WINDOW_WIDTH, WINDOW_HEIGHT])
-        .graphics_api(opengl)
-        .exit_on_esc(true)
-        .build()
-        .unwrap();
-
     // Create a new box game
     let mut game = box_game::BoxGame::new(num_players);
-    let mut gl = GlGraphics::new(opengl);
 
-    // event settings
-    let mut event_settings = EventSettings::new();
-    event_settings.set_ups(FPS);
-    event_settings.set_max_fps(FPS);
-    let mut events = Events::new(event_settings);
+    // time variables for tick rate
+    let mut last_update = Instant::now();
+    let mut accumulator = Duration::ZERO;
 
-    let mut frames_to_skip = 0;
+    loop {
+        // communicate, receive and send packets
+        sess.poll_remote_clients();
 
-    // event loop
-    while let Some(e) = events.next(&mut window) {
-        // render update
-        if let Some(args) = e.render_args() {
-            game.render(&mut gl, &args);
+        // print GGRS events
+        for event in sess.events() {
+            println!("Event: {:?}", event);
         }
 
-        // game update
-        if let Some(_) = e.update_args() {
-            //skip frames if recommended
-            if frames_to_skip > 0 {
-                frames_to_skip -= 1;
-                println!("Frame {} skipped: WaitRecommendation", game.current_frame());
-                continue;
+        // frames are only happening if the sessions are synchronized
+        if sess.current_state() == SessionState::Running {
+            // this is to keep ticks between clients synchronized.
+            // if a client is ahead, it will run frames slightly slower to allow catching up
+            let mut fps_delta = 1. / FPS;
+            if sess.frames_ahead() > 0 {
+                fps_delta *= 1.1;
             }
 
-            // if the session is running, tell GGRS it is time to advance the frame and handle the requests
-            if sess.current_state() == SessionState::Running {
-                // always get WASD inputs
-                let local_input = game.local_input(0);
+            // get delta time from last iteration and accumulate it
+            let delta = Instant::now().duration_since(last_update);
+            accumulator = accumulator.saturating_add(delta);
+            last_update = Instant::now();
 
-                match sess.advance_frame(local_handle, &local_input) {
-                    Ok(requests) => {
-                        game.handle_requests(requests);
-                    }
-                    Err(ggrs::GGRSError::PredictionThreshold) => {
-                        println!(
-                            "Frame {} skipped: PredictionThreshold",
-                            game.current_frame()
-                        );
-                    }
+            // if enough time is accumulated, we run a frame
+            while accumulator.as_secs_f64() > fps_delta {
+                // decrease accumulator
+                accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
+
+                match sess.advance_frame(local_handle, &game.local_input(0)) {
+                    Ok(requests) => game.handle_requests(requests),
+                    Err(GGRSError::PredictionThreshold) => println!("Frame skipped"),
                     Err(e) => return Err(Box::new(e)),
                 }
-
-                //regularily print networks stats
-                if game.current_frame() % 120 == 0 {
-                    for i in 0..num_players {
-                        if let Ok(stats) = sess.network_stats(i) {
-                            println!("NetworkStats to player {}: {:?}", i, stats);
-                        }
-                    }
-                }
             }
         }
 
-        // idle
-        if let Some(_args) = e.idle_args() {
-            sess.poll_remote_clients();
+        // render the game state
+        game.render();
 
-            // handle GGRS events
-            for event in sess.events() {
-                if let GGRSEvent::WaitRecommendation { skip_frames } = event {
-                    frames_to_skip += skip_frames
-                }
-                println!("Event: {:?}", event);
-            }
-        }
-
-        // key state update
-        if let Some(Button::Keyboard(key)) = e.press_args() {
-            match key {
-                Key::W => game.key_states[0] = true,
-                Key::A => game.key_states[1] = true,
-                Key::S => game.key_states[2] = true,
-                Key::D => game.key_states[3] = true,
-                _ => (),
-            }
-        }
-
-        // key state update
-        if let Some(Button::Keyboard(key)) = e.release_args() {
-            match key {
-                Key::W => game.key_states[0] = false,
-                Key::A => game.key_states[1] = false,
-                Key::S => game.key_states[2] = false,
-                Key::D => game.key_states[3] = false,
-                _ => (),
-            }
-        }
+        // wait for the next loop (macroquads wants it so)
+        next_frame().await;
     }
-
-    Ok(())
 }

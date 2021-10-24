@@ -1,21 +1,24 @@
-extern crate freetype as ft;
-
 use ggrs::SyncTestSession;
-use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{GlGraphics, OpenGL};
-use piston::event_loop::{EventSettings, Events};
-use piston::input::{RenderEvent, UpdateEvent};
-use piston::window::WindowSettings;
-use piston::{Button, EventLoop, Key, PressEvent, ReleaseEvent};
+use instant::{Duration, Instant};
+use macroquad::prelude::*;
 use structopt::StructOpt;
 
-const FPS: u64 = 60;
+const FPS: f64 = 60.0;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 
-const WINDOW_HEIGHT: u32 = 800;
-const WINDOW_WIDTH: u32 = 600;
-
 mod box_game;
+
+/// returns a window config for macroquad to use
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "Box Game Synctest".to_owned(),
+        window_width: 600,
+        window_height: 800,
+        window_resizable: false,
+        high_dpi: true,
+        ..Default::default()
+    }
+}
 
 #[derive(StructOpt)]
 struct Opt {
@@ -25,7 +28,8 @@ struct Opt {
     check_distance: u32,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[macroquad::main(window_conf)]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
 
@@ -37,76 +41,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sess.set_frame_delay(2, i)?;
     }
 
-    // Change this to OpenGL::V2_1 if not working
-    let opengl = OpenGL::V3_2;
-
-    // Create a Glutin window
-    let mut window: Window =
-        WindowSettings::new("Box Game Synctest", [WINDOW_WIDTH, WINDOW_HEIGHT])
-            .graphics_api(opengl)
-            .exit_on_esc(true)
-            .build()
-            .unwrap();
-
     // Create a new box game
     let mut game = box_game::BoxGame::new(opt.num_players);
-    let mut gl = GlGraphics::new(opengl);
 
-    // event settings
-    let mut event_settings = EventSettings::new();
-    event_settings.set_ups(FPS);
-    event_settings.set_max_fps(FPS);
-    let mut events = Events::new(event_settings);
+    // time variables for tick rate
+    let mut last_update = Instant::now();
+    let mut accumulator = Duration::ZERO;
+    let fps_delta = 1. / FPS;
 
-    // event loop
-    while let Some(e) = events.next(&mut window) {
-        // render update
-        if let Some(args) = e.render_args() {
-            game.render(&mut gl, &args);
-        }
+    loop {
+        // get delta time from last iteration and accumulate it
+        let delta = Instant::now().duration_since(last_update);
+        accumulator = accumulator.saturating_add(delta);
+        last_update = Instant::now();
 
-        // game update
-        if let Some(_) = e.update_args() {
-            // create inputs for all players
+        // if enough time is accumulated, we run a frame
+        while accumulator.as_secs_f64() > fps_delta {
+            // decrease accumulator
+            accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
+
+            // gather inputs
             let mut all_inputs = Vec::new();
-            for i in 0..opt.num_players {
-                all_inputs.push(game.local_input(i));
+            for player in 0..opt.num_players {
+                all_inputs.push(game.local_input(player))
             }
-            // tell GGRS it is time to advance the frame and handle the requests
-            let requests = sess.advance_frame(&all_inputs)?;
-            game.handle_requests(requests);
-        }
 
-        // key state update
-        if let Some(Button::Keyboard(key)) = e.press_args() {
-            match key {
-                Key::W => game.key_states[0] = true,
-                Key::A => game.key_states[1] = true,
-                Key::S => game.key_states[2] = true,
-                Key::D => game.key_states[3] = true,
-                Key::Up => game.key_states[4] = true,
-                Key::Left => game.key_states[5] = true,
-                Key::Down => game.key_states[6] = true,
-                Key::Right => game.key_states[7] = true,
-                _ => (),
+            match sess.advance_frame(&all_inputs) {
+                Ok(requests) => game.handle_requests(requests),
+                Err(e) => return Err(Box::new(e)),
             }
         }
 
-        // key state update
-        if let Some(Button::Keyboard(key)) = e.release_args() {
-            match key {
-                Key::W => game.key_states[0] = false,
-                Key::A => game.key_states[1] = false,
-                Key::S => game.key_states[2] = false,
-                Key::D => game.key_states[3] = false,
-                Key::Up => game.key_states[4] = false,
-                Key::Left => game.key_states[5] = false,
-                Key::Down => game.key_states[6] = false,
-                Key::Right => game.key_states[7] = false,
-                _ => (),
-            }
-        }
+        // render the game state
+        game.render();
+
+        // wait for the next loop (macroquads wants it so)
+        next_frame().await;
     }
-
-    Ok(())
 }

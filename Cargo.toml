@@ -25,14 +25,7 @@ js-sys = "0.3"
 
 [dev-dependencies]
 serial_test = "0.5"
-piston = "0.53"
-piston2d-graphics = "0.40"
-pistoncore-glutin_window = "0.69"
-piston2d-opengl_graphics = "0.78"
-freetype-rs = "0.27"
-find_folder = "0.3"
 structopt = "0.3"
-rapier2d = { version = "0.10", features = [ "serde-serialize", "enhanced-determinism" ] }
 macroquad = "0.3.10"
 
 # Examples
@@ -47,10 +40,6 @@ path = "examples/box_game/box_game_spectator.rs"
 [[example]]
 name = "box_game_synctest"
 path = "examples/box_game/box_game_synctest.rs"
-
-[[example]]
-name = "rapier_synctest"
-path = "examples/rapier/rapier_synctest.rs"
 
 [[example]]
 name = "tug-of-war"
