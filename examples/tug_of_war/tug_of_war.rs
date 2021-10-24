@@ -22,7 +22,7 @@ struct Opt {
 const FPS: f64 = 60.0;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 
-#[macroquad::main("a")]
+#[macroquad::main("Tug-of-War")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
