@@ -1,4 +1,4 @@
-use crate::frame_info::{GameInput, BLANK_INPUT};
+use crate::frame_info::GameInput;
 use crate::network::compression::{decode, encode};
 use crate::network::non_blocking_socket::NonBlockingSocket;
 use crate::network::udp_msg::{
@@ -125,10 +125,6 @@ impl UdpProtocol {
             peer_connect_status.push(ConnectionStatus::default());
         }
 
-        //custom blank inputs
-        let mut blank_input = BLANK_INPUT;
-        blank_input.size = input_size;
-
         Self {
             handle,
             magic,
@@ -157,8 +153,8 @@ impl UdpProtocol {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
-            last_received_input: blank_input,
-            last_acked_input: blank_input,
+            last_received_input: GameInput::blank_input(input_size),
+            last_acked_input: GameInput::blank_input(input_size),
             input_size,
 
             // time sync
@@ -329,7 +325,7 @@ impl UdpProtocol {
     fn pop_pending_output(&mut self, ack_frame: Frame) {
         while let Some(input) = self.pending_output.front() {
             if input.frame <= ack_frame {
-                self.last_acked_input = *input;
+                self.last_acked_input = input.clone();
                 self.pending_output.pop_front();
             } else {
                 break;
@@ -570,8 +566,8 @@ impl UdpProtocol {
                 continue;
             }
             // send the input to the session
-            self.last_received_input = *game_input;
-            self.event_queue.push_back(Event::Input(*game_input));
+            self.last_received_input = game_input.clone();
+            self.event_queue.push_back(Event::Input(game_input.clone()));
         }
 
         // send an input ack

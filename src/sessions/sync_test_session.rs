@@ -4,9 +4,7 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{
-    Frame, GGRSRequest, PlayerHandle, MAX_INPUT_BYTES, MAX_PLAYERS, MAX_PREDICTION_FRAMES,
-};
+use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -48,16 +46,6 @@ impl SyncTestSession {
         input_size: usize,
         check_distance: u32,
     ) -> Result<Self, GGRSError> {
-        if num_players > MAX_PLAYERS {
-            return Err(GGRSError::InvalidRequest {
-                info: "Too many players.".to_owned(),
-            });
-        }
-        if input_size > MAX_INPUT_BYTES {
-            return Err(GGRSError::InvalidRequest {
-                info: "Input size too big.".to_owned(),
-            });
-        }
         if check_distance >= MAX_PREDICTION_FRAMES {
             return Err(GGRSError::InvalidRequest {
                 info: "Check distance too big.".to_owned(),
@@ -112,9 +100,11 @@ impl SyncTestSession {
         assert_eq!(self.num_players as usize, all_inputs.len());
         for (i, input_bytes) in all_inputs.iter().enumerate() {
             //create an input struct for current frame
-            let mut input: GameInput =
-                GameInput::new(self.sync_layer.current_frame(), self.input_size);
-            input.copy_input(input_bytes);
+            let input: GameInput = GameInput::new(
+                self.sync_layer.current_frame(),
+                self.input_size,
+                input_bytes.to_vec(),
+            );
 
             // send the input into the sync layer
             self.sync_layer.add_local_input(i, input)?;

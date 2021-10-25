@@ -97,8 +97,8 @@ pub struct GameStateStub {
 
 impl GameStateStub {
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
-        let p0_inputs: u32 = bincode::deserialize(inputs[0].input()).unwrap();
-        let p1_inputs: u32 = bincode::deserialize(inputs[1].input()).unwrap();
+        let p0_inputs: u32 = bincode::deserialize(&inputs[0].buffer).unwrap();
+        let p1_inputs: u32 = bincode::deserialize(&inputs[0].buffer).unwrap();
 
         if (p0_inputs + p1_inputs) % 2 == 0 {
             self.state += 2;

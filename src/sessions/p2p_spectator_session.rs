@@ -4,14 +4,12 @@ use std::{
 };
 
 use crate::{
-    frame_info::BLANK_INPUT,
     network::{
         non_blocking_socket::{NonBlockingSocket, UdpNonBlockingSocket},
         udp_msg::ConnectionStatus,
         udp_protocol::UdpProtocol,
     },
-    Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, SessionState,
-    MAX_INPUT_BYTES, MAX_PLAYERS, NULL_FRAME,
+    Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, SessionState, NULL_FRAME,
 };
 
 use super::p2p_session::Event;
@@ -34,7 +32,7 @@ pub struct P2PSpectatorSession {
     state: SessionState,
     num_players: u32,
     input_size: usize,
-    inputs: [GameInput; SPECTATOR_BUFFER_SIZE],
+    inputs: Vec<GameInput>,
     host_connect_status: Vec<ConnectionStatus>,
     socket: Box<dyn NonBlockingSocket>,
     host: UdpProtocol,
@@ -104,17 +102,6 @@ impl P2PSpectatorSession {
         socket: Box<dyn NonBlockingSocket>,
         host_addr: SocketAddr,
     ) -> Result<Self, GGRSError> {
-        if num_players > MAX_PLAYERS {
-            return Err(GGRSError::InvalidRequest {
-                info: "Too many players.".to_owned(),
-            });
-        }
-        if input_size > MAX_INPUT_BYTES {
-            return Err(GGRSError::InvalidRequest {
-                info: "Input size too big.".to_owned(),
-            });
-        }
-
         // host connection status
         let mut host_connect_status = Vec::new();
         for _ in 0..num_players {
@@ -125,7 +112,7 @@ impl P2PSpectatorSession {
             state: SessionState::Initializing,
             num_players,
             input_size,
-            inputs: [BLANK_INPUT; SPECTATOR_BUFFER_SIZE],
+            inputs: vec![GameInput::blank_input(input_size); SPECTATOR_BUFFER_SIZE],
             host_connect_status,
             socket,
             host: UdpProtocol::new(0, host_addr, num_players, input_size * num_players as usize),
@@ -309,7 +296,7 @@ impl P2PSpectatorSession {
     }
 
     fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput>, GGRSError> {
-        let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
+        let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE].clone();
 
         // We haven't received the input from the host yet. Wait.
         if merged_input.frame < frame_to_grab {
@@ -326,10 +313,10 @@ impl P2PSpectatorSession {
         let mut synced_inputs = Vec::new();
 
         for i in 0..self.num_players as usize {
-            let mut input = GameInput::new(frame_to_grab, self.input_size);
-            let start = i * input.size;
-            let end = (i + 1) * input.size;
-            input.copy_input(&merged_input.buffer[start..end]);
+            let start = i * self.input_size;
+            let end = (i + 1) * self.input_size;
+            let buffer = &merged_input.buffer[start..end];
+            let mut input = GameInput::new(frame_to_grab, self.input_size, buffer.to_vec());
 
             // disconnected players are identified by NULL_FRAME
             if self.host_connect_status[i].disconnected
@@ -381,7 +368,7 @@ impl P2PSpectatorSession {
             // add the input and all associated information
             Event::Input(input) => {
                 // save the input
-                self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE] = input;
+                self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE] = input.clone();
                 assert!(input.frame > self.last_recv_frame);
                 self.last_recv_frame = input.frame;
 

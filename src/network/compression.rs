@@ -14,7 +14,7 @@ pub(crate) fn delta_encode<'a>(
     reference: &GameInput,
     pending_input: impl Iterator<Item = &'a GameInput>,
 ) -> Vec<u8> {
-    let ref_bytes = reference.input();
+    let ref_bytes = &reference.buffer;
     let (lower, upper) = pending_input.size_hint();
     let capacity = upper.unwrap_or(lower) * reference.size;
     let mut bytes = Vec::with_capacity(capacity);
@@ -22,7 +22,7 @@ pub(crate) fn delta_encode<'a>(
     for (i, input) in pending_input.enumerate() {
         assert_eq!(input.size, reference.size);
         assert!(reference.frame == NULL_FRAME || input.frame == reference.frame + i as i32 + 1);
-        let input_bytes = input.input();
+        let input_bytes = &input.buffer;
         for (b1, b2) in ref_bytes.iter().zip(input_bytes.iter()) {
             bytes.push(b1 ^ b2);
         }
@@ -52,11 +52,15 @@ pub(crate) fn delta_decode(
     let mut output = Vec::with_capacity(out_size);
 
     for inp in 0..out_size {
-        let mut game_input = GameInput::new(start_frame + inp as i32, reference.size);
-        for (i, byte) in reference.input().iter().enumerate() {
-            game_input.buffer[i] = byte ^ data[reference.size * inp + i];
+        let mut buffer = vec![0; reference.size];
+        for (i, byte) in reference.buffer.iter().enumerate() {
+            buffer[i] = byte ^ data[reference.size * inp + i];
         }
-        output.push(game_input);
+        output.push(GameInput::new(
+            start_frame + inp as i32,
+            reference.size,
+            buffer,
+        ));
     }
 
     output
@@ -73,13 +77,12 @@ mod compression_tests {
     #[test]
     fn test_encode_decode() {
         let size = 4;
-        let mut ref_input = GameInput::new(5, size);
-        ref_input.buffer[3] = 1;
-        let inp0 = GameInput::new(6, size);
-        let inp1 = GameInput::new(7, size);
-        let inp2 = GameInput::new(8, size);
-        let inp3 = GameInput::new(9, size);
-        let inp4 = GameInput::new(10, size);
+        let ref_input = GameInput::new(5, size, vec![0, 0, 1, 0]);
+        let inp0 = GameInput::new(6, size, vec![0, 0, 0, 0]);
+        let inp1 = GameInput::new(7, size, vec![0, 0, 0, 0]);
+        let inp2 = GameInput::new(8, size, vec![0, 0, 0, 0]);
+        let inp3 = GameInput::new(9, size, vec![0, 0, 0, 0]);
+        let inp4 = GameInput::new(10, size, vec![0, 0, 0, 0]);
 
         let pend_inp = vec![inp0, inp1, inp2, inp3, inp4];
 

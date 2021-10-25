@@ -6,8 +6,8 @@ use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::UdpProtocol;
 use crate::sync_layer::SyncLayer;
 use crate::{
-    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_INPUT_BYTES,
-    MAX_PLAYERS, MAX_PREDICTION_FRAMES, NULL_FRAME,
+    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_PREDICTION_FRAMES,
+    NULL_FRAME,
 };
 
 use std::collections::vec_deque::Drain;
@@ -80,7 +80,7 @@ impl Player {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Event {
     /// The session is currently synchronizing with the remote client. It will continue until `count` reaches `total`.
     Synchronizing { total: u32, count: u32 },
@@ -187,17 +187,6 @@ impl P2PSession {
         input_size: usize,
         socket: Box<dyn NonBlockingSocket>,
     ) -> Result<Self, GGRSError> {
-        if num_players > MAX_PLAYERS {
-            return Err(GGRSError::InvalidRequest {
-                info: "Too many players.".to_owned(),
-            });
-        }
-        if input_size > MAX_INPUT_BYTES {
-            return Err(GGRSError::InvalidRequest {
-                info: "Input size too big.".to_owned(),
-            });
-        }
-
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {
@@ -412,14 +401,16 @@ impl P2PSession {
         }
 
         //create an input struct for current frame
-        let mut game_input: GameInput =
-            GameInput::new(self.sync_layer.current_frame(), self.input_size);
-        game_input.copy_input(local_input);
+        let mut game_input: GameInput = GameInput::new(
+            self.sync_layer.current_frame(),
+            self.input_size,
+            local_input.to_vec(),
+        );
 
         // send the input into the sync layer
         let actual_frame = self
             .sync_layer
-            .add_local_input(local_player_handle, game_input)?;
+            .add_local_input(local_player_handle, game_input.clone())?;
 
         // if the actual frame is the null frame, the frame has been dropped by the input queues (for example due to changed input delay)
         if actual_frame != NULL_FRAME {
@@ -433,7 +424,7 @@ impl P2PSession {
                 .filter_map(Player::remote_as_endpoint_mut)
             {
                 // send the input directly
-                endpoint.send_input(game_input, &self.local_connect_status);
+                endpoint.send_input(game_input.clone(), &self.local_connect_status);
                 endpoint.send_all_messages(&mut self.socket);
             }
         }
@@ -861,22 +852,24 @@ impl P2PSession {
         }
 
         while self.next_spectator_frame <= confirmed_frame {
-            let inputs = self
+            let mut inputs = self
                 .sync_layer
                 .confirmed_inputs(self.next_spectator_frame, &self.local_connect_status);
             assert_eq!(inputs.len(), self.num_players as usize);
+
             // construct a pseudo input containing input of all players for the spectators
-            let mut spectator_input = GameInput::new(
-                self.next_spectator_frame,
-                self.input_size * self.num_players as usize,
-            );
-            for (i, input) in inputs.iter().enumerate() {
+            let mut concatenated_buffer = Vec::new();
+            for input in inputs.iter_mut() {
                 assert!(input.frame == NULL_FRAME || input.frame == self.next_spectator_frame);
                 assert!(input.frame == NULL_FRAME || input.size == self.input_size);
-                let start = i * input.size;
-                let end = (i + 1) * input.size;
-                spectator_input.buffer[start..end].copy_from_slice(input.input());
+                concatenated_buffer.append(&mut input.buffer);
             }
+
+            let spectator_input = GameInput::new(
+                self.next_spectator_frame,
+                self.input_size * self.num_players as usize,
+                concatenated_buffer,
+            );
 
             // send it off
             for endpoint in self
@@ -885,7 +878,7 @@ impl P2PSession {
                 .filter_map(Player::spectator_as_endpoint_mut)
             {
                 if endpoint.is_running() {
-                    endpoint.send_input(spectator_input, &self.local_connect_status);
+                    endpoint.send_input(spectator_input.clone(), &self.local_connect_status);
                 }
             }
 

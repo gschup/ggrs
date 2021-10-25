@@ -1,6 +1,4 @@
-use ggrs::{
-    Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, MAX_PLAYERS, NULL_FRAME,
-};
+use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, NULL_FRAME};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +43,7 @@ pub struct BoxGame {
 
 impl BoxGame {
     pub fn new(num_players: usize) -> Self {
-        assert!(num_players <= MAX_PLAYERS as usize);
+        assert!(num_players <= 4);
         Self {
             num_players,
             game_state: BoxGameState::new(num_players),
@@ -231,7 +229,7 @@ impl BoxGameState {
                 4
             } else {
                 // otherwise deserialize the input
-                bincode::deserialize(inputs[i].input()).unwrap()
+                bincode::deserialize(&inputs[i].buffer).unwrap()
             };
 
             // old values

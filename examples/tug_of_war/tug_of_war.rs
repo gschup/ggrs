@@ -148,8 +148,8 @@ impl TugOfWarGame {
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
         self.state.frame += 1;
 
-        let p1_pressed = inputs[0].input()[0] > 0;
-        let p2_pressed = inputs[1].input()[0] > 0;
+        let p1_pressed = inputs[0].buffer[0] > 0;
+        let p2_pressed = inputs[0].buffer[0] > 0;
 
         if p1_pressed {
             self.state.x += 2;

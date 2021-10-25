@@ -30,7 +30,7 @@ pub(crate) struct InputQueue {
     frame_delay: u32,
 
     /// Our cyclic input queue
-    inputs: [GameInput; INPUT_QUEUE_LENGTH],
+    inputs: Vec<GameInput>,
     /// A pre-allocated prediction we are going to use to return predictions from.
     prediction: GameInput,
 }
@@ -47,9 +47,8 @@ impl InputQueue {
             last_added_frame: NULL_FRAME,
             first_incorrect_frame: NULL_FRAME,
             last_requested_frame: NULL_FRAME,
-
-            prediction: GameInput::new(NULL_FRAME, input_size),
-            inputs: [GameInput::new(NULL_FRAME, input_size); INPUT_QUEUE_LENGTH],
+            prediction: GameInput::blank_input(input_size),
+            inputs: vec![GameInput::blank_input(input_size); INPUT_QUEUE_LENGTH],
         }
     }
 
@@ -69,11 +68,11 @@ impl InputQueue {
 
     /// Returns a `GameInput`, but only if the input for the requested frame is confirmed.
     /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
-    pub(crate) fn confirmed_input(&self, requested_frame: Frame) -> GameInput {
+    pub(crate) fn confirmed_input(&self, requested_frame: Frame) -> &GameInput {
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
         if self.inputs[offset].frame == requested_frame {
-            return self.inputs[offset];
+            return &self.inputs[offset];
         }
 
         // the requested confirmed input should not be before a prediction. We should not have asked for a known incorrect frame.
@@ -121,7 +120,7 @@ impl InputQueue {
             if offset < self.length {
                 offset = (offset + self.tail) % INPUT_QUEUE_LENGTH;
                 assert!(self.inputs[offset].frame == requested_frame);
-                return self.inputs[offset]; // GameInput has copy semantics
+                return self.inputs[offset].clone();
             }
 
             // The requested frame isn't in the queue. This means we need to return a prediction frame. Predict that the user will do the same thing they did last time.
@@ -135,7 +134,7 @@ impl InputQueue {
                     0 => previous_position = INPUT_QUEUE_LENGTH - 1,
                     _ => previous_position = self.head - 1,
                 }
-                self.prediction = self.inputs[previous_position];
+                self.prediction = self.inputs[previous_position].clone();
             }
             // update the prediction's frame
             self.prediction.frame += 1;
@@ -143,7 +142,7 @@ impl InputQueue {
 
         // We must be predicting, so we return the prediction frame contents. We are adjusting the prediction to have the requested frame.
         assert!(self.prediction.frame != NULL_FRAME);
-        let mut prediction_to_return = self.prediction; // GameInput has copy semantics
+        let mut prediction_to_return = self.prediction.clone(); // GameInput has copy semantics
         prediction_to_return.frame = requested_frame;
         prediction_to_return
     }
@@ -179,7 +178,7 @@ impl InputQueue {
         assert!(frame_number == 0 || self.inputs[previous_position].frame == frame_number - 1);
 
         // Add the frame to the back of the queue
-        self.inputs[self.head] = input;
+        self.inputs[self.head] = input.clone();
         self.inputs[self.head].frame = frame_number;
         self.head = (self.head + 1) % INPUT_QUEUE_LENGTH;
         self.length += 1;
@@ -231,7 +230,7 @@ impl InputQueue {
         // This can occur when the frame delay has been increased since the last time we shoved a frame into the system.
         // We need to replicate the last frame in the queue several times in order to fill the space left.
         while expected_frame < input_frame {
-            let input_to_replicate = self.inputs[previous_position];
+            let input_to_replicate = self.inputs[previous_position].clone();
             self.add_input_by_frame(input_to_replicate, expected_frame);
             expected_frame += 1;
         }
@@ -257,27 +256,30 @@ mod input_queue_tests {
     #[test]
     #[should_panic]
     fn test_add_input_wrong_frame() {
-        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
-        let input = GameInput::new(0, std::mem::size_of::<u32>());
+        let input_size = std::mem::size_of::<u32>();
+        let mut queue = InputQueue::new(0, input_size);
+        let input = GameInput::new(0, input_size, vec![0]);
         queue.add_input(input); // fine
-        let input_wrong_frame = GameInput::new(3, std::mem::size_of::<u32>());
+        let input_wrong_frame = GameInput::new(3, input_size, vec![0]);
         queue.add_input(input_wrong_frame); // not fine
     }
 
     #[test]
     #[should_panic]
     fn test_add_input_twice() {
-        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
-        let input = GameInput::new(0, std::mem::size_of::<u32>());
-        queue.add_input(input); // fine
+        let input_size = std::mem::size_of::<u32>();
+        let mut queue = InputQueue::new(0, input_size);
+        let input = GameInput::new(0, input_size, vec![0]);
+        queue.add_input(input.clone()); // fine
         queue.add_input(input); // not fine
     }
 
     #[test]
     fn test_add_input_sequentially() {
-        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
+        let input_size = std::mem::size_of::<u32>();
+        let mut queue = InputQueue::new(0, input_size);
         for i in 0..10 {
-            let input = GameInput::new(i, std::mem::size_of::<u32>());
+            let input = GameInput::new(i, input_size, vec![0; input_size]);
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
@@ -286,13 +288,13 @@ mod input_queue_tests {
 
     #[test]
     fn test_input_sequentially() {
-        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
+        let input_size = std::mem::size_of::<u32>();
+        let mut queue = InputQueue::new(0, input_size);
         for i in 0..10 {
-            let mut input = GameInput::new(i, std::mem::size_of::<u32>());
             let fake_inputs: u32 = i as u32;
             let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
-            input.copy_input(&serialized_inputs);
-            queue.add_input(input);
+            let input = GameInput::new(i, input_size, serialized_inputs);
+            queue.add_input(input.clone());
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
             let input_in_queue = queue.input(i);
@@ -302,15 +304,15 @@ mod input_queue_tests {
 
     #[test]
     fn test_delayed_inputs() {
-        let mut queue = InputQueue::new(0, std::mem::size_of::<u32>());
+        let input_size = std::mem::size_of::<u32>();
+        let mut queue = InputQueue::new(0, input_size);
         let delay: i32 = 2;
         queue.set_frame_delay(delay as u32);
         for i in 0..10 {
-            let mut input = GameInput::new(i, std::mem::size_of::<u32>());
             let fake_inputs: u32 = i as u32;
             let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
-            input.copy_input(&serialized_inputs);
-            queue.add_input(input);
+            let input = GameInput::new(i, input_size, serialized_inputs);
+            queue.add_input(input.clone());
             assert_eq!(queue.last_added_frame, i + delay);
             assert_eq!(queue.length, (i + delay + 1) as usize);
             let input_in_queue = queue.input(i + delay);

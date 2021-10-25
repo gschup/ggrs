@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet
+- removed the need for a player cap and a maximum input size.
 
 ## 0.5.1
 

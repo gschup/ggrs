@@ -2,7 +2,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 
 use crate::error::GGRSError;
-use crate::frame_info::{GameInput, GameState, BLANK_INPUT};
+use crate::frame_info::{GameInput, GameState};
 use crate::input_queue::InputQueue;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
@@ -205,7 +205,7 @@ impl SyncLayer {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < self.current_frame {
-                inputs.push(BLANK_INPUT);
+                inputs.push(GameInput::blank_input(self.input_size));
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
             }
@@ -222,9 +222,9 @@ impl SyncLayer {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < frame {
-                inputs.push(BLANK_INPUT);
+                inputs.push(GameInput::blank_input(self.input_size));
             } else {
-                inputs.push(self.input_queues[i].confirmed_input(frame));
+                inputs.push(self.input_queues[i].confirmed_input(frame).clone());
             }
         }
         inputs
@@ -296,8 +296,7 @@ mod sync_layer_tests {
         let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>());
         for i in 0..20 {
             let serialized_input = bincode::serialize(&i).unwrap();
-            let mut game_input = GameInput::new(i, std::mem::size_of::<u32>());
-            game_input.copy_input(&serialized_input);
+            let game_input = GameInput::new(i, std::mem::size_of::<u32>(), serialized_input);
             sync_layer.add_local_input(0, game_input).unwrap(); // should crash at frame 7
         }
     }
@@ -316,10 +315,9 @@ mod sync_layer_tests {
 
         for i in 0..20 {
             let serialized_input = bincode::serialize(&i).unwrap();
-            let mut game_input = GameInput::new(i, std::mem::size_of::<u32>());
-            game_input.copy_input(&serialized_input);
+            let game_input = GameInput::new(i, std::mem::size_of::<u32>(), serialized_input);
             // adding input as remote to avoid prediction threshold detection
-            sync_layer.add_remote_input(0, game_input);
+            sync_layer.add_remote_input(0, game_input.clone());
             sync_layer.add_remote_input(1, game_input);
             // update the dummy connect status
             dummy_connect_status[0].last_frame = i;
