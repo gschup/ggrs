@@ -273,6 +273,18 @@ impl P2PSession {
         {
             endpoint.synchronize();
         }
+
+        // if there are no remote players, then run
+        if self
+            .players
+            .values()
+            .filter_map(Player::as_endpoint)
+            .count()
+            == 0
+        {
+            self.state = SessionState::Running;
+        }
+
         Ok(())
     }
 

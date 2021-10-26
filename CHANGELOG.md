@@ -5,6 +5,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 ## Unreleased
 
 - removed the need for a player cap and a maximum input size.
+- fixed a bug where a p2p session without remote players would not start
 
 ## 0.5.1
 
