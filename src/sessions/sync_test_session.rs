@@ -38,8 +38,6 @@ impl SyncTestSession {
     /// ```
     ///
     /// # Errors
-    /// - Will return a `InvalidRequestError` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
-    /// - Will return a `InvalidRequestError` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
     /// - Will return a `InvalidRequestError` if the `check_distance is` higher than or equal to `MAX_PREDICTION_FRAMES`.
     pub fn new(
         num_players: u32,

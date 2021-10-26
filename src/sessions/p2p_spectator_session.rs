@@ -64,8 +64,6 @@ impl P2PSpectatorSession {
     /// The created session will use the default socket type (currently UDP).
     ///
     /// # Errors
-    /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
-    /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
     /// - Will return `SocketCreationFailed` if the socket could not be created.
     pub fn new(
         num_players: u32,
@@ -77,22 +75,18 @@ impl P2PSpectatorSession {
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
         let socket =
             Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
-        Self::new_impl(num_players, input_size, socket, host_addr)
+        Ok(Self::new_impl(num_players, input_size, socket, host_addr))
     }
 
     /// Creates a new `P2PSpectatorSession` for a spectator.
     /// The session will receive inputs from all players from the given host directly.
     /// The session will use the provided socket.
-    ///
-    /// # Errors
-    /// - Will return a `InvalidRequest` if the number of players is higher than the allowed maximum (see `MAX_PLAYERS`).
-    /// - Will return a `InvalidRequest` if `input_size` is higher than the allowed maximum (see `MAX_INPUT_BYTES`).
     pub fn new_with_socket(
         num_players: u32,
         input_size: usize,
         socket: impl NonBlockingSocket + 'static,
         host_addr: SocketAddr,
-    ) -> Result<Self, GGRSError> {
+    ) -> Self {
         Self::new_impl(num_players, input_size, Box::new(socket), host_addr)
     }
 
@@ -101,14 +95,14 @@ impl P2PSpectatorSession {
         input_size: usize,
         socket: Box<dyn NonBlockingSocket>,
         host_addr: SocketAddr,
-    ) -> Result<Self, GGRSError> {
+    ) -> Self {
         // host connection status
         let mut host_connect_status = Vec::new();
         for _ in 0..num_players {
             host_connect_status.push(ConnectionStatus::default());
         }
 
-        Ok(Self {
+        Self {
             state: SessionState::Initializing,
             num_players,
             input_size,
@@ -121,7 +115,7 @@ impl P2PSpectatorSession {
             last_recv_frame: NULL_FRAME,
             max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
             catchup_speed: DEFAULT_CATCHUP_SPEED,
-        })
+        }
     }
 
     /// Returns the current `SessionState` of a session.

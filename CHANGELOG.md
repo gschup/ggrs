@@ -4,8 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- removed the need for a player cap and a maximum input size.
+- removed the need for a player cap and a maximum input size
+- adjusted session creation API to reflect the above change
 - fixed a bug where a p2p session without remote players would not start
+- migrated to rust 2021
 
 ## 0.5.1
 
