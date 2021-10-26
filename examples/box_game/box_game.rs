@@ -273,9 +273,9 @@ impl BoxGameState {
 
             // constrain boxes to canvas borders
             x = x.max(0.0);
-            x = x.min(WINDOW_WIDTH - SHIP_HEIGHT);
+            x = x.min(WINDOW_WIDTH);
             y = y.max(0.0);
-            y = y.min(WINDOW_HEIGHT - SHIP_HEIGHT);
+            y = y.min(WINDOW_HEIGHT);
 
             // update all state
             self.positions[i] = (x, y);
