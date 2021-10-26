@@ -65,16 +65,6 @@ pub struct GameInput {
     pub buffer: Vec<u8>,
 }
 
-impl Default for GameInput {
-    fn default() -> Self {
-        Self {
-            frame: NULL_FRAME,
-            size: 0,
-            buffer: Default::default(),
-        }
-    }
-}
-
 impl GameInput {
     pub(crate) fn new(frame: Frame, size: usize, buffer: Vec<u8>) -> Self {
         assert!(size == buffer.len());
