@@ -98,7 +98,6 @@ pub(crate) struct SyncLayer {
     num_players: u32,
     input_size: usize,
     saved_states: SavedStates,
-    rolling_back: bool,
     last_confirmed_frame: Frame,
     last_saved_frame: Frame,
     current_frame: Frame,
@@ -116,7 +115,6 @@ impl SyncLayer {
         Self {
             num_players,
             input_size,
-            rolling_back: false,
             last_confirmed_frame: NULL_FRAME,
             last_saved_frame: NULL_FRAME,
             current_frame: 0,
