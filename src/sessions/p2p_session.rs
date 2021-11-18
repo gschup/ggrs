@@ -627,6 +627,20 @@ impl P2PSession {
         Ok(())
     }
 
+    /// Returns the highest confirmed frame. We have received all input for this frame and it is thus correct.
+    pub fn confirmed_frame(&mut self) -> Frame {
+        let mut confirmed_frame = i32::MAX;
+
+        for con_stat in &self.local_connect_status {
+            if !con_stat.disconnected {
+                confirmed_frame = std::cmp::min(confirmed_frame, con_stat.last_frame);
+            }
+        }
+
+        assert!(confirmed_frame < i32::MAX);
+        confirmed_frame
+    }
+
     /// Returns the handle of the local player, if the player is already added
     pub fn local_player_handle(&self) -> Option<PlayerHandle> {
         self.players
@@ -887,20 +901,6 @@ impl P2PSession {
             // onto the next frame
             self.next_spectator_frame += 1;
         }
-    }
-
-    /// Returns the confirmed frame. We have received all input for this frame and it is thus correct.
-    fn confirmed_frame(&mut self) -> Frame {
-        let mut confirmed_frame = i32::MAX;
-
-        for con_stat in &self.local_connect_status {
-            if !con_stat.disconnected {
-                confirmed_frame = std::cmp::min(confirmed_frame, con_stat.last_frame);
-            }
-        }
-
-        assert!(confirmed_frame < i32::MAX);
-        confirmed_frame
     }
 
     /// Check if players are registered as disconnected for earlier frames on other remote players in comparison to our local assumption.
