@@ -4,6 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- added `P2PSession::current_frame()`
 - made `P2PSession::confirmed_frame()` public to let users access it
 - removed the need for a player cap and a maximum input size
 - adjusted session creation API to reflect the above change

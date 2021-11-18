@@ -641,6 +641,11 @@ impl P2PSession {
         confirmed_frame
     }
 
+    /// Returns the current frame of a session.
+    pub const fn current_frame(&self) -> Frame {
+        self.sync_layer.current_frame()
+    }
+
     /// Returns the handle of the local player, if the player is already added
     pub fn local_player_handle(&self) -> Option<PlayerHandle> {
         self.players
