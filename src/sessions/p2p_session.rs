@@ -628,7 +628,7 @@ impl P2PSession {
     }
 
     /// Returns the highest confirmed frame. We have received all input for this frame and it is thus correct.
-    pub fn confirmed_frame(&mut self) -> Frame {
+    pub fn confirmed_frame(&self) -> Frame {
         let mut confirmed_frame = i32::MAX;
 
         for con_stat in &self.local_connect_status {
