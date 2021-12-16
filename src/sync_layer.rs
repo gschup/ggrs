@@ -55,19 +55,11 @@ impl Clone for GameStateCell {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct SavedStates {
     // the states array is two bigger than the max prediction frames in order to account for
     // the next frame needing a space and still being able to rollback the max distance
     pub states: [GameStateCell; MAX_PREDICTION_FRAMES as usize + 2],
-}
-
-impl Default for SavedStates {
-    fn default() -> Self {
-        Self {
-            states: Default::default(),
-        }
-    }
 }
 
 impl SavedStates {
@@ -109,8 +101,8 @@ impl SyncLayer {
     pub(crate) fn new(num_players: u32, input_size: usize) -> Self {
         // initialize input_queues
         let mut input_queues = Vec::new();
-        for i in 0..num_players {
-            input_queues.push(InputQueue::new(i as PlayerHandle, input_size));
+        for _ in 0..num_players {
+            input_queues.push(InputQueue::new(input_size));
         }
         Self {
             num_players,

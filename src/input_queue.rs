@@ -1,5 +1,5 @@
 use crate::frame_info::GameInput;
-use crate::{Frame, PlayerHandle, NULL_FRAME};
+use crate::{Frame, NULL_FRAME};
 use std::cmp;
 
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
@@ -8,8 +8,6 @@ const INPUT_QUEUE_LENGTH: usize = 128;
 /// `InputQueue` handles inputs for a single player and saves them in a circular array. Valid Inputs are between `head` and `tail`.
 #[derive(Debug, Clone)]
 pub(crate) struct InputQueue {
-    /// Identifies the player this InputQueue belongs to
-    id: PlayerHandle,
     /// The head of the queue. The newest `GameInput` is saved here      
     head: usize,
     /// The tail of the queue. The oldest `GameInput` still valid is saved here.
@@ -36,9 +34,8 @@ pub(crate) struct InputQueue {
 }
 
 impl InputQueue {
-    pub(crate) fn new(id: PlayerHandle, input_size: usize) -> Self {
+    pub(crate) fn new(input_size: usize) -> Self {
         Self {
-            id,
             head: 0,
             tail: 0,
             length: 0,
@@ -257,7 +254,7 @@ mod input_queue_tests {
     #[should_panic]
     fn test_add_input_wrong_frame() {
         let input_size = std::mem::size_of::<u32>();
-        let mut queue = InputQueue::new(0, input_size);
+        let mut queue = InputQueue::new(input_size);
         let input = GameInput::new(0, input_size, vec![0]);
         queue.add_input(input); // fine
         let input_wrong_frame = GameInput::new(3, input_size, vec![0]);
@@ -268,7 +265,7 @@ mod input_queue_tests {
     #[should_panic]
     fn test_add_input_twice() {
         let input_size = std::mem::size_of::<u32>();
-        let mut queue = InputQueue::new(0, input_size);
+        let mut queue = InputQueue::new(input_size);
         let input = GameInput::new(0, input_size, vec![0]);
         queue.add_input(input.clone()); // fine
         queue.add_input(input); // not fine
@@ -277,7 +274,7 @@ mod input_queue_tests {
     #[test]
     fn test_add_input_sequentially() {
         let input_size = std::mem::size_of::<u32>();
-        let mut queue = InputQueue::new(0, input_size);
+        let mut queue = InputQueue::new(input_size);
         for i in 0..10 {
             let input = GameInput::new(i, input_size, vec![0; input_size]);
             queue.add_input(input);
@@ -289,7 +286,7 @@ mod input_queue_tests {
     #[test]
     fn test_input_sequentially() {
         let input_size = std::mem::size_of::<u32>();
-        let mut queue = InputQueue::new(0, input_size);
+        let mut queue = InputQueue::new(input_size);
         for i in 0..10 {
             let fake_inputs: u32 = i as u32;
             let serialized_inputs = bincode::serialize(&fake_inputs).unwrap();
@@ -305,7 +302,7 @@ mod input_queue_tests {
     #[test]
     fn test_delayed_inputs() {
         let input_size = std::mem::size_of::<u32>();
-        let mut queue = InputQueue::new(0, input_size);
+        let mut queue = InputQueue::new(input_size);
         let delay: i32 = 2;
         queue.set_frame_delay(delay as u32);
         for i in 0..10 {

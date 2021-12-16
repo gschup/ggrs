@@ -84,7 +84,6 @@ pub(crate) struct UdpProtocol {
     pending_output: VecDeque<GameInput>,
     last_received_input: GameInput,
     last_acked_input: GameInput,
-    input_size: usize,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -155,7 +154,6 @@ impl UdpProtocol {
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
             last_received_input: GameInput::blank_input(input_size),
             last_acked_input: GameInput::blank_input(input_size),
-            input_size,
 
             // time sync
             time_sync_layer: TimeSync::new(),
