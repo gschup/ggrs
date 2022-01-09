@@ -6,7 +6,7 @@ use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
-const MAX_PRED_FRAME: usize = 8;
+const MAX_PRED_FRAME: usize = 12;
 
 mod box_game;
 
@@ -48,8 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         opt.local_port,
     )?;
 
-    // turn on sparse saving
-    sess.set_sparse_saving(true)?;
+    // if loading/saving is more expensive than long rollbacks, you can turn on sparse saving
+    // sess.set_sparse_saving(true)?;
 
     // set FPS (default is 60, so this doesn't change anything as is)
     sess.set_fps(FPS as u32)?;
@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // set input delay for the local player
-    sess.set_frame_delay(4, local_handle)?;
+    sess.set_frame_delay(2, local_handle)?;
 
     // set change default expected update frequency
     sess.set_fps(FPS as u32)?;
