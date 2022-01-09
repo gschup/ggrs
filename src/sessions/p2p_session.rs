@@ -5,10 +5,7 @@ use crate::network::non_blocking_socket::{NonBlockingSocket, UdpNonBlockingSocke
 use crate::network::udp_msg::ConnectionStatus;
 use crate::network::udp_protocol::UdpProtocol;
 use crate::sync_layer::SyncLayer;
-use crate::{
-    Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, MAX_PREDICTION_FRAMES,
-    NULL_FRAME,
-};
+use crate::{Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
 
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
@@ -103,6 +100,8 @@ pub struct P2PSession {
     num_players: u32,
     /// The number of bytes an input uses.
     input_size: usize,
+    /// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct.
+    max_prediction: usize,
     /// The sync layer handles player input queues and provides predictions.
     sync_layer: SyncLayer,
     /// FPS defines the expected update frequency of this session.
@@ -146,10 +145,11 @@ impl P2PSession {
     /// ```
     /// # use ggrs::{GGRSError, P2PSession};
     /// # fn main() -> Result<(), GGRSError> {
-    /// let local_port: u16 = 7777;
+    /// let local_port : u16 = 7777;
     /// let num_players : u32 = 2;
+    /// let max_pred : usize = 8;
     /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = P2PSession::new(num_players, input_size, local_port)?;
+    /// let mut session = P2PSession::new(num_players, input_size, max_pred, local_port)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -158,12 +158,22 @@ impl P2PSession {
     ///
     /// # Errors
     /// - Will return `SocketCreationFailed` if the socket could not be created.
-    pub fn new(num_players: u32, input_size: usize, local_port: u16) -> Result<Self, GGRSError> {
+    pub fn new(
+        num_players: u32,
+        input_size: usize,
+        max_prediction: usize,
+        local_port: u16,
+    ) -> Result<Self, GGRSError> {
         // udp nonblocking socket creation
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
         let socket =
             Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
-        Ok(Self::new_impl(num_players, input_size, socket))
+        Ok(Self::new_impl(
+            num_players,
+            input_size,
+            max_prediction,
+            socket,
+        ))
     }
 
     /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
@@ -171,12 +181,18 @@ impl P2PSession {
     pub fn new_with_socket(
         num_players: u32,
         input_size: usize,
+        max_prediction: usize,
         socket: impl NonBlockingSocket + 'static,
     ) -> Self {
-        Self::new_impl(num_players, input_size, Box::new(socket))
+        Self::new_impl(num_players, input_size, max_prediction, Box::new(socket))
     }
 
-    fn new_impl(num_players: u32, input_size: usize, socket: Box<dyn NonBlockingSocket>) -> Self {
+    fn new_impl(
+        num_players: u32,
+        input_size: usize,
+        max_prediction: usize,
+        socket: Box<dyn NonBlockingSocket>,
+    ) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
         for _ in 0..num_players {
@@ -187,6 +203,7 @@ impl P2PSession {
             state: SessionState::Initializing,
             num_players,
             input_size,
+            max_prediction,
             fps: DEFAULT_FPS,
             sparse_saving: DEFAULT_SAVE_MODE,
             socket,
@@ -194,7 +211,7 @@ impl P2PSession {
             next_recommended_sleep: 0,
             next_spectator_frame: 0,
             frames_ahead: 0,
-            sync_layer: SyncLayer::new(num_players, input_size),
+            sync_layer: SyncLayer::new(num_players, input_size, max_prediction),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             disconnect_frame: NULL_FRAME,
@@ -363,7 +380,7 @@ impl P2PSession {
         // in sparse saving mode, we need to make sure not to lose the last saved frame
         let last_saved = self.sync_layer.last_saved_frame();
         if self.sparse_saving
-            && self.sync_layer.current_frame() - last_saved >= MAX_PREDICTION_FRAMES as i32
+            && self.sync_layer.current_frame() - last_saved >= self.max_prediction as i32
         {
             // check if the current frame is confirmed, otherwise we need to roll back
             if confirmed_frame >= self.sync_layer.current_frame() {

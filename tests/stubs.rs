@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell};
 
 pub const INPUT_SIZE: usize = std::mem::size_of::<u32>();
+pub const MAX_PRED_FRAMES: usize = 8;
 
 pub struct GameStub {
     pub gs: GameStateStub,
@@ -22,7 +23,7 @@ impl GameStub {
     pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
+                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
                 GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
@@ -37,6 +38,7 @@ impl GameStub {
     }
 
     fn load_game_state(&mut self, cell: GameStateCell) {
+        println!("LOAD THIS CELL {:?}", cell);
         let game_state = cell.load();
         self.gs = bincode::deserialize(&game_state.buffer.unwrap()).unwrap();
     }
@@ -64,7 +66,7 @@ impl RandomChecksumGameStub {
     pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
+                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
                 GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }

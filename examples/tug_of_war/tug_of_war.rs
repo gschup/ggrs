@@ -28,10 +28,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
     let mut local_handle = 0;
     let num_players = opt.players.len();
+    let max_pred_frames = 8;
     assert!(num_players == 2); // this example is only for two p2p players
 
     // create a GGRS session
-    let mut sess = P2PSession::new(num_players as u32, INPUT_SIZE, opt.local_port)?;
+    let mut sess = P2PSession::new(
+        num_players as u32,
+        INPUT_SIZE,
+        max_pred_frames,
+        opt.local_port,
+    )?;
 
     // set FPS (default is 60, so this doesn't change anything as is)
     sess.set_fps(FPS as u32)?;
@@ -138,7 +144,7 @@ impl TugOfWarGame {
     fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
+                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
                 GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }

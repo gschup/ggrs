@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- removed the const `MAX_PREDICTION_FRAMES` and made it a parameter for the user to choose
 
 ## 0.6.0
 

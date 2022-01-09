@@ -39,8 +39,6 @@ pub(crate) mod network {
 // # CONSTANTS #
 // #############
 
-/// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct if the players did not desync.
-pub const MAX_PREDICTION_FRAMES: u32 = 8;
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;
 
@@ -112,8 +110,8 @@ pub enum GGRSEvent {
 pub enum GGRSRequest {
     /// You should save the current gamestate in the `cell` provided to you. The given `frame` is a sanity check: The gamestate you save should be from that frame.
     SaveGameState { cell: GameStateCell, frame: Frame },
-    /// You should load the gamestate in the `cell` provided to you.
-    LoadGameState { cell: GameStateCell },
+    /// You should load the gamestate in the `cell` provided to you. The given 'frame' is a sanity check: The gamestate you load should be from that frame.
+    LoadGameState { cell: GameStateCell, frame: Frame },
     /// You should advance the gamestate with the `inputs` provided to you.
     /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
     AdvanceFrame { inputs: Vec<GameInput> },

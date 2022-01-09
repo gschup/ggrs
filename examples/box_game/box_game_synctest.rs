@@ -5,6 +5,7 @@ use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+const MAX_PRED_FRAMES: usize = 8;
 
 mod box_game;
 
@@ -25,7 +26,7 @@ struct Opt {
     #[structopt(short, long)]
     num_players: usize,
     #[structopt(short, long)]
-    check_distance: u32,
+    check_distance: usize,
 }
 
 #[macroquad::main(window_conf)]
@@ -34,7 +35,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // create a GGRS session
-    let mut sess = SyncTestSession::new(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
+    let mut sess = SyncTestSession::new(
+        opt.num_players as u32,
+        INPUT_SIZE,
+        MAX_PRED_FRAMES,
+        opt.check_distance,
+    )?;
 
     // set input delay for any player you want
     for i in 0..opt.num_players {

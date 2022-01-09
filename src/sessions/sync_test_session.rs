@@ -4,7 +4,7 @@ use crate::error::GGRSError;
 use crate::frame_info::GameInput;
 use crate::network::udp_msg::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES};
+use crate::{Frame, GGRSRequest, PlayerHandle};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -12,7 +12,7 @@ use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES};
 pub struct SyncTestSession {
     num_players: u32,
     input_size: usize,
-    check_distance: u32,
+    check_distance: usize,
     sync_layer: SyncLayer,
     dummy_connect_status: Vec<ConnectionStatus>,
     checksum_history: HashMap<Frame, u64>,
@@ -29,10 +29,11 @@ impl SyncTestSession {
     /// ```
     /// # use ggrs::{GGRSError, SyncTestSession};
     /// # fn main() -> Result<(), GGRSError> {
-    /// let check_distance : u32 = 7;
+    /// let check_distance : usize = 7;
+    /// let max_pred : usize = 8;
     /// let num_players : u32 = 2;
     /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = SyncTestSession::new(num_players, input_size, check_distance)?;
+    /// let mut session = SyncTestSession::new(num_players, input_size, max_pred, check_distance)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -42,18 +43,29 @@ impl SyncTestSession {
     pub fn new(
         num_players: u32,
         input_size: usize,
-        check_distance: u32,
+        max_prediction: usize,
+        check_distance: usize,
     ) -> Result<Self, GGRSError> {
-        if check_distance >= MAX_PREDICTION_FRAMES {
+        if check_distance >= max_prediction {
             return Err(GGRSError::InvalidRequest {
                 info: "Check distance too big.".to_owned(),
             });
         }
-        Ok(Self::new_impl(num_players, input_size, check_distance))
+        Ok(Self::new_impl(
+            num_players,
+            input_size,
+            max_prediction,
+            check_distance,
+        ))
     }
 
     /// Creates a new `SyncTestSession` instance with given values.
-    fn new_impl(num_players: u32, input_size: usize, check_distance: u32) -> Self {
+    fn new_impl(
+        num_players: u32,
+        input_size: usize,
+        max_prediction: usize,
+        check_distance: usize,
+    ) -> Self {
         let mut dummy_connect_status = Vec::new();
         for _ in 0..num_players {
             dummy_connect_status.push(ConnectionStatus::default());
@@ -62,7 +74,7 @@ impl SyncTestSession {
             num_players,
             input_size,
             check_distance,
-            sync_layer: SyncLayer::new(num_players, input_size),
+            sync_layer: SyncLayer::new(num_players, input_size, max_prediction),
             dummy_connect_status,
             checksum_history: HashMap::default(),
         }

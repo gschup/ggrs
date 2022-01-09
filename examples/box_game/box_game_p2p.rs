@@ -6,6 +6,7 @@ use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+const MAX_PRED_FRAME: usize = 8;
 
 mod box_game;
 
@@ -40,7 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS session
-    let mut sess = P2PSession::new(num_players as u32, INPUT_SIZE, opt.local_port)?;
+    let mut sess = P2PSession::new(
+        num_players as u32,
+        INPUT_SIZE,
+        MAX_PRED_FRAME,
+        opt.local_port,
+    )?;
 
     // turn on sparse saving
     sess.set_sparse_saving(true)?;
@@ -111,8 +117,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
 
                 match sess.advance_frame(local_handle, &game.local_input(0)) {
-                    Ok(requests) => game.handle_requests(requests),
-                    Err(GGRSError::PredictionThreshold) => println!("Frame skipped"),
+                    Ok(requests) => {
+                        game.handle_requests(requests);
+                        if sess.current_frame() % (2 * FPS as i32) == 0 {
+                            for p in 0..num_players {
+                                if p == local_handle {
+                                    continue;
+                                }
+                                println!(
+                                    "Frame {}: Player {}, Ping {}",
+                                    sess.current_frame(),
+                                    p,
+                                    sess.network_stats(p).unwrap().ping
+                                );
+                            }
+                        }
+                    }
+                    Err(GGRSError::PredictionThreshold) => {
+                        println!("Frame {} skipped", sess.current_frame())
+                    }
                     Err(e) => return Err(Box::new(e)),
                 }
             }

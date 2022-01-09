@@ -5,21 +5,13 @@ use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState};
 use crate::input_queue::InputQueue;
 use crate::network::udp_msg::ConnectionStatus;
-use crate::{Frame, GGRSRequest, PlayerHandle, MAX_PREDICTION_FRAMES, NULL_FRAME};
+use crate::{Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
 
 /// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
 #[derive(Debug)]
 pub struct GameStateCell(Arc<Mutex<GameState>>);
 
 impl GameStateCell {
-    pub(crate) fn reset(&self) {
-        *self.0.lock() = GameState {
-            frame: NULL_FRAME,
-            buffer: None,
-            checksum: 0,
-        }
-    }
-
     /// Saves a `GameState` the user creates into the cell.
     pub fn save(&self, new_state: GameState) {
         let mut state = self.0.lock();
@@ -29,17 +21,10 @@ impl GameStateCell {
         state.buffer = new_state.buffer;
     }
 
-    /// Loads a `GameState` that the user previously saved into it.
-    ///
-    /// # Panics
-    /// Will panic if the data has previously not been saved to.
+    /// Loads a `GameState` that the user previously saved into.
     pub fn load(&self) -> GameState {
         let state = self.0.lock();
-        if state.frame != NULL_FRAME {
-            state.clone()
-        } else {
-            panic!("Trying to load data that wasn't saved to.")
-        }
+        state.clone()
     }
 }
 
@@ -55,33 +40,27 @@ impl Clone for GameStateCell {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct SavedStates {
-    // the states array is two bigger than the max prediction frames in order to account for
-    // the next frame needing a space and still being able to rollback the max distance
-    pub states: [GameStateCell; MAX_PREDICTION_FRAMES as usize + 2],
+    pub states: Vec<GameStateCell>,
 }
 
 impl SavedStates {
-    fn push(&mut self, frame: Frame) -> GameStateCell {
-        assert!(frame >= 0);
-        let pos = frame as usize % self.states.len();
-        let cell = self.states[pos].clone();
-        cell.reset();
-        cell
+    fn new(max_pred: usize) -> Self {
+        // the states are two cells bigger than the max prediction frames in order to account for
+        // the next frame needing a space and still being able to rollback the max distance
+        let mut states = Vec::with_capacity(max_pred + 2);
+        for _ in 0..max_pred {
+            states.push(GameStateCell::default());
+        }
+
+        Self { states }
     }
 
-    fn peek(&mut self, frame: Frame) -> GameStateCell {
+    fn get_cell(&self, frame: Frame) -> GameStateCell {
         assert!(frame >= 0);
         let pos = frame as usize % self.states.len();
         self.states[pos].clone()
-    }
-
-    fn by_frame(&self, frame: Frame) -> Option<GameStateCell> {
-        self.states
-            .iter()
-            .find(|saved| saved.0.lock().frame == frame)
-            .cloned()
     }
 }
 
@@ -89,6 +68,7 @@ impl SavedStates {
 pub(crate) struct SyncLayer {
     num_players: u32,
     input_size: usize,
+    max_prediction: usize,
     saved_states: SavedStates,
     last_confirmed_frame: Frame,
     last_saved_frame: Frame,
@@ -98,7 +78,7 @@ pub(crate) struct SyncLayer {
 
 impl SyncLayer {
     /// Creates a new `SyncLayer` instance with given values.
-    pub(crate) fn new(num_players: u32, input_size: usize) -> Self {
+    pub(crate) fn new(num_players: u32, input_size: usize, max_prediction: usize) -> Self {
         // initialize input_queues
         let mut input_queues = Vec::new();
         for _ in 0..num_players {
@@ -107,12 +87,11 @@ impl SyncLayer {
         Self {
             num_players,
             input_size,
+            max_prediction,
             last_confirmed_frame: NULL_FRAME,
             last_saved_frame: NULL_FRAME,
             current_frame: 0,
-            saved_states: SavedStates {
-                states: Default::default(),
-            },
+            saved_states: SavedStates::new(max_prediction),
             input_queues,
         }
     }
@@ -127,7 +106,7 @@ impl SyncLayer {
 
     pub(crate) fn save_current_state(&mut self) -> GGRSRequest {
         self.last_saved_frame = self.current_frame;
-        let cell = self.saved_states.push(self.current_frame);
+        let cell = self.saved_states.get_cell(self.current_frame);
         GGRSRequest::SaveGameState {
             cell,
             frame: self.current_frame,
@@ -151,17 +130,17 @@ impl SyncLayer {
         assert!(
             frame_to_load != NULL_FRAME
                 && frame_to_load < self.current_frame
-                && frame_to_load >= self.current_frame - MAX_PREDICTION_FRAMES as i32
+                && frame_to_load >= self.current_frame - self.max_prediction as i32
         );
 
-        // Reset the head of the state ring-buffer to point in advance of the current frame (as if we had just finished executing it).
-        let cell = self.saved_states.peek(frame_to_load);
-        let loaded_frame = cell.0.lock().frame;
-        assert_eq!(loaded_frame, frame_to_load);
+        let cell = self.saved_states.get_cell(frame_to_load);
+        assert_eq!(cell.0.lock().frame, frame_to_load);
+        self.current_frame = frame_to_load;
 
-        self.current_frame = loaded_frame;
-
-        GGRSRequest::LoadGameState { cell }
+        GGRSRequest::LoadGameState {
+            cell,
+            frame: frame_to_load,
+        }
     }
 
     /// Adds local input to the corresponding input queue. Checks if the prediction threshold has been reached. Returns the frame number where the input is actually added to.
@@ -172,7 +151,7 @@ impl SyncLayer {
         input: GameInput,
     ) -> Result<Frame, GGRSError> {
         let frames_ahead = self.current_frame - self.last_confirmed_frame;
-        if frames_ahead >= MAX_PREDICTION_FRAMES as i32 {
+        if frames_ahead >= self.max_prediction as i32 {
             return Err(GGRSError::PredictionThreshold);
         }
 
@@ -262,7 +241,13 @@ impl SyncLayer {
 
     /// Returns a gamestate through given frame
     pub(crate) fn saved_state_by_frame(&self, frame: Frame) -> Option<GameStateCell> {
-        self.saved_states.by_frame(frame)
+        let cell = self.saved_states.get_cell(frame);
+
+        if cell.0.lock().frame == frame {
+            Some(cell)
+        } else {
+            None
+        }
     }
 
     /// Returns the latest saved frame
@@ -283,7 +268,7 @@ mod sync_layer_tests {
     #[test]
     #[should_panic]
     fn test_reach_prediction_threshold() {
-        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>());
+        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>(), 8);
         for i in 0..20 {
             let serialized_input = bincode::serialize(&i).unwrap();
             let game_input = GameInput::new(i, std::mem::size_of::<u32>(), serialized_input);
@@ -293,7 +278,7 @@ mod sync_layer_tests {
 
     #[test]
     fn test_different_delays() {
-        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>());
+        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>(), 8);
         let p1_delay = 2;
         let p2_delay = 0;
         sync_layer.set_frame_delay(0, p1_delay);

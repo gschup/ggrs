@@ -56,7 +56,7 @@ impl BoxGame {
     pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell } => self.load_game_state(cell),
+                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
                 GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
@@ -69,7 +69,6 @@ impl BoxGame {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
-
         cell.save(GameState::new(frame, Some(buffer), Some(checksum)));
     }
 

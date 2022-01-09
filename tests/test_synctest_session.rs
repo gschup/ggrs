@@ -5,14 +5,15 @@ mod stubs;
 
 #[test]
 fn test_create_session() {
-    assert!(SyncTestSession::new(2, stubs::INPUT_SIZE, 2).is_ok());
+    assert!(SyncTestSession::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 2).is_ok());
 }
 
 #[test]
 fn test_advance_frame_with_rollbacks() {
     let check_distance = 7;
     let mut stub = stubs::GameStub::new();
-    let mut sess = SyncTestSession::new(2, stubs::INPUT_SIZE, check_distance).unwrap();
+    let mut sess =
+        SyncTestSession::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, check_distance).unwrap();
 
     for i in 0..200 {
         let input: u32 = i;
@@ -30,7 +31,8 @@ fn test_advance_frames_with_delayed_input() {
     let handle = 1;
     let check_distance = 7;
     let mut stub = stubs::GameStub::new();
-    let mut sess = SyncTestSession::new(2, stubs::INPUT_SIZE, check_distance).unwrap();
+    let mut sess =
+        SyncTestSession::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, check_distance).unwrap();
     assert!(sess.set_frame_delay(2, handle).is_ok());
 
     for i in 0..200 {
@@ -50,7 +52,8 @@ fn test_advance_frames_with_random_checksums() {
     let handle = 1;
     let check_distance = 2;
     let mut stub = stubs::RandomChecksumGameStub::new();
-    let mut sess = SyncTestSession::new(2, stubs::INPUT_SIZE, check_distance).unwrap();
+    let mut sess =
+        SyncTestSession::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, check_distance).unwrap();
     assert!(sess.set_frame_delay(2, handle).is_ok());
 
     for i in 0..200 {

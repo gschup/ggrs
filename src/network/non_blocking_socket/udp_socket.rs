@@ -44,10 +44,8 @@ impl NonBlockingSocket for UdpNonBlockingSocket {
                 }
                 // there are no more messages
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => return received_messages,
-                // datagram socket apparently sometimes do this when there are no messages instead of `WouldBlock`
-                Err(ref err) if err.kind() == ErrorKind::ConnectionReset => {
-                    return received_messages
-                }
+                // datagram socket sometimes get this error as a result of calling the send_to method
+                Err(ref err) if err.kind() == ErrorKind::ConnectionReset => continue,
                 // all other errors cause a panic
                 Err(err) => panic!("{:?}: {} on {:?}", err.kind(), err, &self.socket),
             }
