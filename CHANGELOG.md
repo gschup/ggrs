@@ -6,6 +6,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 - nothing here yet...
 
+## 0.7.1
+
+- added getter for the max prediction frames parameter in `P2PSession` and `SyncTestSession`
+
 ## 0.7.0
 
 - removed the const `MAX_PREDICTION_FRAMES` and made it a parameter for the user to choose

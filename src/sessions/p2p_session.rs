@@ -663,6 +663,11 @@ impl P2PSession {
         self.sync_layer.current_frame()
     }
 
+    /// Returns the maximum prediction window of a session.
+    pub const fn max_prediction(&self) -> usize {
+        self.max_prediction
+    }
+
     /// Returns the handle of the local player, if the player is already added
     pub fn local_player_handle(&self) -> Option<PlayerHandle> {
         self.players

@@ -12,6 +12,7 @@ use crate::{Frame, GGRSRequest, PlayerHandle};
 pub struct SyncTestSession {
     num_players: u32,
     input_size: usize,
+    max_prediction: usize,
     check_distance: usize,
     sync_layer: SyncLayer,
     dummy_connect_status: Vec<ConnectionStatus>,
@@ -73,6 +74,7 @@ impl SyncTestSession {
         Self {
             num_players,
             input_size,
+            max_prediction,
             check_distance,
             sync_layer: SyncLayer::new(num_players, input_size, max_prediction),
             dummy_connect_status,
@@ -177,6 +179,11 @@ impl SyncTestSession {
     /// Returns the input size this session was constructed with.
     pub const fn input_size(&self) -> usize {
         self.input_size
+    }
+
+    /// Returns the maximum prediction window of a session.
+    pub const fn max_prediction(&self) -> usize {
+        self.max_prediction
     }
 
     /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once
