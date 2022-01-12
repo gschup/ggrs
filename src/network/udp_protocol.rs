@@ -82,7 +82,6 @@ pub(crate) struct UdpProtocol {
 
     // input compression
     pending_output: VecDeque<GameInput>,
-    last_received_input: GameInput,
     last_acked_input: GameInput,
     max_prediction: usize,
     recv_inputs: HashMap<Frame, GameInput>,
@@ -159,7 +158,6 @@ impl UdpProtocol {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
-            last_received_input: GameInput::blank_input(input_size),
             last_acked_input: GameInput::blank_input(input_size),
             max_prediction,
             recv_inputs,
@@ -184,12 +182,12 @@ impl UdpProtocol {
     }
 
     pub(crate) fn update_local_frame_advantage(&mut self, local_frame: Frame) {
-        if local_frame == NULL_FRAME || self.last_received_input.frame == NULL_FRAME {
+        if local_frame == NULL_FRAME || self.last_recv_frame() == NULL_FRAME {
             return;
         }
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
         let ping = i32::try_from(self.round_trip_time / 2).expect("Ping is higher than i32::MAX");
-        let remote_frame = self.last_received_input.frame + ((ping * self.fps as i32) / 1000);
+        let remote_frame = self.last_recv_frame() + ((ping * self.fps as i32) / 1000);
         // Our frame "advantage" is how many frames behind the remote client we are. (It's an advantage because they will have to predict more often)
         self.local_frame_advantage = remote_frame - local_frame;
     }
@@ -393,7 +391,7 @@ impl UdpProtocol {
             // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
             assert!(body.bytes.len() <= MAX_PAYLOAD);
 
-            body.ack_frame = self.last_received_input.frame;
+            body.ack_frame = self.last_recv_frame();
             body.disconnect_requested = self.state == ProtocolState::Disconnected;
             body.peer_connect_status = connect_status.to_owned();
 
@@ -403,7 +401,7 @@ impl UdpProtocol {
 
     fn send_input_ack(&mut self) {
         let body = InputAck {
-            ack_frame: self.last_received_input.frame,
+            ack_frame: self.last_recv_frame(),
         };
 
         self.queue_message(MessageBody::InputAck(body));
@@ -545,13 +543,12 @@ impl UdpProtocol {
 
         // if the encoded packet is decoded with an input we did not receive yet, we cannot recover
         assert!(
-            self.last_received_input.frame == NULL_FRAME
-                || self.last_received_input.frame + 1 >= body.start_frame
+            self.last_recv_frame() == NULL_FRAME || self.last_recv_frame() + 1 >= body.start_frame
         );
 
         // if we did not receive any input yet, we decode with the blank input,
         // otherwise we use the input previous to the start of the encoded inputs
-        let decode_frame = if self.last_received_input.frame == NULL_FRAME {
+        let decode_frame = if self.last_recv_frame() == NULL_FRAME {
             NULL_FRAME
         } else {
             body.start_frame - 1
@@ -566,11 +563,10 @@ impl UdpProtocol {
 
             for game_input in &recv_inputs {
                 // skip inputs that we don't need
-                if game_input.frame <= self.last_received_input.frame {
+                if game_input.frame <= self.last_recv_frame() {
                     continue;
                 }
                 // send the input to the session
-                self.last_received_input = game_input.clone();
                 self.recv_inputs
                     .insert(game_input.frame, game_input.clone());
                 self.event_queue.push_back(Event::Input(game_input.clone()));
@@ -580,9 +576,9 @@ impl UdpProtocol {
             self.send_input_ack();
 
             // delete reveiced inputs that are too old
-            self.recv_inputs.retain(|&k, _| {
-                k >= self.last_received_input.frame - 2 * self.max_prediction as i32
-            });
+            let last_recv_frame = self.last_recv_frame();
+            self.recv_inputs
+                .retain(|&k, _| k >= last_recv_frame - 2 * self.max_prediction as i32);
         }
     }
 
@@ -603,5 +599,13 @@ impl UdpProtocol {
         let millis = millis_since_epoch();
         assert!(millis >= body.pong);
         self.round_trip_time = millis - body.pong;
+    }
+
+    /// Returns the frame of the last received input
+    fn last_recv_frame(&self) -> Frame {
+        match self.recv_inputs.iter().max_by_key(|&(k, _)| k) {
+            Some((k, _)) => *k,
+            None => NULL_FRAME,
+        }
     }
 }
