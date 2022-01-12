@@ -13,7 +13,7 @@ use crate::{Frame, PlayerHandle, NULL_FRAME};
 
 use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::ops::Add;
@@ -84,6 +84,8 @@ pub(crate) struct UdpProtocol {
     pending_output: VecDeque<GameInput>,
     last_received_input: GameInput,
     last_acked_input: GameInput,
+    max_prediction: usize,
+    recv_inputs: HashMap<Frame, GameInput>,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -112,6 +114,7 @@ impl UdpProtocol {
         peer_addr: SocketAddr,
         num_players: u32,
         input_size: usize,
+        max_prediction: usize,
     ) -> Self {
         let mut magic = rand::random::<u16>();
         while magic == 0 {
@@ -123,6 +126,10 @@ impl UdpProtocol {
         for _ in 0..num_players {
             peer_connect_status.push(ConnectionStatus::default());
         }
+
+        // received input history
+        let mut recv_inputs = HashMap::new();
+        recv_inputs.insert(NULL_FRAME, GameInput::blank_input(input_size));
 
         Self {
             handle,
@@ -154,6 +161,8 @@ impl UdpProtocol {
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
             last_received_input: GameInput::blank_input(input_size),
             last_acked_input: GameInput::blank_input(input_size),
+            max_prediction,
+            recv_inputs,
 
             // time sync
             time_sync_layer: TimeSync::new(),
@@ -175,10 +184,7 @@ impl UdpProtocol {
     }
 
     pub(crate) fn update_local_frame_advantage(&mut self, local_frame: Frame) {
-        if local_frame == NULL_FRAME {
-            return;
-        }
-        if self.last_received_input.frame == NULL_FRAME {
+        if local_frame == NULL_FRAME || self.last_received_input.frame == NULL_FRAME {
             return;
         }
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
@@ -380,21 +386,19 @@ impl UdpProtocol {
                     || self.last_acked_input.frame + 1 == input.frame
             );
             body.start_frame = input.frame;
-        } else {
-            body.start_frame = 0;
+
+            // encode all pending inputs to a byte buffer
+            body.bytes = encode(&self.last_acked_input, self.pending_output.iter());
+
+            // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
+            assert!(body.bytes.len() <= MAX_PAYLOAD);
+
+            body.ack_frame = self.last_received_input.frame;
+            body.disconnect_requested = self.state == ProtocolState::Disconnected;
+            body.peer_connect_status = connect_status.to_owned();
+
+            self.queue_message(MessageBody::Input(body));
         }
-
-        // encode all pending inputs to a byte buffer
-        body.bytes = encode(&self.last_acked_input, self.pending_output.iter());
-
-        // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
-        assert!(body.bytes.len() <= MAX_PAYLOAD);
-
-        body.ack_frame = self.last_received_input.frame;
-        body.disconnect_requested = self.state == ProtocolState::Disconnected;
-        body.peer_connect_status = connect_status.to_owned();
-
-        self.queue_message(MessageBody::Input(body));
     }
 
     fn send_input_ack(&mut self) {
@@ -539,37 +543,47 @@ impl UdpProtocol {
             }
         }
 
-        // this input has not been encoded with what we expect, so we drop the whole thing
-        // TODO: this could be made so much more efficient if we kept more received input history
-        // so we can properly decode with the right reference
+        // if the encoded packet is decoded with an input we did not receive yet, we cannot recover
         assert!(
             self.last_received_input.frame == NULL_FRAME
                 || self.last_received_input.frame + 1 >= body.start_frame
         );
-        if self.last_received_input.frame != NULL_FRAME
-            && self.last_received_input.frame + 1 != body.start_frame
-        {
-            return;
-        }
 
-        self.running_last_input_recv = Instant::now();
+        // if we did not receive any input yet, we decode with the blank input,
+        // otherwise we use the input previous to the start of the encoded inputs
+        let decode_frame = if self.last_received_input.frame == NULL_FRAME {
+            NULL_FRAME
+        } else {
+            body.start_frame - 1
+        };
 
-        // we know everything is correct, so we decode
-        let recv_inputs = decode(&self.last_received_input, body.start_frame, &body.bytes)
-            .expect("decoding failed");
+        // if we have the necessary input saved, we decode
+        if let Some(decode_inp) = self.recv_inputs.get(&decode_frame) {
+            self.running_last_input_recv = Instant::now();
 
-        for game_input in &recv_inputs {
-            // skip inputs that we don't need
-            if game_input.frame <= self.last_received_input.frame {
-                continue;
+            let recv_inputs =
+                decode(decode_inp, body.start_frame, &body.bytes).expect("decoding failed");
+
+            for game_input in &recv_inputs {
+                // skip inputs that we don't need
+                if game_input.frame <= self.last_received_input.frame {
+                    continue;
+                }
+                // send the input to the session
+                self.last_received_input = game_input.clone();
+                self.recv_inputs
+                    .insert(game_input.frame, game_input.clone());
+                self.event_queue.push_back(Event::Input(game_input.clone()));
             }
-            // send the input to the session
-            self.last_received_input = game_input.clone();
-            self.event_queue.push_back(Event::Input(game_input.clone()));
-        }
 
-        // send an input ack
-        self.send_input_ack();
+            // send an input ack
+            self.send_input_ack();
+
+            // delete reveiced inputs that are too old
+            self.recv_inputs.retain(|&k, _| {
+                k >= self.last_received_input.frame - 2 * self.max_prediction as i32
+            });
+        }
     }
 
     /// Upon receiving a `InputAck`, discard the oldest buffered input including the acked input.

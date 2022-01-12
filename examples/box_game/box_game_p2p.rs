@@ -6,7 +6,7 @@ use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
-const MAX_PRED_FRAME: usize = 12;
+const MAX_PRED_FRAME: usize = 8;
 
 mod box_game;
 
