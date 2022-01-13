@@ -17,7 +17,10 @@ impl<T: Clone> GameStateCell<T> {
         let mut state = self.0.lock();
         assert!(new_state.frame != NULL_FRAME);
         state.frame = new_state.frame;
-        state.checksum = new_state.checksum;
+        #[cfg(feature = "sync_test")]
+        {
+            state.checksum = new_state.checksum;
+        }
         state.data = new_state.data;
     }
 
