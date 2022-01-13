@@ -95,7 +95,7 @@ pub(crate) enum Event {
 
 /// A `P2PSession` provides a UDP protocol to connect to remote clients in a peer-to-peer fashion.
 #[derive(Debug)]
-pub struct P2PSession<T: Clone> {
+pub struct P2PSession<T: Clone = Vec<u8>> {
     /// The number of players of the session.
     num_players: u32,
     /// The number of bytes an input uses.

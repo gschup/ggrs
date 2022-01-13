@@ -173,13 +173,17 @@ impl TugOfWarGame {
         let buffer = bincode::serialize(&self.state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
 
-        cell.save(GameState::new(frame, Some(buffer), Some(checksum)));
+        cell.save(GameState::new_with_checksum(
+            frame,
+            Some(buffer),
+            Some(checksum),
+        ));
     }
 
     // deserialize gamestate to load and overwrite current gamestate
     fn load_game_state(&mut self, cell: GameStateCell) {
         let state_to_load = cell.load();
-        self.state = bincode::deserialize(&state_to_load.buffer.unwrap()).unwrap();
+        self.state = bincode::deserialize(&state_to_load.data.unwrap()).unwrap();
     }
 }
 

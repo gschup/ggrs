@@ -9,7 +9,7 @@ use crate::{Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
 
 /// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
 #[derive(Debug)]
-pub struct GameStateCell<T: Clone>(Arc<Mutex<GameState<T>>>);
+pub struct GameStateCell<T: Clone = Vec<u8>>(Arc<Mutex<GameState<T>>>);
 
 impl<T: Clone> GameStateCell<T> {
     /// Saves a `GameState` the user creates into the cell.
@@ -44,7 +44,7 @@ impl<T: Clone> Clone for GameStateCell<T> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SavedStates<T: Clone> {
+pub(crate) struct SavedStates<T: Clone = Vec<u8>> {
     pub states: Vec<GameStateCell<T>>,
 }
 
@@ -68,7 +68,7 @@ impl<T: Clone> SavedStates<T> {
 }
 
 #[derive(Debug)]
-pub(crate) struct SyncLayer<T: Clone> {
+pub(crate) struct SyncLayer<T: Clone = Vec<u8>> {
     num_players: u32,
     input_size: usize,
     max_prediction: usize,
@@ -273,7 +273,7 @@ mod sync_layer_tests {
     #[test]
     #[should_panic]
     fn test_reach_prediction_threshold() {
-        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>(), 8);
+        let mut sync_layer = SyncLayer::<Vec<u8>>::new(2, std::mem::size_of::<u32>(), 8);
         for i in 0..20 {
             let serialized_input = bincode::serialize(&i).unwrap();
             let game_input = GameInput::new(i, std::mem::size_of::<u32>(), serialized_input);
@@ -283,7 +283,7 @@ mod sync_layer_tests {
 
     #[test]
     fn test_different_delays() {
-        let mut sync_layer = SyncLayer::new(2, std::mem::size_of::<u32>(), 8);
+        let mut sync_layer = SyncLayer::<Vec<u8>>::new(2, std::mem::size_of::<u32>(), 8);
         let p1_delay = 2;
         let p2_delay = 0;
         sync_layer.set_frame_delay(0, p1_delay);

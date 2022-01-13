@@ -28,7 +28,7 @@ fn test_synchronize_with_host() {
     let spec_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
 
     let mut host_sess =
-        P2PSession::new(1, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777).unwrap();
+        P2PSession::<Vec<u8>>::new(1, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777).unwrap();
     let mut spec_sess = P2PSpectatorSession::new(1, stubs::INPUT_SIZE, 8888, host_addr).unwrap();
 
     host_sess.add_player(PlayerType::Local, 0).unwrap();

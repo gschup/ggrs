@@ -5,7 +5,9 @@ mod stubs;
 
 #[test]
 fn test_create_session() {
-    assert!(SyncTestSession::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 2).is_ok());
+    assert!(
+        SyncTestSession::<Vec<u8>>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 2).is_ok()
+    );
 }
 
 #[test]

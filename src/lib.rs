@@ -107,9 +107,9 @@ pub enum GGRSEvent {
     WaitRecommendation { skip_frames: u32 },
 }
 
-/// Requests that you can receive from the session. Handling them is mandatory.
+/// Requests that you can receive from the session. Handling them is mandatory. `T` is the type of the game state (by default `Vec<u8>`).
 #[derive(Debug)]
-pub enum GGRSRequest<T: Clone> {
+pub enum GGRSRequest<T: Clone = Vec<u8>> {
     /// You should save the current gamestate in the `cell` provided to you. The given `frame` is a sanity check: The gamestate you save should be from that frame.
     SaveGameState {
         cell: GameStateCell<T>,

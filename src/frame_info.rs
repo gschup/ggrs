@@ -13,11 +13,11 @@ fn fletcher16(data: &[u8]) -> u16 {
     (sum2 << 8) | sum1
 }
 
-/// Represents a serialized game state of your game for a single frame. The `data` holds your state, `frame` indicates the associated frame number
+/// Represents the game state of your game for a single frame. The `data` holds your state, `frame` indicates the associated frame number
 /// and `checksum` can additionally be provided for use during a `SyncTestSession` (requires feature `sync_test`).
 /// You are expected to return this during `save_game_state()` and use them during `load_game_state()`.
 #[derive(Debug, Clone)]
-pub struct GameState<T: Clone> {
+pub struct GameState<T: Clone = Vec<u8>> {
     /// The frame to which this info belongs to.
     pub frame: Frame,
     /// The serialized gamestate in bytes.
