@@ -149,7 +149,7 @@ impl<T: Clone> P2PSession<T> {
     /// let num_players : u32 = 2;
     /// let max_pred : usize = 8;
     /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = P2PSession::new(num_players, input_size, max_pred, local_port)?;
+    /// let mut session = P2PSession::<Vec<u8>>::new(num_players, input_size, max_pred, local_port)?;
     /// # Ok(())
     /// # }
     /// ```

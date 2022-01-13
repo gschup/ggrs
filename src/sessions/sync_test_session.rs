@@ -34,7 +34,7 @@ impl<T: Clone> SyncTestSession<T> {
     /// let max_pred : usize = 8;
     /// let num_players : u32 = 2;
     /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = SyncTestSession::new(num_players, input_size, max_pred, check_distance)?;
+    /// let mut session = SyncTestSession::<Vec<u8>>::new(num_players, input_size, max_pred, check_distance)?;
     /// # Ok(())
     /// # }
     /// ```
