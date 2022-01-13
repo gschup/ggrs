@@ -99,7 +99,7 @@ impl BoxGame {
     pub fn render(&self) {
         clear_background(BLACK);
 
-        // render players TODO: rotate players?
+        // render players
         for i in 0..self.num_players {
             let color = match i {
                 0 => GOLD,
@@ -143,7 +143,6 @@ impl BoxGame {
     pub fn local_input(&self, handle: PlayerHandle) -> Vec<u8> {
         let mut input: u8 = 0;
 
-        // ugly, but it works...
         // player 1 with WASD
         if handle == 0 {
             if is_key_down(KeyCode::W) {
@@ -273,7 +272,7 @@ impl BoxState {
             let mut x = old_x + vel_x;
             let mut y = old_y + vel_y;
 
-            // constrain boxes to canvas borders
+            // constrain players to canvas borders
             x = x.max(0.0);
             x = x.min(WINDOW_WIDTH);
             y = y.max(0.0);

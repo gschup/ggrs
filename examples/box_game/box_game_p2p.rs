@@ -117,12 +117,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
 
                 match sess.advance_frame(local_handle, &game.local_input(0)) {
-                    Ok(requests) => {
-                        game.handle_requests(requests);
-                    }
+                    Ok(requests) => game.handle_requests(requests),
                     Err(GGRSError::PredictionThreshold) => {
                         println!("Frame {} skipped", sess.current_frame())
                     }
+
                     Err(e) => return Err(Box::new(e)),
                 }
             }
