@@ -6,6 +6,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 - nothing here yet...
 
+## 0.7.2
+
+- massively improved performance by improving input packet handling
+
 ## 0.7.1
 
 - added getter for the max prediction frames parameter in `P2PSession` and `SyncTestSession`

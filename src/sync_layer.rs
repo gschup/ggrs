@@ -151,7 +151,9 @@ impl<T: Clone> SyncLayer<T> {
         input: GameInput,
     ) -> Result<Frame, GGRSError> {
         let frames_ahead = self.current_frame - self.last_confirmed_frame;
-        if frames_ahead >= self.max_prediction as i32 {
+        if self.current_frame >= self.max_prediction as i32
+            && frames_ahead >= self.max_prediction as i32
+        {
             return Err(GGRSError::PredictionThreshold);
         }
 

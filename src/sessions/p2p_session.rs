@@ -742,7 +742,13 @@ impl<T: Clone> P2PSession<T> {
         }
 
         // create a udp protocol endpoint that handles all the messaging to that remote player
-        let mut endpoint = UdpProtocol::new(player_handle, addr, self.num_players, self.input_size);
+        let mut endpoint = UdpProtocol::new(
+            player_handle,
+            addr,
+            self.num_players,
+            self.input_size,
+            self.max_prediction,
+        );
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
         endpoint.set_disconnect_timeout(self.disconnect_timeout);
 
@@ -775,6 +781,7 @@ impl<T: Clone> P2PSession<T> {
             addr,
             self.num_players,
             self.input_size * self.num_players as usize,
+            self.max_prediction,
         );
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
         endpoint.set_disconnect_timeout(self.disconnect_timeout);
