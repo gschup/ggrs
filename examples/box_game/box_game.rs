@@ -63,7 +63,7 @@ impl BoxGame {
         }
     }
 
-    // serialize current gamestate, create a checksum
+    // save current gamestate, create a checksum
     // creating a checksum here is only relevant for SyncTestSessions
     fn save_game_state(&mut self, cell: GameStateCell<BoxState>, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
@@ -76,7 +76,7 @@ impl BoxGame {
         ));
     }
 
-    // deserialize gamestate to load and overwrite current gamestate
+    // load gamestate and overwrite
     fn load_game_state(&mut self, cell: GameStateCell<BoxState>) {
         self.game_state = cell.load().data.expect("No data found.").clone();
     }

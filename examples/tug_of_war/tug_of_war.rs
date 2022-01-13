@@ -173,7 +173,7 @@ impl TugOfWarGame {
         }
     }
 
-    // serialize current gamestate, create a checksum
+    // save current gamestate, create a checksum
     // creating a checksum here is only relevant for SyncTestSessions
     fn save_game_state(&mut self, cell: GameStateCell<TowState>, frame: Frame) {
         assert_eq!(self.state.frame, frame);
@@ -186,7 +186,7 @@ impl TugOfWarGame {
         ));
     }
 
-    // deserialize gamestate to load and overwrite current gamestate
+    // load and overwrite current gamestate
     fn load_game_state(&mut self, cell: GameStateCell<TowState>) {
         let state_to_load = cell.load();
         self.state = state_to_load.data.expect("No data found.");

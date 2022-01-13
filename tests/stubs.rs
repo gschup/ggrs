@@ -1,6 +1,5 @@
 use bincode;
 use rand::{prelude::ThreadRng, thread_rng, Rng};
-use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -71,7 +70,7 @@ impl RandomChecksumGameStub {
     }
 
     #[allow(dead_code)]
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
+    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<GameStateStub>>) {
         for request in requests {
             match request {
                 GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
@@ -81,21 +80,19 @@ impl RandomChecksumGameStub {
         }
     }
 
-    fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
+    fn save_game_state(&mut self, cell: GameStateCell<GameStateStub>, frame: Frame) {
         assert_eq!(self.gs.frame, frame);
-        let buffer = bincode::serialize(&self.gs).unwrap();
 
         let random_checksum: u64 = self.rng.gen();
         cell.save(GameState::new_with_checksum(
             frame,
-            Some(buffer),
+            Some(self.gs),
             random_checksum,
         ));
     }
 
-    fn load_game_state(&mut self, cell: GameStateCell) {
-        let game_state = cell.load();
-        self.gs = bincode::deserialize(&game_state.data.unwrap()).unwrap();
+    fn load_game_state(&mut self, cell: GameStateCell<GameStateStub>) {
+        self.gs = cell.load().clone().data.expect("No data found.");
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
@@ -103,7 +100,7 @@ impl RandomChecksumGameStub {
     }
 }
 
-#[derive(Default, Copy, Clone, Hash, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Hash)]
 pub struct GameStateStub {
     pub frame: i32,
     pub state: i32,

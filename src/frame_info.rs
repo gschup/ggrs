@@ -7,7 +7,7 @@ use crate::{Frame, NULL_FRAME};
 pub struct GameState<T: Clone = Vec<u8>> {
     /// The frame to which this info belongs to.
     pub frame: Frame,
-    /// The serialized gamestate in bytes.
+    /// The game state
     pub data: Option<T>,
     /// The checksum of the gamestate.
     #[cfg(feature = "sync_test")]
