@@ -78,7 +78,7 @@ impl BoxGame {
 
     // load gamestate and overwrite
     fn load_game_state(&mut self, cell: GameStateCell<BoxState>) {
-        self.game_state = cell.load().data.expect("No data found.").clone();
+        self.game_state = cell.load().data.expect("No data found.");
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
