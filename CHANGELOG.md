@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- GameState now is generic, so serialization of game state to save and load is no longer required
 
 ## 0.7.2
 

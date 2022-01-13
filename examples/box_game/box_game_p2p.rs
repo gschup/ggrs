@@ -119,19 +119,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match sess.advance_frame(local_handle, &game.local_input(0)) {
                     Ok(requests) => {
                         game.handle_requests(requests);
-                        if sess.current_frame() % (2 * FPS as i32) == 0 {
-                            for p in 0..num_players {
-                                if p == local_handle {
-                                    continue;
-                                }
-                                println!(
-                                    "Frame {}: Player {}, Ping {}",
-                                    sess.current_frame(),
-                                    p,
-                                    sess.network_stats(p).unwrap().ping
-                                );
-                            }
-                        }
                     }
                     Err(GGRSError::PredictionThreshold) => {
                         println!("Frame {} skipped", sess.current_frame())

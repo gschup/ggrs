@@ -1,18 +1,5 @@
 use crate::{Frame, NULL_FRAME};
 
-/// Computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
-fn fletcher16(data: &[u8]) -> u16 {
-    let mut sum1: u16 = 0;
-    let mut sum2: u16 = 0;
-
-    for byte in data {
-        sum1 = (sum1 + *byte as u16) % 255;
-        sum2 = (sum2 + sum1) % 255;
-    }
-
-    (sum2 << 8) | sum1
-}
-
 /// Represents the game state of your game for a single frame. The `data` holds your state, `frame` indicates the associated frame number
 /// and `checksum` can additionally be provided for use during a `SyncTestSession` (requires feature `sync_test`).
 /// You are expected to return this during `save_game_state()` and use them during `load_game_state()`.
@@ -50,16 +37,8 @@ impl<T: Clone> GameState<T> {
 }
 
 #[cfg(feature = "sync_test")]
-impl<T: Clone + AsRef<[u8]>> GameState<T> {
-    pub fn new_with_checksum(frame: Frame, data: Option<T>, check: Option<u64>) -> Self {
-        let checksum = match check {
-            Some(cs) => cs,
-            None => match &data {
-                Some(data) => fletcher16(data.as_ref()) as u64,
-                None => 0,
-            },
-        };
-
+impl<T: Clone> GameState<T> {
+    pub fn new_with_checksum(frame: Frame, data: Option<T>, checksum: u64) -> Self {
         Self {
             frame,
             data,

@@ -36,7 +36,7 @@ fn fletcher16(data: &[u8]) -> u16 {
 // BoxGame will handle rendering, gamestate, inputs and GGRSRequests
 pub struct BoxGame {
     num_players: usize,
-    game_state: BoxGameState,
+    game_state: BoxState,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
 }
@@ -46,14 +46,14 @@ impl BoxGame {
         assert!(num_players <= 4);
         Self {
             num_players,
-            game_state: BoxGameState::new(num_players),
+            game_state: BoxState::new(num_players),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
         }
     }
 
     // for each request, call the appropriate function
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
+    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<BoxState>>) {
         for request in requests {
             match request {
                 GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
@@ -65,21 +65,20 @@ impl BoxGame {
 
     // serialize current gamestate, create a checksum
     // creating a checksum here is only relevant for SyncTestSessions
-    fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
+    fn save_game_state(&mut self, cell: GameStateCell<BoxState>, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
         cell.save(GameState::new_with_checksum(
             frame,
-            Some(buffer),
-            Some(checksum),
+            Some(self.game_state.clone()),
+            checksum,
         ));
     }
 
     // deserialize gamestate to load and overwrite current gamestate
-    fn load_game_state(&mut self, cell: GameStateCell) {
-        let state_to_load = cell.load();
-        self.game_state = bincode::deserialize(&state_to_load.data.unwrap()).unwrap();
+    fn load_game_state(&mut self, cell: GameStateCell<BoxState>) {
+        self.game_state = cell.load().data.expect("No data found.").clone();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
@@ -186,8 +185,8 @@ impl BoxGame {
 }
 
 // BoxGameState holds all relevant information about the game state
-#[derive(Serialize, Deserialize)]
-struct BoxGameState {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct BoxState {
     pub frame: i32,
     pub num_players: usize,
     pub positions: Vec<(f32, f32)>,
@@ -195,7 +194,7 @@ struct BoxGameState {
     pub rotations: Vec<f32>,
 }
 
-impl BoxGameState {
+impl BoxState {
     pub fn new(num_players: usize) -> Self {
         let mut positions = Vec::new();
         let mut velocities = Vec::new();

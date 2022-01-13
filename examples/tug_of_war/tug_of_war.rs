@@ -1,13 +1,20 @@
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::hash::{Hash, Hasher};
+use std::{collections::hash_map::DefaultHasher, net::SocketAddr};
 use structopt::StructOpt;
 
 use ggrs::{
     Frame, GGRSError, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession, PlayerType,
     SessionState,
 };
+
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
 
 // this is to read command-line arguments
 #[derive(StructOpt)]
@@ -112,25 +119,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct TugofWarGameState {
+#[derive(Copy, Clone, Hash, Serialize, Deserialize)]
+struct TowState {
     frame: i32,
     x: i32,
 }
 
-impl TugofWarGameState {
+impl TowState {
     fn new() -> Self {
         Self { frame: 0, x: 0 }
     }
 }
 struct TugOfWarGame {
-    state: TugofWarGameState,
+    state: TowState,
 }
 
 impl TugOfWarGame {
     fn new() -> Self {
         Self {
-            state: TugofWarGameState::new(),
+            state: TowState::new(),
         }
     }
 
@@ -141,7 +148,7 @@ impl TugOfWarGame {
     }
 
     // handle all GGRS requests
-    fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
+    fn handle_requests(&mut self, requests: Vec<GGRSRequest<TowState>>) {
         for request in requests {
             match request {
                 GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
@@ -168,36 +175,22 @@ impl TugOfWarGame {
 
     // serialize current gamestate, create a checksum
     // creating a checksum here is only relevant for SyncTestSessions
-    fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
+    fn save_game_state(&mut self, cell: GameStateCell<TowState>, frame: Frame) {
         assert_eq!(self.state.frame, frame);
-        let buffer = bincode::serialize(&self.state).unwrap();
-        let checksum = fletcher16(&buffer) as u64;
+        let checksum = calculate_hash(&self.state);
 
         cell.save(GameState::new_with_checksum(
             frame,
-            Some(buffer),
-            Some(checksum),
+            Some(self.state),
+            checksum,
         ));
     }
 
     // deserialize gamestate to load and overwrite current gamestate
-    fn load_game_state(&mut self, cell: GameStateCell) {
+    fn load_game_state(&mut self, cell: GameStateCell<TowState>) {
         let state_to_load = cell.load();
-        self.state = bincode::deserialize(&state_to_load.data.unwrap()).unwrap();
+        self.state = state_to_load.data.expect("No data found.");
     }
-}
-
-/// computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
-fn fletcher16(data: &[u8]) -> u16 {
-    let mut sum1: u16 = 0;
-    let mut sum2: u16 = 0;
-
-    for index in 0..data.len() {
-        sum1 = (sum1 + data[index] as u16) % 255;
-        sum2 = (sum2 + sum1) % 255;
-    }
-
-    (sum2 << 8) | sum1
 }
 
 // in this example, there is only the space bar

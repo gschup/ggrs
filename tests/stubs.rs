@@ -1,11 +1,19 @@
 use bincode;
 use rand::{prelude::ThreadRng, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell};
 
 pub const INPUT_SIZE: usize = std::mem::size_of::<u32>();
 pub const MAX_PRED_FRAMES: usize = 8;
+
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
 
 pub struct GameStub {
     pub gs: GameStateStub,
@@ -20,7 +28,7 @@ impl GameStub {
     }
 
     #[allow(dead_code)]
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest>) {
+    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<GameStateStub>>) {
         for request in requests {
             match request {
                 GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
@@ -30,17 +38,17 @@ impl GameStub {
         }
     }
 
-    fn save_game_state(&mut self, cell: GameStateCell, frame: Frame) {
+    fn save_game_state(&mut self, cell: GameStateCell<GameStateStub>, frame: Frame) {
         assert_eq!(self.gs.frame, frame);
-        let buffer = bincode::serialize(&self.gs).unwrap();
-
-        cell.save(GameState::new_with_checksum(frame, Some(buffer), None));
+        let checksum = calculate_hash(&self.gs);
+        let game_state: GameState<GameStateStub> =
+            GameState::<GameStateStub>::new_with_checksum(frame, Some(self.gs), checksum);
+        cell.save(game_state);
     }
 
-    fn load_game_state(&mut self, cell: GameStateCell) {
-        println!("LOAD THIS CELL {:?}", cell);
-        let game_state = cell.load();
-        self.gs = bincode::deserialize(&game_state.data.unwrap()).unwrap();
+    fn load_game_state(&mut self, cell: GameStateCell<GameStateStub>) {
+        let game_state: GameState<GameStateStub> = cell.load();
+        self.gs = game_state.data.unwrap();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
@@ -81,7 +89,7 @@ impl RandomChecksumGameStub {
         cell.save(GameState::new_with_checksum(
             frame,
             Some(buffer),
-            Some(random_checksum),
+            random_checksum,
         ));
     }
 
@@ -95,7 +103,7 @@ impl RandomChecksumGameStub {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Hash, Serialize, Deserialize)]
 pub struct GameStateStub {
     pub frame: i32,
     pub state: i32,
