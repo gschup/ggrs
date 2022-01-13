@@ -9,17 +9,17 @@ use crate::{Frame, GGRSRequest, PlayerHandle};
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
 #[derive(Debug)]
-pub struct SyncTestSession {
+pub struct SyncTestSession<T: Clone = Vec<u8>> {
     num_players: u32,
     input_size: usize,
     max_prediction: usize,
     check_distance: usize,
-    sync_layer: SyncLayer,
+    sync_layer: SyncLayer<T>,
     dummy_connect_status: Vec<ConnectionStatus>,
     checksum_history: HashMap<Frame, u64>,
 }
 
-impl SyncTestSession {
+impl<T: Clone> SyncTestSession<T> {
     /// Creates a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
     /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
     /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -34,7 +34,7 @@ impl SyncTestSession {
     /// let max_pred : usize = 8;
     /// let num_players : u32 = 2;
     /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = SyncTestSession::new(num_players, input_size, max_pred, check_distance)?;
+    /// let mut session = SyncTestSession::<Vec<u8>>::new(num_players, input_size, max_pred, check_distance)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -88,7 +88,10 @@ impl SyncTestSession {
     ///
     /// # Errors
     /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
-    pub fn advance_frame(&mut self, all_inputs: &[Vec<u8>]) -> Result<Vec<GGRSRequest>, GGRSError> {
+    pub fn advance_frame(
+        &mut self,
+        all_inputs: &[Vec<u8>],
+    ) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
@@ -172,17 +175,17 @@ impl SyncTestSession {
     }
 
     /// Returns the number of players this session was constructed with.
-    pub const fn num_players(&self) -> u32 {
+    pub fn num_players(&self) -> u32 {
         self.num_players
     }
 
     /// Returns the input size this session was constructed with.
-    pub const fn input_size(&self) -> usize {
+    pub fn input_size(&self) -> usize {
         self.input_size
     }
 
     /// Returns the maximum prediction window of a session.
-    pub const fn max_prediction(&self) -> usize {
+    pub fn max_prediction(&self) -> usize {
         self.max_prediction
     }
 
@@ -210,7 +213,7 @@ impl SyncTestSession {
         }
     }
 
-    fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GGRSRequest>) {
+    fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GGRSRequest<T>>) {
         let start_frame = self.sync_layer.current_frame();
         let count = start_frame - frame_to;
 

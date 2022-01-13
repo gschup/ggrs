@@ -10,7 +10,9 @@ repository = "https://github.com/gschup/ggrs"
 keywords = ["gamedev", "networking", "ggpo", "rollback"]
 categories = ["network-programming", "game-development"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["sync_test"]
+sync_test = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -32,15 +34,19 @@ macroquad = "0.3.10"
 [[example]]
 name = "box_game_p2p"
 path = "examples/box_game/box_game_p2p.rs"
+required-features = ["sync_test"]
 
 [[example]]
 name = "box_game_spectator"
 path = "examples/box_game/box_game_spectator.rs"
+required-features = ["sync_test"]
 
 [[example]]
 name = "box_game_synctest"
 path = "examples/box_game/box_game_synctest.rs"
+required-features = ["sync_test"]
 
 [[example]]
 name = "tug-of-war"
 path = "examples/tug_of_war/tug_of_war.rs"
+required-features = ["sync_test"]

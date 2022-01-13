@@ -34,13 +34,13 @@ impl GameStub {
         assert_eq!(self.gs.frame, frame);
         let buffer = bincode::serialize(&self.gs).unwrap();
 
-        cell.save(GameState::new(frame, Some(buffer), None));
+        cell.save(GameState::new_with_checksum(frame, Some(buffer), None));
     }
 
     fn load_game_state(&mut self, cell: GameStateCell) {
         println!("LOAD THIS CELL {:?}", cell);
         let game_state = cell.load();
-        self.gs = bincode::deserialize(&game_state.buffer.unwrap()).unwrap();
+        self.gs = bincode::deserialize(&game_state.data.unwrap()).unwrap();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {
@@ -78,12 +78,16 @@ impl RandomChecksumGameStub {
         let buffer = bincode::serialize(&self.gs).unwrap();
 
         let random_checksum: u64 = self.rng.gen();
-        cell.save(GameState::new(frame, Some(buffer), Some(random_checksum)));
+        cell.save(GameState::new_with_checksum(
+            frame,
+            Some(buffer),
+            Some(random_checksum),
+        ));
     }
 
     fn load_game_state(&mut self, cell: GameStateCell) {
         let game_state = cell.load();
-        self.gs = bincode::deserialize(&game_state.buffer.unwrap()).unwrap();
+        self.gs = bincode::deserialize(&game_state.data.unwrap()).unwrap();
     }
 
     fn advance_frame(&mut self, inputs: Vec<GameInput>) {

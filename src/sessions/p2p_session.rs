@@ -95,7 +95,7 @@ pub(crate) enum Event {
 
 /// A `P2PSession` provides a UDP protocol to connect to remote clients in a peer-to-peer fashion.
 #[derive(Debug)]
-pub struct P2PSession {
+pub struct P2PSession<T: Clone = Vec<u8>> {
     /// The number of players of the session.
     num_players: u32,
     /// The number of bytes an input uses.
@@ -103,7 +103,7 @@ pub struct P2PSession {
     /// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct.
     max_prediction: usize,
     /// The sync layer handles player input queues and provides predictions.
-    sync_layer: SyncLayer,
+    sync_layer: SyncLayer<T>,
     /// FPS defines the expected update frequency of this session.
     fps: u32,
     /// With sparse saving, the session will only request to save the minimum confirmed frame.
@@ -137,7 +137,7 @@ pub struct P2PSession {
     event_queue: VecDeque<GGRSEvent>,
 }
 
-impl P2PSession {
+impl<T: Clone> P2PSession<T> {
     /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
     /// set input delay for local players and then start the session.
     /// # Example
@@ -149,7 +149,7 @@ impl P2PSession {
     /// let num_players : u32 = 2;
     /// let max_pred : usize = 8;
     /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = P2PSession::new(num_players, input_size, max_pred, local_port)?;
+    /// let mut session = P2PSession::<Vec<u8>>::new(num_players, input_size, max_pred, local_port)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -333,7 +333,7 @@ impl P2PSession {
         &mut self,
         local_player_handle: PlayerHandle,
         local_input: &[u8],
-    ) -> Result<Vec<GGRSRequest>, GGRSError> {
+    ) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
 
@@ -659,12 +659,12 @@ impl P2PSession {
     }
 
     /// Returns the current frame of a session.
-    pub const fn current_frame(&self) -> Frame {
+    pub fn current_frame(&self) -> Frame {
         self.sync_layer.current_frame()
     }
 
     /// Returns the maximum prediction window of a session.
-    pub const fn max_prediction(&self) -> usize {
+    pub fn max_prediction(&self) -> usize {
         self.max_prediction
     }
 
@@ -677,7 +677,7 @@ impl P2PSession {
     }
 
     /// Returns the current `SessionState` of a session.
-    pub const fn current_state(&self) -> SessionState {
+    pub fn current_state(&self) -> SessionState {
         self.state
     }
 
@@ -687,17 +687,17 @@ impl P2PSession {
     }
 
     /// Returns the number of players this session was constructed with.
-    pub const fn num_players(&self) -> u32 {
+    pub fn num_players(&self) -> u32 {
         self.num_players
     }
 
     /// Returns the input size this session was constructed with.
-    pub const fn input_size(&self) -> usize {
+    pub fn input_size(&self) -> usize {
         self.input_size
     }
 
     /// Returns the number of frames this session is estimated to be ahead of other sessions
-    pub const fn frames_ahead(&self) -> i32 {
+    pub fn frames_ahead(&self) -> i32 {
         self.frames_ahead
     }
 
@@ -847,7 +847,7 @@ impl P2PSession {
         &mut self,
         first_incorrect: Frame,
         min_confirmed: Frame,
-        requests: &mut Vec<GGRSRequest>,
+        requests: &mut Vec<GGRSRequest<T>>,
     ) {
         let current_frame = self.sync_layer.current_frame();
         // determine the frame to load

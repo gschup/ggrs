@@ -14,6 +14,7 @@ pub use network::non_blocking_socket::NonBlockingSocket;
 pub use network::udp_msg::UdpMessage;
 pub use sessions::p2p_session::P2PSession;
 pub use sessions::p2p_spectator_session::P2PSpectatorSession;
+#[cfg(feature = "sync_test")]
 pub use sessions::sync_test_session::SyncTestSession;
 pub use sync_layer::GameStateCell;
 
@@ -25,6 +26,7 @@ pub(crate) mod time_sync;
 pub(crate) mod sessions {
     pub(crate) mod p2p_session;
     pub(crate) mod p2p_spectator_session;
+    #[cfg(feature = "sync_test")]
     pub(crate) mod sync_test_session;
 }
 pub(crate) mod network {
@@ -105,13 +107,19 @@ pub enum GGRSEvent {
     WaitRecommendation { skip_frames: u32 },
 }
 
-/// Requests that you can receive from the session. Handling them is mandatory.
+/// Requests that you can receive from the session. Handling them is mandatory. `T` is the type of the game state (by default `Vec<u8>`).
 #[derive(Debug)]
-pub enum GGRSRequest {
+pub enum GGRSRequest<T: Clone = Vec<u8>> {
     /// You should save the current gamestate in the `cell` provided to you. The given `frame` is a sanity check: The gamestate you save should be from that frame.
-    SaveGameState { cell: GameStateCell, frame: Frame },
+    SaveGameState {
+        cell: GameStateCell<T>,
+        frame: Frame,
+    },
     /// You should load the gamestate in the `cell` provided to you. The given 'frame' is a sanity check: The gamestate you load should be from that frame.
-    LoadGameState { cell: GameStateCell, frame: Frame },
+    LoadGameState {
+        cell: GameStateCell<T>,
+        frame: Frame,
+    },
     /// You should advance the gamestate with the `inputs` provided to you.
     /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
     AdvanceFrame { inputs: Vec<GameInput> },

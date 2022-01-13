@@ -214,7 +214,7 @@ impl P2PSpectatorSession {
     /// # Errors
     /// - Returns `NotSynchronized` if the session is not yet ready to accept input.
     /// In this case, you either need to start the session or wait for synchronization between clients.
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest>, GGRSError> {
+    pub fn advance_frame<T: Clone>(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         // receive info from host, trigger events and send messages
         self.poll_remote_clients();
 
