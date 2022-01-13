@@ -9,43 +9,43 @@ use crate::{Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
 
 /// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
 #[derive(Debug)]
-pub struct GameStateCell(Arc<Mutex<GameState>>);
+pub struct GameStateCell<T: Clone>(Arc<Mutex<GameState<T>>>);
 
-impl GameStateCell {
+impl<T: Clone> GameStateCell<T> {
     /// Saves a `GameState` the user creates into the cell.
-    pub fn save(&self, new_state: GameState) {
+    pub fn save(&self, new_state: GameState<T>) {
         let mut state = self.0.lock();
         assert!(new_state.frame != NULL_FRAME);
         state.frame = new_state.frame;
         state.checksum = new_state.checksum;
-        state.buffer = new_state.buffer;
+        state.data = new_state.data;
     }
 
     /// Loads a `GameState` that the user previously saved into.
-    pub fn load(&self) -> GameState {
+    pub fn load(&self) -> GameState<T> {
         let state = self.0.lock();
         state.clone()
     }
 }
 
-impl Default for GameStateCell {
+impl<T: Clone> Default for GameStateCell<T> {
     fn default() -> Self {
         Self(Arc::new(Mutex::new(GameState::default())))
     }
 }
 
-impl Clone for GameStateCell {
+impl<T: Clone> Clone for GameStateCell<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SavedStates {
-    pub states: Vec<GameStateCell>,
+pub(crate) struct SavedStates<T: Clone> {
+    pub states: Vec<GameStateCell<T>>,
 }
 
-impl SavedStates {
+impl<T: Clone> SavedStates<T> {
     fn new(max_pred: usize) -> Self {
         // the states are two cells bigger than the max prediction frames in order to account for
         // the next frame needing a space and still being able to rollback the max distance
@@ -57,7 +57,7 @@ impl SavedStates {
         Self { states }
     }
 
-    fn get_cell(&self, frame: Frame) -> GameStateCell {
+    fn get_cell(&self, frame: Frame) -> GameStateCell<T> {
         assert!(frame >= 0);
         let pos = frame as usize % self.states.len();
         self.states[pos].clone()
@@ -65,18 +65,18 @@ impl SavedStates {
 }
 
 #[derive(Debug)]
-pub(crate) struct SyncLayer {
+pub(crate) struct SyncLayer<T: Clone> {
     num_players: u32,
     input_size: usize,
     max_prediction: usize,
-    saved_states: SavedStates,
+    saved_states: SavedStates<T>,
     last_confirmed_frame: Frame,
     last_saved_frame: Frame,
     current_frame: Frame,
     input_queues: Vec<InputQueue>,
 }
 
-impl SyncLayer {
+impl<T: Clone> SyncLayer<T> {
     /// Creates a new `SyncLayer` instance with given values.
     pub(crate) fn new(num_players: u32, input_size: usize, max_prediction: usize) -> Self {
         // initialize input_queues
@@ -96,7 +96,7 @@ impl SyncLayer {
         }
     }
 
-    pub(crate) const fn current_frame(&self) -> Frame {
+    pub(crate) fn current_frame(&self) -> Frame {
         self.current_frame
     }
 
@@ -104,7 +104,7 @@ impl SyncLayer {
         self.current_frame += 1;
     }
 
-    pub(crate) fn save_current_state(&mut self) -> GGRSRequest {
+    pub(crate) fn save_current_state(&mut self) -> GGRSRequest<T> {
         self.last_saved_frame = self.current_frame;
         let cell = self.saved_states.get_cell(self.current_frame);
         GGRSRequest::SaveGameState {
@@ -125,7 +125,7 @@ impl SyncLayer {
     }
 
     /// Loads the gamestate indicated by `frame_to_load`.
-    pub(crate) fn load_frame(&mut self, frame_to_load: Frame) -> GGRSRequest {
+    pub(crate) fn load_frame(&mut self, frame_to_load: Frame) -> GGRSRequest<T> {
         // The state should not be the current state or the state should not be in the future or too far away in the past
         assert!(
             frame_to_load != NULL_FRAME
@@ -240,7 +240,7 @@ impl SyncLayer {
     }
 
     /// Returns a gamestate through given frame
-    pub(crate) fn saved_state_by_frame(&self, frame: Frame) -> Option<GameStateCell> {
+    pub(crate) fn saved_state_by_frame(&self, frame: Frame) -> Option<GameStateCell<T>> {
         let cell = self.saved_states.get_cell(frame);
 
         if cell.0.lock().frame == frame {
@@ -251,7 +251,7 @@ impl SyncLayer {
     }
 
     /// Returns the latest saved frame
-    pub(crate) const fn last_saved_frame(&self) -> Frame {
+    pub(crate) fn last_saved_frame(&self) -> Frame {
         self.last_saved_frame
     }
 }

@@ -13,47 +13,62 @@ fn fletcher16(data: &[u8]) -> u16 {
     (sum2 << 8) | sum1
 }
 
-/// Represents a serialized game state of your game for a single frame. The buffer `buffer` holds your state, `frame` indicates the associated frame number
-/// and `checksum` can additionally be provided for use during a `SyncTestSession`. You are expected to return this during `save_game_state()` and use them during `load_game_state()`.
+/// Represents a serialized game state of your game for a single frame. The `data` holds your state, `frame` indicates the associated frame number
+/// and `checksum` can additionally be provided for use during a `SyncTestSession` (requires feature `sync_test`).
+/// You are expected to return this during `save_game_state()` and use them during `load_game_state()`.
 #[derive(Debug, Clone)]
-pub struct GameState {
+pub struct GameState<T: Clone> {
     /// The frame to which this info belongs to.
     pub frame: Frame,
     /// The serialized gamestate in bytes.
-    pub buffer: Option<Vec<u8>>,
+    pub data: Option<T>,
     /// The checksum of the gamestate.
+    #[cfg(feature = "sync_test")]
     pub checksum: u64,
 }
 
-impl Default for GameState {
+impl<T: Clone> Default for GameState<T> {
     fn default() -> Self {
         Self {
             frame: NULL_FRAME,
-            buffer: None,
+            data: None,
+            #[cfg(feature = "sync_test")]
             checksum: 0,
         }
     }
 }
 
-impl GameState {
-    pub fn new(frame: Frame, buffer: Option<Vec<u8>>, check: Option<u64>) -> Self {
+impl<T: Clone> GameState<T> {
+    pub fn new(frame: Frame, data: Option<T>) -> Self {
+        Self {
+            frame,
+            data,
+            #[cfg(feature = "sync_test")]
+            checksum: 0,
+        }
+    }
+}
+
+#[cfg(feature = "sync_test")]
+impl<T: Clone + AsRef<[u8]>> GameState<T> {
+    pub fn new_with_checksum(frame: Frame, data: Option<T>, check: Option<u64>) -> Self {
         let checksum = match check {
             Some(cs) => cs,
-            None => match &buffer {
-                Some(data) => fletcher16(data) as u64,
+            None => match &data {
+                Some(data) => fletcher16(data.as_ref()) as u64,
                 None => 0,
             },
         };
 
         Self {
             frame,
-            buffer,
+            data,
             checksum,
         }
     }
 }
 
-/// Represents a serialized input for a single player in a single frame. This struct holds a `buffer` where the first `size` bytes represent the encoded input of a single player.
+/// Represents a serialized input for a single player in a single frame. This struct holds a `data` which represents the encoded input of a single player.
 /// The associated frame is denoted with `frame`. You do not need to create this struct, but the sessions will provide a `Vec<GameInput>` for you during `advance_frame()`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameInput {
@@ -104,7 +119,6 @@ impl GameInput {
 #[cfg(test)]
 mod game_input_tests {
     use super::*;
-    use bincode;
 
     #[test]
     fn test_input_equality_bits_only() {
