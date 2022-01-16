@@ -57,13 +57,13 @@ pub type PlayerHandle = usize;
 /// - spectators, who are remote players that do not contribute to the game input.
 /// Both `Remote` and `Spectator` have a socket address associated with them.
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum PlayerType {
+pub enum PlayerType<A = std::net::SocketAddr> {
     /// This player plays on the local device.
     Local,
     /// This player plays on a remote device identified by the socket address.
-    Remote(std::net::SocketAddr),
+    Remote(A),
     /// This player spectates on a remote device identified by the socket address. They do not contribute to the game input.
-    Spectator(std::net::SocketAddr),
+    Spectator(A),
 }
 
 impl Default for PlayerType {
