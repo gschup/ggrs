@@ -8,7 +8,7 @@ pub(crate) use udp_socket::UdpNonBlockingSocket;
 /// However you wish to send and receive messages, it should be implemented through these two methods.
 /// Messages should be sent in an UDP-like fashion, unordered and unreliable.
 /// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
-pub trait NonBlockingSocket<A>: std::fmt::Debug + Send + Sync {
+pub trait NonBlockingSocket<A>: std::fmt::Debug {
     /// Takes an `UdpMessage` and sends it to the given address.
     fn send_to(&mut self, msg: &UdpMessage, addr: &A);
 
