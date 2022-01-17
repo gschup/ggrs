@@ -54,7 +54,7 @@ enum ProtocolState {
 }
 
 #[derive(Debug)]
-pub(crate) struct UdpProtocol {
+pub(crate) struct UdpProtocol<A: Eq = SocketAddr> {
     handle: PlayerHandle,
     magic: u16,
     send_queue: VecDeque<UdpMessage>,
@@ -76,7 +76,7 @@ pub(crate) struct UdpProtocol {
     fps: u32,
 
     // the other client
-    peer_addr: SocketAddr,
+    peer_addr: A,
     remote_magic: u16,
     peer_connect_status: Vec<ConnectionStatus>,
 
@@ -100,17 +100,17 @@ pub(crate) struct UdpProtocol {
     last_recv_time: Instant,
 }
 
-impl PartialEq for UdpProtocol {
+impl<A: Eq> PartialEq for UdpProtocol<A> {
     fn eq(&self, other: &Self) -> bool {
         self.handle == other.handle
     }
 }
-impl Eq for UdpProtocol {}
+impl<A: Eq> Eq for UdpProtocol<A> {}
 
-impl UdpProtocol {
+impl<A: Eq> UdpProtocol<A> {
     pub(crate) fn new(
         handle: PlayerHandle,
-        peer_addr: SocketAddr,
+        peer_addr: A,
         num_players: u32,
         input_size: usize,
         max_prediction: usize,
@@ -177,7 +177,7 @@ impl UdpProtocol {
         }
     }
 
-    pub(crate) const fn player_handle(&self) -> PlayerHandle {
+    pub(crate) fn player_handle(&self) -> PlayerHandle {
         self.handle
     }
 
@@ -239,7 +239,7 @@ impl UdpProtocol {
         self.state == ProtocolState::Running
     }
 
-    pub(crate) fn is_handling_message(&self, addr: &SocketAddr) -> bool {
+    pub(crate) fn is_handling_message(&self, addr: &A) -> bool {
         self.peer_addr == *addr
     }
 
@@ -339,14 +339,14 @@ impl UdpProtocol {
      *  SENDING MESSAGES
      */
 
-    pub(crate) fn send_all_messages(&mut self, socket: &mut Box<dyn NonBlockingSocket>) {
+    pub(crate) fn send_all_messages(&mut self, socket: &mut Box<dyn NonBlockingSocket<A>>) {
         if self.state == ProtocolState::Shutdown {
             self.send_queue.drain(..);
             return;
         }
 
         for msg in self.send_queue.drain(..) {
-            socket.send_to(&msg, self.peer_addr);
+            socket.send_to(&msg, &self.peer_addr);
         }
     }
 

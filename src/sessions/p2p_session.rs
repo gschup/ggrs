@@ -24,15 +24,15 @@ pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_mill
 pub(crate) const DEFAULT_FPS: u32 = 60;
 
 #[derive(Debug, PartialEq, Eq)]
-enum Player {
+enum Player<A: Eq = SocketAddr> {
     Local,
-    Remote(Box<UdpProtocol>),
-    Spectator(Box<UdpProtocol>),
+    Remote(Box<UdpProtocol<A>>),
+    Spectator(Box<UdpProtocol<A>>),
 }
 
-impl Player {
+impl<A: Eq> Player<A> {
     #[allow(dead_code)]
-    const fn as_endpoint(&self) -> Option<&UdpProtocol> {
+    fn as_endpoint(&self) -> Option<&UdpProtocol<A>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(endpoint) => Some(endpoint),
@@ -40,7 +40,7 @@ impl Player {
         }
     }
 
-    fn as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
+    fn as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<A>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(endpoint) => Some(endpoint),
@@ -48,28 +48,28 @@ impl Player {
         }
     }
 
-    const fn remote_as_endpoint(&self) -> Option<&UdpProtocol> {
+    fn remote_as_endpoint(&self) -> Option<&UdpProtocol<A>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(_) | Player::Local => None,
         }
     }
 
-    fn remote_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
+    fn remote_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<A>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(_) | Player::Local => None,
         }
     }
 
-    const fn spectator_as_endpoint(&self) -> Option<&UdpProtocol> {
+    fn spectator_as_endpoint(&self) -> Option<&UdpProtocol<A>> {
         match self {
             Player::Spectator(endpoint) => Some(endpoint),
             Player::Remote(_) | Player::Local => None,
         }
     }
 
-    fn spectator_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol> {
+    fn spectator_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<A>> {
         match self {
             Player::Spectator(endpoint) => Some(endpoint),
             Player::Remote(_) | Player::Local => None,
@@ -95,7 +95,7 @@ pub(crate) enum Event {
 
 /// A `P2PSession` provides a UDP protocol to connect to remote clients in a peer-to-peer fashion.
 #[derive(Debug)]
-pub struct P2PSession<T: Clone = Vec<u8>> {
+pub struct P2PSession<T: Clone = Vec<u8>, A: Eq = SocketAddr> {
     /// The number of players of the session.
     num_players: u32,
     /// The number of bytes an input uses.
@@ -120,9 +120,9 @@ pub struct P2PSession<T: Clone = Vec<u8>> {
     state: SessionState,
 
     /// The `P2PSession` uses this socket to send and receive all messages for remote players.
-    socket: Box<dyn NonBlockingSocket>,
+    socket: Box<dyn NonBlockingSocket<A>>,
     /// A map of player handle to a player struct that handles receiving and sending messages for remote players, remote spectators and register local players.
-    players: HashMap<PlayerHandle, Player>,
+    players: HashMap<PlayerHandle, Player<A>>,
     /// This struct contains information about remote players, like connection status and the frame of last received input.
     local_connect_status: Vec<ConnectionStatus>,
 
@@ -175,14 +175,16 @@ impl<T: Clone> P2PSession<T> {
             socket,
         ))
     }
+}
 
+impl<T: Clone, A: Eq> P2PSession<T, A> {
     /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
     /// set input delay for local players and then start the session. The session will use the provided socket.
     pub fn new_with_socket(
         num_players: u32,
         input_size: usize,
         max_prediction: usize,
-        socket: impl NonBlockingSocket + 'static,
+        socket: impl NonBlockingSocket<A> + 'static,
     ) -> Self {
         Self::new_impl(num_players, input_size, max_prediction, Box::new(socket))
     }
@@ -191,7 +193,7 @@ impl<T: Clone> P2PSession<T> {
         num_players: u32,
         input_size: usize,
         max_prediction: usize,
-        socket: Box<dyn NonBlockingSocket>,
+        socket: Box<dyn NonBlockingSocket<A>>,
     ) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
@@ -231,7 +233,7 @@ impl<T: Clone> P2PSession<T> {
     /// - Returns `InvalidRequest` when adding more than one local player
     pub fn add_player(
         &mut self,
-        player_type: PlayerType,
+        player_type: PlayerType<A>,
         player_handle: PlayerHandle,
     ) -> Result<PlayerHandle, GGRSError> {
         // currently, you can only add players in the init phase
@@ -727,7 +729,7 @@ impl<T: Clone> P2PSession<T> {
     fn add_remote_player(
         &mut self,
         player_handle: PlayerHandle,
-        addr: SocketAddr,
+        addr: A,
     ) -> Result<PlayerHandle, GGRSError> {
         // check if valid player
         if player_handle >= self.num_players as PlayerHandle {
@@ -764,7 +766,7 @@ impl<T: Clone> P2PSession<T> {
     fn add_spectator(
         &mut self,
         player_handle: PlayerHandle,
-        addr: SocketAddr,
+        addr: A,
     ) -> Result<PlayerHandle, GGRSError> {
         let spectator_handle = player_handle + 1000;
 
