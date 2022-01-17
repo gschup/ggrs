@@ -8,7 +8,6 @@ use crate::{Frame, GGRSRequest, PlayerHandle};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
-#[derive(Debug)]
 pub struct SyncTestSession<T: Clone = Vec<u8>> {
     num_players: u32,
     input_size: usize,

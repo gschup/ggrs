@@ -10,7 +10,7 @@ pub(crate) use udp_socket::UdpNonBlockingSocket;
 /// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
 /// Disable feature `send_socket` to remove the Send + Sync bounds. Note: bevy_ggrs requires `send_socket` to be enabled.
 #[cfg(feature = "send_socket")]
-pub trait NonBlockingSocket<A>: std::fmt::Debug + Send + Sync {
+pub trait NonBlockingSocket<A>: Send + Sync {
     /// Takes an `UdpMessage` and sends it to the given address.
     fn send_to(&mut self, msg: &UdpMessage, addr: &A);
 
@@ -19,7 +19,7 @@ pub trait NonBlockingSocket<A>: std::fmt::Debug + Send + Sync {
     fn receive_all_messages(&mut self) -> Vec<(A, UdpMessage)>;
 }
 #[cfg(not(feature = "send_socket"))]
-pub trait NonBlockingSocket<A>: std::fmt::Debug {
+pub trait NonBlockingSocket<A> {
     fn send_to(&mut self, msg: &UdpMessage, addr: &A);
     fn receive_all_messages(&mut self) -> Vec<(A, UdpMessage)>;
 }

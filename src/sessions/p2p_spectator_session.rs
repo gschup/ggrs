@@ -27,7 +27,6 @@ const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 /// A `P2PSpectatorSession` provides a UDP protocol to connect to a remote host in a peer-to-peer fashion. The host will broadcast all confirmed inputs to this session.
 /// This session can be used to spectate a session without contributing to the game input.
-#[derive(Debug)]
 pub struct P2PSpectatorSession<A: Eq = SocketAddr> {
     state: SessionState,
     num_players: u32,
