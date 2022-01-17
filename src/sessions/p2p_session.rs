@@ -394,9 +394,10 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
             }
 
             // after all this, we should have saved the confirmed state
-            assert_eq!(
-                self.sync_layer.last_saved_frame(),
-                std::cmp::min(confirmed_frame, self.sync_layer.current_frame())
+            assert!(
+                confirmed_frame == NULL_FRAME
+                    || self.sync_layer.last_saved_frame()
+                        == std::cmp::min(confirmed_frame, self.sync_layer.current_frame())
             );
         }
 
