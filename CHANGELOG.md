@@ -4,7 +4,12 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- GameState now is generic, so serialization of game state to save and load is no longer required
+- nothing here yet...
+
+## 0.8.0
+
+- `GameState` now is a generic `GameState<T: Clone = Vec<u8>>`, so serialization of game state to save and load is no longer required
+- `trait NonBlockingSocket` now is a generic `NonBlockingSocket<A>`, where `A` generalizes the address that the socket uses to send a packet.
 
 ## 0.7.2
 
