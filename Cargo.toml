@@ -11,8 +11,9 @@ keywords = ["gamedev", "networking", "ggpo", "rollback"]
 categories = ["network-programming", "game-development"]
 
 [features]
-default = ["sync_test"]
+default = ["send_socket", "sync_test"]
 sync_test = []
+send_socket = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
