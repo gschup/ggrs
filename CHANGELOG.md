@@ -4,7 +4,9 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- provided inputs are now generic. The user has to supply a POD struct instead of serialized input.
+- provided inputs are now generic. The user has to supply a POD struct instead of serialized input
+- added a `Config` trait with types to bundle all generic options
+- renamed `GameInput` to `PlayerInput`
 
 ## 0.8.0
 
