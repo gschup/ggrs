@@ -391,8 +391,10 @@ impl<T: Config> UdpProtocol<T> {
             body.start_frame = input.frame;
 
             // encode all pending inputs to a byte buffer
-            let tmp: Vec<T::Input> = self.pending_output.iter().map(|&gi| gi.input).collect();
-            body.bytes = encode(self.last_acked_input.input, tmp.iter());
+            body.bytes = encode(
+                self.last_acked_input.input,
+                self.pending_output.iter().map(|gi| &gi.input),
+            );
 
             // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
             assert!(body.bytes.len() <= MAX_PAYLOAD);
