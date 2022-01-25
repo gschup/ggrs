@@ -3,7 +3,7 @@ use std::collections::{vec_deque::Drain, VecDeque};
 
 use crate::{
     network::{messages::ConnectionStatus, protocol::UdpProtocol},
-    Config, Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, NonBlockingSocket,
+    Config, Frame, GGRSError, GGRSEvent, GGRSRequest, NetworkStats, NonBlockingSocket, PlayerInput,
     SessionState, NULL_FRAME,
 };
 
@@ -28,7 +28,7 @@ where
 {
     state: SessionState,
     num_players: u32,
-    inputs: Vec<GameInput<T::Input>>,
+    inputs: Vec<PlayerInput<T::Input>>,
     host_connect_status: Vec<ConnectionStatus>,
     socket: Box<dyn NonBlockingSocket<T::Address>>,
     host: UdpProtocol<T>,
@@ -57,7 +57,7 @@ impl<T: Config> P2PSpectatorSession<T> {
         Self {
             state: SessionState::Initializing,
             num_players,
-            inputs: vec![GameInput::blank_input(NULL_FRAME); SPECTATOR_BUFFER_SIZE],
+            inputs: vec![PlayerInput::blank_input(NULL_FRAME); SPECTATOR_BUFFER_SIZE],
             host_connect_status,
             socket: Box::new(socket),
             host: UdpProtocol::new(0, host_addr, num_players, 8),
@@ -235,7 +235,10 @@ impl<T: Config> P2PSpectatorSession<T> {
         Ok(())
     }
 
-    fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput<T::Input>>, GGRSError> {
+    fn inputs_at_frame(
+        &self,
+        frame_to_grab: Frame,
+    ) -> Result<Vec<PlayerInput<T::Input>>, GGRSError> {
         let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 
         // We haven't received the input from the host yet. Wait.
@@ -256,7 +259,7 @@ impl<T: Config> P2PSpectatorSession<T> {
             //let start = i * self.input_size;
             //let end = (i + 1) * self.input_size;
             //let buffer = &merged_input.buffer[start..end];
-            let mut input = GameInput::new(frame_to_grab, T::Input::zeroed());
+            let mut input = PlayerInput::new(frame_to_grab, T::Input::zeroed());
 
             // disconnected players are identified by NULL_FRAME
             if self.host_connect_status[i].disconnected

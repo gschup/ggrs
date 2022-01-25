@@ -2,7 +2,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 
 use crate::error::GGRSError;
-use crate::frame_info::{GameInput, GameState};
+use crate::frame_info::{GameState, PlayerInput};
 use crate::input_queue::InputQueue;
 use crate::network::messages::ConnectionStatus;
 use crate::{Config, Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
@@ -150,7 +150,7 @@ impl<T: Config> SyncLayer<T> {
     pub(crate) fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
-        input: GameInput<T::Input>,
+        input: PlayerInput<T::Input>,
     ) -> Result<Frame, GGRSError> {
         let frames_ahead = self.current_frame - self.last_confirmed_frame;
         if self.current_frame >= self.max_prediction as i32
@@ -169,7 +169,7 @@ impl<T: Config> SyncLayer<T> {
     pub(crate) fn add_remote_input(
         &mut self,
         player_handle: PlayerHandle,
-        input: GameInput<T::Input>,
+        input: PlayerInput<T::Input>,
     ) {
         self.input_queues[player_handle].add_input(input);
     }
@@ -178,11 +178,11 @@ impl<T: Config> SyncLayer<T> {
     pub(crate) fn synchronized_inputs(
         &mut self,
         connect_status: &[ConnectionStatus],
-    ) -> Vec<GameInput<T::Input>> {
+    ) -> Vec<PlayerInput<T::Input>> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < self.current_frame {
-                inputs.push(GameInput::blank_input(NULL_FRAME));
+                inputs.push(PlayerInput::blank_input(NULL_FRAME));
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
             }
@@ -195,11 +195,11 @@ impl<T: Config> SyncLayer<T> {
         &self,
         frame: Frame,
         connect_status: &[ConnectionStatus],
-    ) -> Vec<GameInput<T::Input>> {
+    ) -> Vec<PlayerInput<T::Input>> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < frame {
-                inputs.push(GameInput::blank_input(NULL_FRAME));
+                inputs.push(PlayerInput::blank_input(NULL_FRAME));
             } else {
                 inputs.push(self.input_queues[i].confirmed_input(frame));
             }
@@ -294,7 +294,7 @@ mod sync_layer_tests {
     fn test_reach_prediction_threshold() {
         let mut sync_layer = SyncLayer::<TestConfig>::new(2, 8);
         for i in 0..20 {
-            let game_input = GameInput::new(i, TestInput { inp: i as u8 });
+            let game_input = PlayerInput::new(i, TestInput { inp: i as u8 });
             sync_layer.add_local_input(0, game_input).unwrap(); // should crash at frame 7
         }
     }
@@ -312,7 +312,7 @@ mod sync_layer_tests {
         dummy_connect_status.push(ConnectionStatus::default());
 
         for i in 0..20 {
-            let game_input = GameInput::new(i, TestInput { inp: i as u8 });
+            let game_input = PlayerInput::new(i, TestInput { inp: i as u8 });
             // adding input as remote to avoid prediction threshold detection
             sync_layer.add_remote_input(0, game_input);
             sync_layer.add_remote_input(1, game_input);

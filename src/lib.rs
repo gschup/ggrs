@@ -8,7 +8,7 @@
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
 pub use error::GGRSError;
-pub use frame_info::{GameInput, GameState};
+pub use frame_info::{GameState, PlayerInput};
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
@@ -124,7 +124,7 @@ where
     },
     /// You should advance the gamestate with the `inputs` provided to you.
     /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
-    AdvanceFrame { inputs: Vec<GameInput<T::Input>> },
+    AdvanceFrame { inputs: Vec<PlayerInput<T::Input>> },
 }
 
 // #############

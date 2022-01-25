@@ -3,7 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
-use ggrs::{Config, Frame, GGRSRequest, GameInput, GameState, GameStateCell};
+use ggrs::{Config, Frame, GGRSRequest, GameState, GameStateCell, PlayerInput};
 
 pub const MAX_PRED_FRAMES: usize = 8;
 
@@ -64,7 +64,7 @@ impl GameStub {
         self.gs = game_state.data.unwrap();
     }
 
-    fn advance_frame(&mut self, inputs: Vec<GameInput<StubInput>>) {
+    fn advance_frame(&mut self, inputs: Vec<PlayerInput<StubInput>>) {
         self.gs.advance_frame(inputs);
     }
 }
@@ -109,7 +109,7 @@ impl RandomChecksumGameStub {
         self.gs = cell.load().clone().data.expect("No data found.");
     }
 
-    fn advance_frame(&mut self, inputs: Vec<GameInput<StubInput>>) {
+    fn advance_frame(&mut self, inputs: Vec<PlayerInput<StubInput>>) {
         self.gs.advance_frame(inputs);
     }
 }
@@ -121,7 +121,7 @@ pub struct StateStub {
 }
 
 impl StateStub {
-    fn advance_frame(&mut self, inputs: Vec<GameInput<StubInput>>) {
+    fn advance_frame(&mut self, inputs: Vec<PlayerInput<StubInput>>) {
         let p0_inputs = inputs[0].input.inp;
         let p1_inputs = inputs[1].input.inp;
 

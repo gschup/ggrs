@@ -50,7 +50,7 @@ impl<S: Clone> GameState<S> {
 /// Represents an input for a single player in a single frame. The associated frame is denoted with `frame`.
 /// You do not need to create this struct, but the sessions will provide a `Vec<GameInput>` for you during `advance_frame()`.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct GameInput<I>
+pub struct PlayerInput<I>
 where
     I: PartialEq + Copy + Clone + bytemuck::Pod + bytemuck::Zeroable,
 {
@@ -60,7 +60,7 @@ where
     pub input: I,
 }
 
-impl<I: PartialEq + bytemuck::Pod + bytemuck::Zeroable> GameInput<I> {
+impl<I: PartialEq + bytemuck::Pod + bytemuck::Zeroable> PlayerInput<I> {
     /// Returns true, if the player of that input has disconnected
     pub fn is_disconnected(&self) -> bool {
         self.frame == NULL_FRAME
@@ -100,15 +100,15 @@ mod game_input_tests {
 
     #[test]
     fn test_input_equality_bits_only() {
-        let input1 = GameInput::new(0, TestInput { inp: 5 });
-        let input2 = GameInput::new(5, TestInput { inp: 5 });
+        let input1 = PlayerInput::new(0, TestInput { inp: 5 });
+        let input2 = PlayerInput::new(5, TestInput { inp: 5 });
         assert!(input1.equal(&input2, true)); // different frames, but does not matter
     }
 
     #[test]
     fn test_input_equality_fail() {
-        let input1 = GameInput::new(0, TestInput { inp: 5 });
-        let input2 = GameInput::new(0, TestInput { inp: 7 });
+        let input1 = PlayerInput::new(0, TestInput { inp: 5 });
+        let input2 = PlayerInput::new(0, TestInput { inp: 7 });
         assert!(!input1.equal(&input2, false)); // different bits
     }
 }

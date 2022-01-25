@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::error::GGRSError;
-use crate::frame_info::GameInput;
+use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
 use crate::{Config, Frame, GGRSRequest, PlayerHandle};
@@ -91,7 +91,7 @@ impl<T: Config> SyncTestSession<T> {
         assert_eq!(self.num_players as usize, all_inputs.len());
         for (i, input) in all_inputs.iter().enumerate() {
             //create an input struct for current frame
-            let input = GameInput::new(self.sync_layer.current_frame(), *input);
+            let input = PlayerInput::new(self.sync_layer.current_frame(), *input);
 
             // send the input into the sync layer
             self.sync_layer.add_local_input(i, input)?;

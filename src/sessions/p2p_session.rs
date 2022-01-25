@@ -1,5 +1,5 @@
 use crate::error::GGRSError;
-use crate::frame_info::GameInput;
+use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
 use crate::network::protocol::UdpProtocol;
@@ -91,7 +91,7 @@ where
     /// The session is now synchronized with the remote client.
     Synchronized,
     /// The session has received an input from the remote client. This event will not be forwarded to the user.
-    Input(GameInput<T::Input>),
+    Input(PlayerInput<T::Input>),
     /// The remote client has disconnected.
     Disconnected,
     /// The session has not received packets from the remote client since `disconnect_timeout` ms.
@@ -380,7 +380,7 @@ impl<T: Config> P2PSession<T> {
 
         //create an input struct for current frame
         let mut game_input =
-            GameInput::<T::Input>::new(self.sync_layer.current_frame(), local_input);
+            PlayerInput::<T::Input>::new(self.sync_layer.current_frame(), local_input);
 
         // send the input into the sync layer
         let actual_frame = self
@@ -857,7 +857,7 @@ impl<T: Config> P2PSession<T> {
                 assert!(input.frame == NULL_FRAME || input.frame == self.next_spectator_frame);
             }
 
-            let spectator_input = GameInput::blank_input(NULL_FRAME);
+            let spectator_input = PlayerInput::blank_input(NULL_FRAME);
             //GameInput::new(self.next_spectator_frame, ???);
 
             // send it off

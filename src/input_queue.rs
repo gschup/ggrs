@@ -1,4 +1,4 @@
-use crate::frame_info::GameInput;
+use crate::frame_info::PlayerInput;
 use crate::{Config, Frame, NULL_FRAME};
 use std::cmp;
 
@@ -31,9 +31,9 @@ where
     frame_delay: u32,
 
     /// Our cyclic input queue
-    inputs: Vec<GameInput<T::Input>>,
+    inputs: Vec<PlayerInput<T::Input>>,
     /// A pre-allocated prediction we are going to use to return predictions from.
-    prediction: GameInput<T::Input>,
+    prediction: PlayerInput<T::Input>,
 }
 
 impl<T: Config> InputQueue<T> {
@@ -47,8 +47,8 @@ impl<T: Config> InputQueue<T> {
             last_added_frame: NULL_FRAME,
             first_incorrect_frame: NULL_FRAME,
             last_requested_frame: NULL_FRAME,
-            prediction: GameInput::blank_input(NULL_FRAME),
-            inputs: vec![GameInput::blank_input(NULL_FRAME); INPUT_QUEUE_LENGTH],
+            prediction: PlayerInput::blank_input(NULL_FRAME),
+            inputs: vec![PlayerInput::blank_input(NULL_FRAME); INPUT_QUEUE_LENGTH],
         }
     }
 
@@ -68,7 +68,7 @@ impl<T: Config> InputQueue<T> {
 
     /// Returns a `GameInput`, but only if the input for the requested frame is confirmed.
     /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
-    pub(crate) fn confirmed_input(&self, requested_frame: Frame) -> GameInput<T::Input> {
+    pub(crate) fn confirmed_input(&self, requested_frame: Frame) -> PlayerInput<T::Input> {
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
 
         if self.inputs[offset].frame == requested_frame {
@@ -101,7 +101,7 @@ impl<T: Config> InputQueue<T> {
     }
 
     /// Returns the game input of a single player for a given frame, if that input does not exist, we return a prediction instead.
-    pub(crate) fn input(&mut self, requested_frame: Frame) -> GameInput<T::Input> {
+    pub(crate) fn input(&mut self, requested_frame: Frame) -> PlayerInput<T::Input> {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
         assert!(self.first_incorrect_frame == NULL_FRAME);
@@ -126,7 +126,7 @@ impl<T: Config> InputQueue<T> {
             // The requested frame isn't in the queue. This means we need to return a prediction frame. Predict that the user will do the same thing they did last time.
             if requested_frame == 0 || self.last_added_frame == NULL_FRAME {
                 // basing new prediction frame from nothing, since we are on frame 0 or we have no frames yet
-                self.prediction = GameInput::blank_input(self.prediction.frame);
+                self.prediction = PlayerInput::blank_input(self.prediction.frame);
             } else {
                 // basing new prediction frame from previously added frame
                 let previous_position = match self.head {
@@ -147,7 +147,7 @@ impl<T: Config> InputQueue<T> {
     }
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
-    pub(crate) fn add_input(&mut self, input: GameInput<T::Input>) -> Frame {
+    pub(crate) fn add_input(&mut self, input: PlayerInput<T::Input>) -> Frame {
         // Verify that inputs are passed in sequentially by the user, regardless of frame delay.
         assert!(
             self.last_added_frame == NULL_FRAME
@@ -165,7 +165,7 @@ impl<T: Config> InputQueue<T> {
 
     /// Adds an input frame to the queue at the given frame number. If there are predicted inputs, we will check those and mark them as incorrect, if necessary.
     /// Returns the frame number
-    fn add_input_by_frame(&mut self, input: GameInput<T::Input>, frame_number: Frame) {
+    fn add_input_by_frame(&mut self, input: PlayerInput<T::Input>, frame_number: Frame) {
         let previous_position = match self.head {
             0 => INPUT_QUEUE_LENGTH - 1,
             _ => self.head - 1,
@@ -271,9 +271,9 @@ mod input_queue_tests {
     #[should_panic]
     fn test_add_input_wrong_frame() {
         let mut queue = InputQueue::<TestConfig>::new();
-        let input = GameInput::new(0, TestInput { inp: 0 });
+        let input = PlayerInput::new(0, TestInput { inp: 0 });
         queue.add_input(input); // fine
-        let input_wrong_frame = GameInput::new(3, TestInput { inp: 0 });
+        let input_wrong_frame = PlayerInput::new(3, TestInput { inp: 0 });
         queue.add_input(input_wrong_frame); // not fine
     }
 
@@ -281,7 +281,7 @@ mod input_queue_tests {
     #[should_panic]
     fn test_add_input_twice() {
         let mut queue = InputQueue::<TestConfig>::new();
-        let input = GameInput::new(0, TestInput { inp: 0 });
+        let input = PlayerInput::new(0, TestInput { inp: 0 });
         queue.add_input(input); // fine
         queue.add_input(input); // not fine
     }
@@ -290,7 +290,7 @@ mod input_queue_tests {
     fn test_add_input_sequentially() {
         let mut queue = InputQueue::<TestConfig>::new();
         for i in 0..10 {
-            let input = GameInput::new(i, TestInput { inp: 0 });
+            let input = PlayerInput::new(i, TestInput { inp: 0 });
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
@@ -301,7 +301,7 @@ mod input_queue_tests {
     fn test_input_sequentially() {
         let mut queue = InputQueue::<TestConfig>::new();
         for i in 0..10 {
-            let input = GameInput::new(i, TestInput { inp: i as u8 });
+            let input = PlayerInput::new(i, TestInput { inp: i as u8 });
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
@@ -316,7 +316,7 @@ mod input_queue_tests {
         let delay: i32 = 2;
         queue.set_frame_delay(delay as u32);
         for i in 0..10 {
-            let input = GameInput::new(i, TestInput { inp: i as u8 });
+            let input = PlayerInput::new(i, TestInput { inp: i as u8 });
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i + delay);
             assert_eq!(queue.length, (i + delay + 1) as usize);

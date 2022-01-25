@@ -1,4 +1,4 @@
-use crate::frame_info::GameInput;
+use crate::frame_info::PlayerInput;
 use crate::network::compression::{decode, encode};
 use crate::network::messages::{
     ConnectionStatus, Input, InputAck, Message, MessageBody, MessageHeader, QualityReply,
@@ -81,10 +81,10 @@ where
     peer_connect_status: Vec<ConnectionStatus>,
 
     // input compression
-    pending_output: VecDeque<GameInput<T::Input>>,
-    last_acked_input: GameInput<T::Input>,
+    pending_output: VecDeque<PlayerInput<T::Input>>,
+    last_acked_input: PlayerInput<T::Input>,
     max_prediction: usize,
-    recv_inputs: HashMap<Frame, GameInput<T::Input>>,
+    recv_inputs: HashMap<Frame, PlayerInput<T::Input>>,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -126,7 +126,7 @@ impl<T: Config> UdpProtocol<T> {
 
         // received input history
         let mut recv_inputs = HashMap::new();
-        recv_inputs.insert(NULL_FRAME, GameInput::blank_input(NULL_FRAME));
+        recv_inputs.insert(NULL_FRAME, PlayerInput::blank_input(NULL_FRAME));
 
         Self {
             handle,
@@ -156,7 +156,7 @@ impl<T: Config> UdpProtocol<T> {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
-            last_acked_input: GameInput::blank_input(NULL_FRAME),
+            last_acked_input: PlayerInput::blank_input(NULL_FRAME),
             max_prediction,
             recv_inputs,
 
@@ -353,7 +353,7 @@ impl<T: Config> UdpProtocol<T> {
 
     pub(crate) fn send_input(
         &mut self,
-        input: GameInput<T::Input>,
+        input: PlayerInput<T::Input>,
         connect_status: &[ConnectionStatus],
     ) {
         if self.state != ProtocolState::Running {
@@ -575,7 +575,7 @@ impl<T: Config> UdpProtocol<T> {
                     continue;
                 }
 
-                let game_input = GameInput::new(inp_frame, inp);
+                let game_input = PlayerInput::new(inp_frame, inp);
                 // send the input to the session
                 self.recv_inputs.insert(game_input.frame, game_input);
                 self.event_queue.push_back(Event::Input(game_input));
