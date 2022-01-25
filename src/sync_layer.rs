@@ -201,7 +201,7 @@ impl<T: Config> SyncLayer<T> {
             if con_stat.disconnected && con_stat.last_frame < frame {
                 inputs.push(GameInput::blank_input(NULL_FRAME));
             } else {
-                inputs.push(self.input_queues[i].confirmed_input(frame).clone());
+                inputs.push(self.input_queues[i].confirmed_input(frame));
             }
         }
         inputs
@@ -314,7 +314,7 @@ mod sync_layer_tests {
         for i in 0..20 {
             let game_input = GameInput::new(i, TestInput { inp: i as u8 });
             // adding input as remote to avoid prediction threshold detection
-            sync_layer.add_remote_input(0, game_input.clone());
+            sync_layer.add_remote_input(0, game_input);
             sync_layer.add_remote_input(1, game_input);
             // update the dummy connect status
             dummy_connect_status[0].last_frame = i;

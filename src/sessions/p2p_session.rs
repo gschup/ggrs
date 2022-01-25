@@ -385,7 +385,7 @@ impl<T: Config> P2PSession<T> {
         // send the input into the sync layer
         let actual_frame = self
             .sync_layer
-            .add_local_input(local_player_handle, game_input.clone())?;
+            .add_local_input(local_player_handle, game_input)?;
 
         // if the actual frame is the null frame, the frame has been dropped by the input queues (for example due to changed input delay)
         if actual_frame != NULL_FRAME {
@@ -399,7 +399,7 @@ impl<T: Config> P2PSession<T> {
                 .filter_map(Player::remote_as_endpoint_mut)
             {
                 // send the input directly
-                endpoint.send_input(game_input.clone(), &self.local_connect_status);
+                endpoint.send_input(game_input, &self.local_connect_status);
                 endpoint.send_all_messages(&mut self.socket);
             }
         }
@@ -867,7 +867,7 @@ impl<T: Config> P2PSession<T> {
                 .filter_map(Player::spectator_as_endpoint_mut)
             {
                 if endpoint.is_running() {
-                    endpoint.send_input(spectator_input.clone(), &self.local_connect_status);
+                    endpoint.send_input(spectator_input, &self.local_connect_status);
                 }
             }
 

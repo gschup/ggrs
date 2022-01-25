@@ -120,7 +120,7 @@ impl<T: Config> InputQueue<T> {
             if offset < self.length {
                 offset = (offset + self.tail) % INPUT_QUEUE_LENGTH;
                 assert!(self.inputs[offset].frame == requested_frame);
-                return self.inputs[offset].clone();
+                return self.inputs[offset];
             }
 
             // The requested frame isn't in the queue. This means we need to return a prediction frame. Predict that the user will do the same thing they did last time.
@@ -133,7 +133,7 @@ impl<T: Config> InputQueue<T> {
                     0 => INPUT_QUEUE_LENGTH - 1,
                     _ => self.head - 1,
                 };
-                self.prediction = self.inputs[previous_position].clone();
+                self.prediction = self.inputs[previous_position];
             }
             // update the prediction's frame
             self.prediction.frame += 1;
@@ -141,7 +141,7 @@ impl<T: Config> InputQueue<T> {
 
         // We must be predicting, so we return the prediction frame contents. We are adjusting the prediction to have the requested frame.
         assert!(self.prediction.frame != NULL_FRAME);
-        let mut prediction_to_return = self.prediction.clone(); // GameInput has copy semantics
+        let mut prediction_to_return = self.prediction; // GameInput has copy semantics
         prediction_to_return.frame = requested_frame;
         prediction_to_return
     }
@@ -175,7 +175,7 @@ impl<T: Config> InputQueue<T> {
         assert!(frame_number == 0 || self.inputs[previous_position].frame == frame_number - 1);
 
         // Add the frame to the back of the queue
-        self.inputs[self.head] = input.clone();
+        self.inputs[self.head] = input;
         self.inputs[self.head].frame = frame_number;
         self.head = (self.head + 1) % INPUT_QUEUE_LENGTH;
         self.length += 1;
@@ -226,7 +226,7 @@ impl<T: Config> InputQueue<T> {
         // This can occur when the frame delay has been increased since the last time we shoved a frame into the system.
         // We need to replicate the last frame in the queue several times in order to fill the space left.
         while expected_frame < input_frame {
-            let input_to_replicate = self.inputs[previous_position].clone();
+            let input_to_replicate = self.inputs[previous_position];
             self.add_input_by_frame(input_to_replicate, expected_frame);
             expected_frame += 1;
         }
@@ -282,7 +282,7 @@ mod input_queue_tests {
     fn test_add_input_twice() {
         let mut queue = InputQueue::<TestConfig>::new();
         let input = GameInput::new(0, TestInput { inp: 0 });
-        queue.add_input(input.clone()); // fine
+        queue.add_input(input); // fine
         queue.add_input(input); // not fine
     }
 
@@ -302,7 +302,7 @@ mod input_queue_tests {
         let mut queue = InputQueue::<TestConfig>::new();
         for i in 0..10 {
             let input = GameInput::new(i, TestInput { inp: i as u8 });
-            queue.add_input(input.clone());
+            queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
             let input_in_queue = queue.input(i);
@@ -317,7 +317,7 @@ mod input_queue_tests {
         queue.set_frame_delay(delay as u32);
         for i in 0..10 {
             let input = GameInput::new(i, TestInput { inp: i as u8 });
-            queue.add_input(input.clone());
+            queue.add_input(input);
             assert_eq!(queue.last_added_frame, i + delay);
             assert_eq!(queue.length, (i + delay + 1) as usize);
             let input_in_queue = queue.input(i + delay);

@@ -236,7 +236,7 @@ impl<T: Config> P2PSpectatorSession<T> {
     }
 
     fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput<T::Input>>, GGRSError> {
-        let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE].clone();
+        let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 
         // We haven't received the input from the host yet. Wait.
         if merged_input.frame < frame_to_grab {
@@ -308,7 +308,7 @@ impl<T: Config> P2PSpectatorSession<T> {
             // add the input and all associated information
             Event::Input(input) => {
                 // save the input
-                self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE] = input.clone();
+                self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE] = input;
                 assert!(input.frame > self.last_recv_frame);
                 self.last_recv_frame = input.frame;
 
