@@ -55,9 +55,9 @@ marcello505 is currently developing a wrapper for [Godot](https://godotengine.or
 
 ### Other Rollback Implementations in Rust
 
-Also take a look at the awesome
+Also take a look at the awesome backroll project, a completely async rollback library. Special thanks to james7132 for a lot of inspiration and fruitful discussion.
 
-- 👉[backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)!
+- 👉[backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)
 
 ## Licensing
 
