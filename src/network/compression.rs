@@ -42,7 +42,7 @@ pub(crate) fn decode<T: Pod>(
     let buf = bitfield_rle::decode(data)?;
 
     // decode the delta-encoding
-    Ok(delta_decode(reference, &buf)?)
+    delta_decode(reference, &buf)
 }
 
 pub(crate) fn delta_decode<T: Pod>(

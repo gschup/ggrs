@@ -63,7 +63,7 @@ where
 impl<I: PartialEq + bytemuck::Pod + bytemuck::Zeroable> GameInput<I> {
     /// Returns true, if the player of that input has disconnected
     pub fn is_disconnected(&self) -> bool {
-        return self.frame == NULL_FRAME;
+        self.frame == NULL_FRAME
     }
 
     pub(crate) fn new(frame: Frame, input: I) -> Self {
