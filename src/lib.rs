@@ -107,7 +107,7 @@ pub enum GGRSEvent {
     WaitRecommendation { skip_frames: u32 },
 }
 
-/// Requests that you can receive from the session. Handling them is mandatory. `T` is the type of the game state (by default `Vec<u8>`).
+/// Requests that you can receive from the session. Handling them is mandatory.
 pub enum GGRSRequest<T>
 where
     T: Config,

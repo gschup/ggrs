@@ -245,10 +245,8 @@ impl BoxState {
         for i in 0..self.num_players {
             // get input of that player
             let input = if inputs[i].frame == NULL_FRAME {
-                // disconnected players spin
-                4
+                4 // disconnected players spin
             } else {
-                // otherwise deserialize the input
                 inputs[i].input.inp
             };
 
