@@ -1,22 +1,23 @@
 use std::{
     io::ErrorKind,
-    net::{SocketAddr, ToSocketAddrs, UdpSocket},
+    net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
 };
 
-use crate::network::udp_msg::UdpMessage;
-
-use super::NonBlockingSocket;
+use crate::{network::messages::Message, NonBlockingSocket};
 
 const RECV_BUFFER_SIZE: usize = 4096;
 
+/// A simple non-blocking UDP socket tu use with GGRS Sessions. Listens to 0.0.0.0 on a given port.
 #[derive(Debug)]
-pub(crate) struct UdpNonBlockingSocket {
+pub struct UdpNonBlockingSocket {
     socket: UdpSocket,
     buffer: [u8; RECV_BUFFER_SIZE],
 }
 
 impl UdpNonBlockingSocket {
-    pub(crate) fn new<A: ToSocketAddrs>(addr: A) -> Result<Self, std::io::Error> {
+    /// Binds an UDP Socket to 0.0.0.0:port and set it to non-blocking mode.
+    pub fn bind_to_port(port: u16) -> Result<Self, std::io::Error> {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
         let socket = UdpSocket::bind(addr)?;
         socket.set_nonblocking(true)?;
         Ok(Self {
@@ -27,12 +28,12 @@ impl UdpNonBlockingSocket {
 }
 
 impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
-    fn send_to(&mut self, msg: &UdpMessage, addr: &SocketAddr) {
+    fn send_to(&mut self, msg: &Message, addr: &SocketAddr) {
         let buf = bincode::serialize(&msg).unwrap();
         self.socket.send_to(&buf, addr).unwrap();
     }
 
-    fn receive_all_messages(&mut self) -> Vec<(SocketAddr, UdpMessage)> {
+    fn receive_all_messages(&mut self) -> Vec<(SocketAddr, Message)> {
         let mut received_messages = Vec::new();
         loop {
             match self.socket.recv_from(&mut self.buffer) {

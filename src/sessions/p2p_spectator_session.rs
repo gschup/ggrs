@@ -1,15 +1,10 @@
-use std::{
-    collections::{vec_deque::Drain, VecDeque},
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-};
+use bytemuck::Zeroable;
+use std::collections::{vec_deque::Drain, VecDeque};
 
 use crate::{
-    network::{
-        non_blocking_socket::{NonBlockingSocket, UdpNonBlockingSocket},
-        udp_msg::ConnectionStatus,
-        udp_protocol::UdpProtocol,
-    },
-    Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, SessionState, NULL_FRAME,
+    network::{messages::ConnectionStatus, protocol::UdpProtocol},
+    Config, Frame, GGRSError, GGRSEvent, GGRSRequest, GameInput, NetworkStats, NonBlockingSocket,
+    SessionState, NULL_FRAME,
 };
 
 use super::p2p_session::Event;
@@ -27,14 +22,16 @@ const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 /// A `P2PSpectatorSession` provides a UDP protocol to connect to a remote host in a peer-to-peer fashion. The host will broadcast all confirmed inputs to this session.
 /// This session can be used to spectate a session without contributing to the game input.
-pub struct P2PSpectatorSession<A: Eq = SocketAddr> {
+pub struct P2PSpectatorSession<T>
+where
+    T: Config,
+{
     state: SessionState,
     num_players: u32,
-    input_size: usize,
-    inputs: Vec<GameInput>,
+    inputs: Vec<GameInput<T::Input>>,
     host_connect_status: Vec<ConnectionStatus>,
-    socket: Box<dyn NonBlockingSocket<A>>,
-    host: UdpProtocol<A>,
+    socket: Box<dyn NonBlockingSocket<T::Address>>,
+    host: UdpProtocol<T>,
     event_queue: VecDeque<GGRSEvent>,
     current_frame: Frame,
     last_recv_frame: Frame,
@@ -42,60 +39,14 @@ pub struct P2PSpectatorSession<A: Eq = SocketAddr> {
     catchup_speed: u32,
 }
 
-impl P2PSpectatorSession {
-    /// Creates a new `P2PSpectatorSession` for a spectator.
-    /// The session will receive inputs from all players from the given host directly.
-    /// # Example
-    ///
-    /// ```
-    /// # use std::net::SocketAddr;
-    /// # use ggrs::P2PSpectatorSession;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let local_port: u16 = 7777;
-    /// let num_players : u32 = 2;
-    /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let host_addr: SocketAddr = "127.0.0.1:8888".parse()?;
-    /// let mut session = P2PSpectatorSession::new(num_players, input_size, local_port, host_addr)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// The created session will use the default socket type (currently UDP).
-    ///
-    /// # Errors
-    /// - Will return `SocketCreationFailed` if the socket could not be created.
-    pub fn new(
-        num_players: u32,
-        input_size: usize,
-        local_port: u16,
-        host_addr: SocketAddr,
-    ) -> Result<Self, GGRSError> {
-        // udp nonblocking socket creation
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
-        let socket =
-            Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
-        Ok(Self::new_impl(num_players, input_size, socket, host_addr))
-    }
-}
-
-impl<A: Eq> P2PSpectatorSession<A> {
+impl<T: Config> P2PSpectatorSession<T> {
     /// Creates a new `P2PSpectatorSession` for a spectator.
     /// The session will receive inputs from all players from the given host directly.
     /// The session will use the provided socket.
-    pub fn new_with_socket(
+    pub fn new(
         num_players: u32,
-        input_size: usize,
-        socket: impl NonBlockingSocket<A> + 'static,
-        host_addr: A,
-    ) -> Self {
-        Self::new_impl(num_players, input_size, Box::new(socket), host_addr)
-    }
-
-    fn new_impl(
-        num_players: u32,
-        input_size: usize,
-        socket: Box<dyn NonBlockingSocket<A>>,
-        host_addr: A,
+        socket: impl NonBlockingSocket<T::Address> + 'static,
+        host_addr: T::Address,
     ) -> Self {
         // host connection status
         let mut host_connect_status = Vec::new();
@@ -106,17 +57,10 @@ impl<A: Eq> P2PSpectatorSession<A> {
         Self {
             state: SessionState::Initializing,
             num_players,
-            input_size,
-            inputs: vec![GameInput::blank_input(input_size); SPECTATOR_BUFFER_SIZE],
+            inputs: vec![GameInput::blank_input(NULL_FRAME); SPECTATOR_BUFFER_SIZE],
             host_connect_status,
-            socket,
-            host: UdpProtocol::new(
-                0,
-                host_addr,
-                num_players,
-                input_size * num_players as usize,
-                8,
-            ),
+            socket: Box::new(socket),
+            host: UdpProtocol::new(0, host_addr, num_players, 8),
             event_queue: VecDeque::new(),
             current_frame: NULL_FRAME,
             last_recv_frame: NULL_FRAME,
@@ -215,7 +159,7 @@ impl<A: Eq> P2PSpectatorSession<A> {
     /// # Errors
     /// - Returns `NotSynchronized` if the session is not yet ready to accept input.
     /// In this case, you either need to start the session or wait for synchronization between clients.
-    pub fn advance_frame<T: Clone>(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         // receive info from host, trigger events and send messages
         self.poll_remote_clients();
 
@@ -278,11 +222,6 @@ impl<A: Eq> P2PSpectatorSession<A> {
         self.num_players
     }
 
-    /// Returns the input size this session was constructed with.
-    pub fn input_size(&self) -> usize {
-        self.input_size
-    }
-
     /// Sets the FPS this session is used with. This influences ping estimates.
     pub fn set_fps(&mut self, fps: u32) -> Result<(), GGRSError> {
         if fps == 0 {
@@ -296,7 +235,7 @@ impl<A: Eq> P2PSpectatorSession<A> {
         Ok(())
     }
 
-    fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput>, GGRSError> {
+    fn inputs_at_frame(&self, frame_to_grab: Frame) -> Result<Vec<GameInput<T::Input>>, GGRSError> {
         let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE].clone();
 
         // We haven't received the input from the host yet. Wait.
@@ -310,14 +249,14 @@ impl<A: Eq> P2PSpectatorSession<A> {
         }
 
         // split the inputs back into an input for each player
-        assert!(merged_input.size % self.input_size == 0);
         let mut synced_inputs = Vec::new();
 
+        // TODO: BROKEN
         for i in 0..self.num_players as usize {
-            let start = i * self.input_size;
-            let end = (i + 1) * self.input_size;
-            let buffer = &merged_input.buffer[start..end];
-            let mut input = GameInput::new(frame_to_grab, self.input_size, buffer.to_vec());
+            //let start = i * self.input_size;
+            //let end = (i + 1) * self.input_size;
+            //let buffer = &merged_input.buffer[start..end];
+            let mut input = GameInput::new(frame_to_grab, T::Input::zeroed());
 
             // disconnected players are identified by NULL_FRAME
             if self.host_connect_status[i].disconnected
@@ -332,7 +271,7 @@ impl<A: Eq> P2PSpectatorSession<A> {
         Ok(synced_inputs)
     }
 
-    fn handle_event(&mut self, event: Event) {
+    fn handle_event(&mut self, event: Event<T>) {
         let player_handle = 0;
         match event {
             // forward to user

@@ -23,6 +23,8 @@ pub enum GGRSError {
     PlayerDisconnected,
     /// The spectator got so far behind the host that catching up is impossible.
     SpectatorTooFarBehind,
+    /// Something went wrong while decoding received input data.
+    DecodingError,
 }
 
 impl Display for GGRSError {
@@ -66,6 +68,12 @@ impl Display for GGRSError {
                 write!(
                     f,
                     "The spectator got so far behind the host that catching up is impossible."
+                )
+            }
+            &GGRSError::DecodingError => {
+                write!(
+                    f,
+                    "Something went wrong while decoding received input data."
                 )
             }
         }

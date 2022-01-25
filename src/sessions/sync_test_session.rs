@@ -2,15 +2,17 @@ use std::collections::HashMap;
 
 use crate::error::GGRSError;
 use crate::frame_info::GameInput;
-use crate::network::udp_msg::ConnectionStatus;
+use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Frame, GGRSRequest, PlayerHandle};
+use crate::{Config, Frame, GGRSRequest, PlayerHandle};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
-pub struct SyncTestSession<T: Clone = Vec<u8>> {
+pub struct SyncTestSession<T>
+where
+    T: Config,
+{
     num_players: u32,
-    input_size: usize,
     max_prediction: usize,
     check_distance: usize,
     sync_layer: SyncLayer<T>,
@@ -18,31 +20,17 @@ pub struct SyncTestSession<T: Clone = Vec<u8>> {
     checksum_history: HashMap<Frame, u64>,
 }
 
-impl<T: Clone> SyncTestSession<T> {
+impl<T: Config> SyncTestSession<T> {
     /// Creates a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
     /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
     /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
     /// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
     /// This is a great way to test if your system runs deterministically. After creating the session, add a local player, set input delay for them and then start the session.
-    /// # Example
-    ///
-    /// ```
-    /// # use ggrs::{GGRSError, SyncTestSession};
-    /// # fn main() -> Result<(), GGRSError> {
-    /// let check_distance : usize = 7;
-    /// let max_pred : usize = 8;
-    /// let num_players : u32 = 2;
-    /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = SyncTestSession::<Vec<u8>>::new(num_players, input_size, max_pred, check_distance)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     ///
     /// # Errors
     /// - Will return a `InvalidRequestError` if the `check_distance is` higher than or equal to `MAX_PREDICTION_FRAMES`.
     pub fn new(
         num_players: u32,
-        input_size: usize,
         max_prediction: usize,
         check_distance: usize,
     ) -> Result<Self, GGRSError> {
@@ -51,31 +39,20 @@ impl<T: Clone> SyncTestSession<T> {
                 info: "Check distance too big.".to_owned(),
             });
         }
-        Ok(Self::new_impl(
-            num_players,
-            input_size,
-            max_prediction,
-            check_distance,
-        ))
+        Ok(Self::new_impl(num_players, max_prediction, check_distance))
     }
 
     /// Creates a new `SyncTestSession` instance with given values.
-    fn new_impl(
-        num_players: u32,
-        input_size: usize,
-        max_prediction: usize,
-        check_distance: usize,
-    ) -> Self {
+    fn new_impl(num_players: u32, max_prediction: usize, check_distance: usize) -> Self {
         let mut dummy_connect_status = Vec::new();
         for _ in 0..num_players {
             dummy_connect_status.push(ConnectionStatus::default());
         }
         Self {
             num_players,
-            input_size,
             max_prediction,
             check_distance,
-            sync_layer: SyncLayer::new(num_players, input_size, max_prediction),
+            sync_layer: SyncLayer::new(num_players, max_prediction),
             dummy_connect_status,
             checksum_history: HashMap::default(),
         }
@@ -89,7 +66,7 @@ impl<T: Clone> SyncTestSession<T> {
     /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
     pub fn advance_frame(
         &mut self,
-        all_inputs: &[Vec<u8>],
+        all_inputs: &[T::Input],
     ) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         let mut requests = Vec::new();
 
@@ -112,13 +89,9 @@ impl<T: Clone> SyncTestSession<T> {
 
         // pass all inputs into the sync layer
         assert_eq!(self.num_players as usize, all_inputs.len());
-        for (i, input_bytes) in all_inputs.iter().enumerate() {
+        for (i, input) in all_inputs.iter().enumerate() {
             //create an input struct for current frame
-            let input: GameInput = GameInput::new(
-                self.sync_layer.current_frame(),
-                self.input_size,
-                input_bytes.to_vec(),
-            );
+            let input = GameInput::new(self.sync_layer.current_frame(), *input);
 
             // send the input into the sync layer
             self.sync_layer.add_local_input(i, input)?;
@@ -176,11 +149,6 @@ impl<T: Clone> SyncTestSession<T> {
     /// Returns the number of players this session was constructed with.
     pub fn num_players(&self) -> u32 {
         self.num_players
-    }
-
-    /// Returns the input size this session was constructed with.
-    pub fn input_size(&self) -> usize {
-        self.input_size
     }
 
     /// Returns the maximum prediction window of a session.

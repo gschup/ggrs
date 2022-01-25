@@ -1,11 +1,11 @@
-use ggrs::{GGRSError, GGRSEvent, P2PSpectatorSession, SessionState};
+use box_game::GGRSConfig;
+use ggrs::{GGRSError, GGRSEvent, P2PSpectatorSession, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
 use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
-const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 
 mod box_game;
 
@@ -37,8 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // create a GGRS session for a spectator
-    let mut sess =
-        P2PSpectatorSession::new(opt.num_players as u32, INPUT_SIZE, opt.local_port, opt.host)?;
+    let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
+    let mut sess = P2PSpectatorSession::<GGRSConfig>::new(opt.num_players as u32, socket, opt.host);
 
     // change catch-up parameters, if desired
     sess.set_max_frames_behind(5)?; // when the spectator is more than this amount of frames behind, it will catch up

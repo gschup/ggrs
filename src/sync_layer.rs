@@ -4,11 +4,10 @@ use std::sync::Arc;
 use crate::error::GGRSError;
 use crate::frame_info::{GameInput, GameState};
 use crate::input_queue::InputQueue;
-use crate::network::udp_msg::ConnectionStatus;
-use crate::{Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
+use crate::network::messages::ConnectionStatus;
+use crate::{Config, Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
 
 /// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
-#[derive(Debug)]
 pub struct GameStateCell<T: Clone = Vec<u8>>(Arc<Mutex<GameState<T>>>);
 
 impl<T: Clone> GameStateCell<T> {
@@ -43,7 +42,7 @@ impl<T: Clone> Clone for GameStateCell<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct SavedStates<T: Clone = Vec<u8>> {
     pub states: Vec<GameStateCell<T>>,
 }
@@ -67,29 +66,29 @@ impl<T: Clone> SavedStates<T> {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct SyncLayer<T: Clone = Vec<u8>> {
+pub(crate) struct SyncLayer<T>
+where
+    T: Config,
+{
     num_players: u32,
-    input_size: usize,
     max_prediction: usize,
-    saved_states: SavedStates<T>,
+    saved_states: SavedStates<T::State>,
     last_confirmed_frame: Frame,
     last_saved_frame: Frame,
     current_frame: Frame,
-    input_queues: Vec<InputQueue>,
+    input_queues: Vec<InputQueue<T>>,
 }
 
-impl<T: Clone> SyncLayer<T> {
+impl<T: Config> SyncLayer<T> {
     /// Creates a new `SyncLayer` instance with given values.
-    pub(crate) fn new(num_players: u32, input_size: usize, max_prediction: usize) -> Self {
+    pub(crate) fn new(num_players: u32, max_prediction: usize) -> Self {
         // initialize input_queues
         let mut input_queues = Vec::new();
         for _ in 0..num_players {
-            input_queues.push(InputQueue::new(input_size));
+            input_queues.push(InputQueue::new());
         }
         Self {
             num_players,
-            input_size,
             max_prediction,
             last_confirmed_frame: NULL_FRAME,
             last_saved_frame: NULL_FRAME,
@@ -151,7 +150,7 @@ impl<T: Clone> SyncLayer<T> {
     pub(crate) fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
-        input: GameInput,
+        input: GameInput<T::Input>,
     ) -> Result<Frame, GGRSError> {
         let frames_ahead = self.current_frame - self.last_confirmed_frame;
         if self.current_frame >= self.max_prediction as i32
@@ -167,7 +166,11 @@ impl<T: Clone> SyncLayer<T> {
 
     /// Adds remote input to the correspoinding input queue.
     /// Unlike `add_local_input`, this will not check for correct conditions, as remote inputs have already been checked on another device.
-    pub(crate) fn add_remote_input(&mut self, player_handle: PlayerHandle, input: GameInput) {
+    pub(crate) fn add_remote_input(
+        &mut self,
+        player_handle: PlayerHandle,
+        input: GameInput<T::Input>,
+    ) {
         self.input_queues[player_handle].add_input(input);
     }
 
@@ -175,11 +178,11 @@ impl<T: Clone> SyncLayer<T> {
     pub(crate) fn synchronized_inputs(
         &mut self,
         connect_status: &[ConnectionStatus],
-    ) -> Vec<GameInput> {
+    ) -> Vec<GameInput<T::Input>> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < self.current_frame {
-                inputs.push(GameInput::blank_input(self.input_size));
+                inputs.push(GameInput::blank_input(NULL_FRAME));
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
             }
@@ -192,11 +195,11 @@ impl<T: Clone> SyncLayer<T> {
         &self,
         frame: Frame,
         connect_status: &[ConnectionStatus],
-    ) -> Vec<GameInput> {
+    ) -> Vec<GameInput<T::Input>> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < frame {
-                inputs.push(GameInput::blank_input(self.input_size));
+                inputs.push(GameInput::blank_input(NULL_FRAME));
             } else {
                 inputs.push(self.input_queues[i].confirmed_input(frame).clone());
             }
@@ -245,7 +248,7 @@ impl<T: Clone> SyncLayer<T> {
     }
 
     /// Returns a gamestate through given frame
-    pub(crate) fn saved_state_by_frame(&self, frame: Frame) -> Option<GameStateCell<T>> {
+    pub(crate) fn saved_state_by_frame(&self, frame: Frame) -> Option<GameStateCell<T::State>> {
         let cell = self.saved_states.get_cell(frame);
 
         if cell.0.lock().frame == frame {
@@ -269,21 +272,36 @@ impl<T: Clone> SyncLayer<T> {
 mod sync_layer_tests {
 
     use super::*;
+    use bytemuck::{Pod, Zeroable};
+    use std::net::SocketAddr;
+
+    #[repr(C)]
+    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+    struct TestInput {
+        inp: u8,
+    }
+
+    struct TestConfig;
+
+    impl Config for TestConfig {
+        type Input = TestInput;
+        type State = Vec<u8>;
+        type Address = SocketAddr;
+    }
 
     #[test]
     #[should_panic]
     fn test_reach_prediction_threshold() {
-        let mut sync_layer = SyncLayer::<Vec<u8>>::new(2, std::mem::size_of::<u32>(), 8);
+        let mut sync_layer = SyncLayer::<TestConfig>::new(2, 8);
         for i in 0..20 {
-            let serialized_input = bincode::serialize(&i).unwrap();
-            let game_input = GameInput::new(i, std::mem::size_of::<u32>(), serialized_input);
+            let game_input = GameInput::new(i, TestInput { inp: i as u8 });
             sync_layer.add_local_input(0, game_input).unwrap(); // should crash at frame 7
         }
     }
 
     #[test]
     fn test_different_delays() {
-        let mut sync_layer = SyncLayer::<Vec<u8>>::new(2, std::mem::size_of::<u32>(), 8);
+        let mut sync_layer = SyncLayer::<TestConfig>::new(2, 8);
         let p1_delay = 2;
         let p2_delay = 0;
         sync_layer.set_frame_delay(0, p1_delay);
@@ -294,8 +312,7 @@ mod sync_layer_tests {
         dummy_connect_status.push(ConnectionStatus::default());
 
         for i in 0..20 {
-            let serialized_input = bincode::serialize(&i).unwrap();
-            let game_input = GameInput::new(i, std::mem::size_of::<u32>(), serialized_input);
+            let game_input = GameInput::new(i, TestInput { inp: i as u8 });
             // adding input as remote to avoid prediction threshold detection
             sync_layer.add_remote_input(0, game_input.clone());
             sync_layer.add_remote_input(1, game_input);
@@ -305,10 +322,10 @@ mod sync_layer_tests {
 
             if i >= 3 {
                 let sync_inputs = sync_layer.synchronized_inputs(&dummy_connect_status);
-                let player0_inputs: u32 = bincode::deserialize(&sync_inputs[0].buffer).unwrap();
-                let player1_inputs: u32 = bincode::deserialize(&sync_inputs[1].buffer).unwrap();
-                assert_eq!(player0_inputs, i as u32 - p1_delay);
-                assert_eq!(player1_inputs, i as u32 - p2_delay);
+                let player0_inputs = sync_inputs[0].input.inp;
+                let player1_inputs = sync_inputs[1].input.inp;
+                assert_eq!(player0_inputs, i as u8 - p1_delay as u8);
+                assert_eq!(player1_inputs, i as u8 - p2_delay as u8);
             }
 
             sync_layer.advance_frame();

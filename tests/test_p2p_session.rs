@@ -1,22 +1,22 @@
-use crate::stubs::GameStateStub;
-use ggrs::{P2PSession, PlayerType, SessionState};
+mod stubs;
+
+use ggrs::{P2PSession, PlayerType, SessionState, UdpNonBlockingSocket};
 use serial_test::serial;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-
-mod stubs;
+use stubs::{StubConfig, StubInput};
 
 #[test]
 #[serial]
 fn test_create_session() {
-    assert!(P2PSession::<Vec<u8>>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777).is_ok());
+    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let _sess = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket);
 }
 
 #[test]
 #[serial]
 fn test_add_player() {
-    let mut sess =
-        P2PSession::<GameStateStub>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777)
-            .unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let mut sess = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket);
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     assert!(sess.add_player(PlayerType::Local, 0).is_ok());
     assert!(sess.add_player(PlayerType::Remote(addr), 1).is_ok());
@@ -31,9 +31,8 @@ fn test_add_player() {
 #[test]
 #[serial]
 fn test_start_session() {
-    let mut sess =
-        P2PSession::<GameStateStub>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777)
-            .unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let mut sess = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket);
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
     assert!(sess.start_session().is_err()); // not enough players
@@ -45,9 +44,8 @@ fn test_start_session() {
 #[test]
 #[serial]
 fn test_disconnect_player() {
-    let mut sess =
-        P2PSession::<GameStateStub>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777)
-            .unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let mut sess = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket);
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     assert!(sess.add_player(ggrs::PlayerType::Local, 0).is_ok());
     assert!(sess.add_player(ggrs::PlayerType::Remote(addr), 1).is_ok());
@@ -60,12 +58,10 @@ fn test_disconnect_player() {
 #[test]
 #[serial]
 fn test_synchronize_p2p_sessions() {
-    let mut sess1 =
-        P2PSession::<GameStateStub>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777)
-            .unwrap();
-    let mut sess2 =
-        P2PSession::<GameStateStub>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 8888)
-            .unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let mut sess1 = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket1);
+    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let mut sess2 = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket2);
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
 
@@ -97,12 +93,10 @@ fn test_synchronize_p2p_sessions() {
 fn test_advance_frame_p2p_sessions() {
     let mut stub1 = stubs::GameStub::new();
     let mut stub2 = stubs::GameStub::new();
-    let mut sess1 =
-        P2PSession::<GameStateStub>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 7777)
-            .unwrap();
-    let mut sess2 =
-        P2PSession::<GameStateStub>::new(2, stubs::INPUT_SIZE, stubs::MAX_PRED_FRAMES, 8888)
-            .unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let mut sess1 = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket1);
+    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let mut sess2 = P2PSession::<StubConfig>::new(2, stubs::MAX_PRED_FRAMES, socket2);
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
 
@@ -130,15 +124,12 @@ fn test_advance_frame_p2p_sessions() {
 
     let reps = 10;
     for i in 0..reps {
-        let input: u32 = i;
-        let serialized_input = bincode::serialize(&input).unwrap();
-
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
 
-        let requests1 = sess1.advance_frame(0, &serialized_input).unwrap();
+        let requests1 = sess1.advance_frame(0, StubInput { inp: i }).unwrap();
         stub1.handle_requests(requests1);
-        let requests2 = sess2.advance_frame(1, &serialized_input).unwrap();
+        let requests2 = sess2.advance_frame(1, StubInput { inp: i }).unwrap();
         stub2.handle_requests(requests2);
 
         // gamestate evolves

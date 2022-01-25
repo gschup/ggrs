@@ -1,14 +1,14 @@
-use ggrs::{GGRSError, P2PSession, PlayerType, SessionState};
+mod box_game;
+
+use box_game::GGRSConfig;
+use ggrs::{GGRSError, P2PSession, PlayerType, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
 use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
-const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 const MAX_PRED_FRAME: usize = 8;
-
-mod box_game;
 
 /// returns a window config for macroquad to use
 fn window_conf() -> Conf {
@@ -41,12 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS session
-    let mut sess = P2PSession::new(
-        num_players as u32,
-        INPUT_SIZE,
-        MAX_PRED_FRAME,
-        opt.local_port,
-    )?;
+    let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
+    let mut sess = P2PSession::<GGRSConfig>::new(num_players as u32, MAX_PRED_FRAME, socket);
 
     // if loading/saving is more expensive than long rollbacks, you can turn on sparse saving
     // sess.set_sparse_saving(true)?;
@@ -116,7 +112,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // decrease accumulator
                 accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
 
-                match sess.advance_frame(local_handle, &game.local_input(0)) {
+                match sess.advance_frame(local_handle, game.local_input(0)) {
                     Ok(requests) => game.handle_requests(requests),
                     Err(GGRSError::PredictionThreshold) => {
                         println!("Frame {} skipped", sess.current_frame())

@@ -1,4 +1,9 @@
-use ggrs::{Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, NULL_FRAME};
+use std::net::SocketAddr;
+
+use bytemuck::{Pod, Zeroable};
+use ggrs::{
+    Config, Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, NULL_FRAME,
+};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +24,20 @@ const MOVEMENT_SPEED: f32 = 15.0 / FPS as f32;
 const ROTATION_SPEED: f32 = 2.5 / FPS as f32;
 const MAX_SPEED: f32 = 7.0;
 const FRICTION: f32 = 0.98;
+
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+pub struct TestInput {
+    pub inp: u8,
+}
+
+/// `GGRSConfig` holds all type parameters for GGRS Sessions
+pub struct GGRSConfig;
+impl Config for GGRSConfig {
+    type Input = TestInput;
+    type State = BoxState;
+    type Address = SocketAddr;
+}
 
 /// computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
 fn fletcher16(data: &[u8]) -> u16 {
@@ -53,7 +72,7 @@ impl BoxGame {
     }
 
     // for each request, call the appropriate function
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<BoxState>>) {
+    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<GGRSConfig>>) {
         for request in requests {
             match request {
                 GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
@@ -81,7 +100,7 @@ impl BoxGame {
         self.game_state = cell.load().data.expect("No data found.");
     }
 
-    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
+    fn advance_frame(&mut self, inputs: Vec<GameInput<TestInput>>) {
         // advance the game state
         self.game_state.advance(inputs);
 
@@ -140,41 +159,41 @@ impl BoxGame {
 
     #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
-    pub fn local_input(&self, handle: PlayerHandle) -> Vec<u8> {
-        let mut input: u8 = 0;
+    pub fn local_input(&self, handle: PlayerHandle) -> TestInput {
+        let mut inp: u8 = 0;
 
         // player 1 with WASD
         if handle == 0 {
             if is_key_down(KeyCode::W) {
-                input |= INPUT_UP;
+                inp |= INPUT_UP;
             }
             if is_key_down(KeyCode::A) {
-                input |= INPUT_LEFT;
+                inp |= INPUT_LEFT;
             }
             if is_key_down(KeyCode::S) {
-                input |= INPUT_DOWN;
+                inp |= INPUT_DOWN;
             }
             if is_key_down(KeyCode::D) {
-                input |= INPUT_RIGHT;
+                inp |= INPUT_RIGHT;
             }
         }
         // player 2 with arrow keys
         if handle == 1 {
             if is_key_down(KeyCode::Up) {
-                input |= INPUT_UP;
+                inp |= INPUT_UP;
             }
             if is_key_down(KeyCode::Left) {
-                input |= INPUT_LEFT;
+                inp |= INPUT_LEFT;
             }
             if is_key_down(KeyCode::Down) {
-                input |= INPUT_DOWN;
+                inp |= INPUT_DOWN;
             }
             if is_key_down(KeyCode::Right) {
-                input |= INPUT_RIGHT;
+                inp |= INPUT_RIGHT;
             }
         }
 
-        vec![input]
+        TestInput { inp }
     }
 
     #[allow(dead_code)]
@@ -219,7 +238,7 @@ impl BoxState {
         }
     }
 
-    pub fn advance(&mut self, inputs: Vec<GameInput>) {
+    pub fn advance(&mut self, inputs: Vec<GameInput<TestInput>>) {
         // increase the frame counter
         self.frame += 1;
 
@@ -230,7 +249,7 @@ impl BoxState {
                 4
             } else {
                 // otherwise deserialize the input
-                bincode::deserialize(&inputs[i].buffer).unwrap()
+                inputs[i].input.inp
             };
 
             // old values

@@ -9,9 +9,9 @@
 
 pub use error::GGRSError;
 pub use frame_info::{GameInput, GameState};
+pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
-pub use network::non_blocking_socket::NonBlockingSocket;
-pub use network::udp_msg::UdpMessage;
+pub use network::udp_socket::UdpNonBlockingSocket;
 pub use sessions::p2p_session::P2PSession;
 pub use sessions::p2p_spectator_session::P2PSpectatorSession;
 #[cfg(feature = "sync_test")]
@@ -31,10 +31,10 @@ pub(crate) mod sessions {
 }
 pub(crate) mod network {
     pub(crate) mod compression;
+    pub(crate) mod messages;
     pub(crate) mod network_stats;
-    pub(crate) mod non_blocking_socket;
-    pub(crate) mod udp_msg;
-    pub(crate) mod udp_protocol;
+    pub(crate) mod protocol;
+    pub(crate) mod udp_socket;
 }
 
 // #############
@@ -108,19 +108,62 @@ pub enum GGRSEvent {
 }
 
 /// Requests that you can receive from the session. Handling them is mandatory. `T` is the type of the game state (by default `Vec<u8>`).
-#[derive(Debug)]
-pub enum GGRSRequest<T: Clone = Vec<u8>> {
+pub enum GGRSRequest<T>
+where
+    T: Config,
+{
     /// You should save the current gamestate in the `cell` provided to you. The given `frame` is a sanity check: The gamestate you save should be from that frame.
     SaveGameState {
-        cell: GameStateCell<T>,
+        cell: GameStateCell<T::State>,
         frame: Frame,
     },
     /// You should load the gamestate in the `cell` provided to you. The given 'frame' is a sanity check: The gamestate you load should be from that frame.
     LoadGameState {
-        cell: GameStateCell<T>,
+        cell: GameStateCell<T::State>,
         frame: Frame,
     },
     /// You should advance the gamestate with the `inputs` provided to you.
     /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
-    AdvanceFrame { inputs: Vec<GameInput> },
+    AdvanceFrame { inputs: Vec<GameInput<T::Input>> },
+}
+
+// #############
+// #  TRAITS   #
+// #############
+
+//  special thanks to james7132 for the idea
+
+/// Compile time parameterization for sessions.
+pub trait Config: 'static {
+    /// The input type for a session. This is the only game-related data
+    /// transmitted over the network.
+    ///
+    /// Reminder: Types implementing [Pod] may not have the same byte representation
+    /// on platforms with different endianness. GGRS assumes that all players are
+    /// running with the same endianness when encoding and decoding inputs.
+    ///
+    /// [Pod]: bytemuck::Pod
+    type Input: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable;
+
+    /// The save state type for the session.
+    type State: Clone;
+
+    /// The address type which identifies the remote clients
+    type Address: Eq;
+}
+
+/// This `NonBlockingSocket` trait is used when you want to use GGRS with your own socket.
+/// However you wish to send and receive messages, it should be implemented through these two methods.
+/// Messages should be sent in an UDP-like fashion, unordered and unreliable.
+/// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
+pub trait NonBlockingSocket<A>
+where
+    A: Eq,
+{
+    /// Takes an `UdpMessage` and sends it to the given address.
+    fn send_to(&mut self, msg: &Message, addr: &A);
+
+    /// This method should return all messages received since the last time this method was called.
+    /// The pairs `(A, UdpMessage)` indicate from which address each packet was received.
+    fn receive_all_messages(&mut self) -> Vec<(A, Message)>;
 }

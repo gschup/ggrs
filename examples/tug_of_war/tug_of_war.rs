@@ -1,3 +1,4 @@
+use bytemuck::{Pod, Zeroable};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -6,8 +7,8 @@ use std::{collections::hash_map::DefaultHasher, net::SocketAddr};
 use structopt::StructOpt;
 
 use ggrs::{
-    Frame, GGRSError, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession, PlayerType,
-    SessionState,
+    Config, Frame, GGRSError, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession,
+    PlayerType, SessionState, UdpNonBlockingSocket,
 };
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
@@ -25,9 +26,22 @@ struct Opt {
     players: Vec<String>,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+pub struct TestInput {
+    pub inp: u8,
+}
+
 // some constants for the app
 const FPS: f64 = 60.0;
-const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+
+/// `GGRSConfig` holds all type parameters for GGRS Sessions
+struct GGRSConfig;
+impl Config for GGRSConfig {
+    type Input = TestInput;
+    type State = TowState;
+    type Address = SocketAddr;
+}
 
 #[macroquad::main("Tug-of-War")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,12 +53,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players == 2); // this example is only for two p2p players
 
     // create a GGRS session
-    let mut sess = P2PSession::new(
-        num_players as u32,
-        INPUT_SIZE,
-        max_pred_frames,
-        opt.local_port,
-    )?;
+    let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
+    let mut sess = P2PSession::<GGRSConfig>::new(num_players as u32, max_pred_frames, socket);
 
     // set FPS (default is 60, so this doesn't change anything as is)
     sess.set_fps(FPS as u32)?;
@@ -103,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // decrease accumulator
                 accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
 
-                match sess.advance_frame(local_handle, &local_input()) {
+                match sess.advance_frame(local_handle, local_input()) {
                     Ok(requests) => game.handle_requests(requests),
                     Err(GGRSError::PredictionThreshold) => println!("Frame skipped"),
                     Err(e) => return Err(Box::new(e)),
@@ -148,7 +158,7 @@ impl TugOfWarGame {
     }
 
     // handle all GGRS requests
-    fn handle_requests(&mut self, requests: Vec<GGRSRequest<TowState>>) {
+    fn handle_requests(&mut self, requests: Vec<GGRSRequest<GGRSConfig>>) {
         for request in requests {
             match request {
                 GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
@@ -158,11 +168,11 @@ impl TugOfWarGame {
         }
     }
 
-    fn advance_frame(&mut self, inputs: Vec<GameInput>) {
+    fn advance_frame(&mut self, inputs: Vec<GameInput<TestInput>>) {
         self.state.frame += 1;
 
-        let p1_pressed = inputs[0].buffer[0] > 0;
-        let p2_pressed = inputs[0].buffer[0] > 0;
+        let p1_pressed = inputs[0].input.inp != 0;
+        let p2_pressed = inputs[1].input.inp != 0;
 
         if p1_pressed {
             self.state.x += 2;
@@ -194,10 +204,10 @@ impl TugOfWarGame {
 }
 
 // in this example, there is only the space bar
-fn local_input() -> Vec<u8> {
+fn local_input() -> TestInput {
     if is_key_down(KeyCode::Space) {
-        vec![0]
+        TestInput { inp: 1 }
     } else {
-        vec![1]
+        TestInput { inp: 0 }
     }
 }

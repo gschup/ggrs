@@ -1,17 +1,18 @@
 use crate::error::GGRSError;
 use crate::frame_info::GameInput;
+use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
-use crate::network::non_blocking_socket::{NonBlockingSocket, UdpNonBlockingSocket};
-use crate::network::udp_msg::ConnectionStatus;
-use crate::network::udp_protocol::UdpProtocol;
+use crate::network::protocol::UdpProtocol;
 use crate::sync_layer::SyncLayer;
-use crate::{Frame, GGRSEvent, GGRSRequest, PlayerHandle, PlayerType, SessionState, NULL_FRAME};
+use crate::{
+    Config, Frame, GGRSEvent, GGRSRequest, NonBlockingSocket, PlayerHandle, PlayerType,
+    SessionState, NULL_FRAME,
+};
 
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::convert::TryInto;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// The minimum amounts of frames between sleeps to compensate being ahead of other players
@@ -23,16 +24,19 @@ pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(20
 pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
 pub(crate) const DEFAULT_FPS: u32 = 60;
 
-#[derive(Debug, PartialEq, Eq)]
-enum Player<A: Eq = SocketAddr> {
+#[derive(PartialEq)]
+enum Player<T>
+where
+    T: Config,
+{
     Local,
-    Remote(Box<UdpProtocol<A>>),
-    Spectator(Box<UdpProtocol<A>>),
+    Remote(Box<UdpProtocol<T>>),
+    Spectator(Box<UdpProtocol<T>>),
 }
 
-impl<A: Eq> Player<A> {
+impl<T: Config> Player<T> {
     #[allow(dead_code)]
-    fn as_endpoint(&self) -> Option<&UdpProtocol<A>> {
+    fn as_endpoint(&self) -> Option<&UdpProtocol<T>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(endpoint) => Some(endpoint),
@@ -40,7 +44,7 @@ impl<A: Eq> Player<A> {
         }
     }
 
-    fn as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<A>> {
+    fn as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<T>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(endpoint) => Some(endpoint),
@@ -48,28 +52,28 @@ impl<A: Eq> Player<A> {
         }
     }
 
-    fn remote_as_endpoint(&self) -> Option<&UdpProtocol<A>> {
+    fn remote_as_endpoint(&self) -> Option<&UdpProtocol<T>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(_) | Player::Local => None,
         }
     }
 
-    fn remote_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<A>> {
+    fn remote_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<T>> {
         match self {
             Player::Remote(endpoint) => Some(endpoint),
             Player::Spectator(_) | Player::Local => None,
         }
     }
 
-    fn spectator_as_endpoint(&self) -> Option<&UdpProtocol<A>> {
+    fn spectator_as_endpoint(&self) -> Option<&UdpProtocol<T>> {
         match self {
             Player::Spectator(endpoint) => Some(endpoint),
             Player::Remote(_) | Player::Local => None,
         }
     }
 
-    fn spectator_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<A>> {
+    fn spectator_as_endpoint_mut(&mut self) -> Option<&mut UdpProtocol<T>> {
         match self {
             Player::Spectator(endpoint) => Some(endpoint),
             Player::Remote(_) | Player::Local => None,
@@ -77,14 +81,17 @@ impl<A: Eq> Player<A> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Event {
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Event<T>
+where
+    T: Config,
+{
     /// The session is currently synchronizing with the remote client. It will continue until `count` reaches `total`.
     Synchronizing { total: u32, count: u32 },
     /// The session is now synchronized with the remote client.
     Synchronized,
     /// The session has received an input from the remote client. This event will not be forwarded to the user.
-    Input(GameInput),
+    Input(GameInput<T::Input>),
     /// The remote client has disconnected.
     Disconnected,
     /// The session has not received packets from the remote client since `disconnect_timeout` ms.
@@ -94,11 +101,12 @@ pub(crate) enum Event {
 }
 
 /// A `P2PSession` provides a UDP protocol to connect to remote clients in a peer-to-peer fashion.
-pub struct P2PSession<T: Clone = Vec<u8>, A: Eq = SocketAddr> {
+pub struct P2PSession<T>
+where
+    T: Config,
+{
     /// The number of players of the session.
     num_players: u32,
-    /// The number of bytes an input uses.
-    input_size: usize,
     /// The maximum number of frames GGRS will roll back. Every gamestate older than this is guaranteed to be correct.
     max_prediction: usize,
     /// The sync layer handles player input queues and provides predictions.
@@ -119,9 +127,9 @@ pub struct P2PSession<T: Clone = Vec<u8>, A: Eq = SocketAddr> {
     state: SessionState,
 
     /// The `P2PSession` uses this socket to send and receive all messages for remote players.
-    socket: Box<dyn NonBlockingSocket<A>>,
+    socket: Box<dyn NonBlockingSocket<T::Address>>,
     /// A map of player handle to a player struct that handles receiving and sending messages for remote players, remote spectators and register local players.
-    players: HashMap<PlayerHandle, Player<A>>,
+    players: HashMap<PlayerHandle, Player<T>>,
     /// This struct contains information about remote players, like connection status and the frame of last received input.
     local_connect_status: Vec<ConnectionStatus>,
 
@@ -136,63 +144,13 @@ pub struct P2PSession<T: Clone = Vec<u8>, A: Eq = SocketAddr> {
     event_queue: VecDeque<GGRSEvent>,
 }
 
-impl<T: Clone> P2PSession<T> {
-    /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
-    /// set input delay for local players and then start the session.
-    /// # Example
-    ///
-    /// ```
-    /// # use ggrs::{GGRSError, P2PSession};
-    /// # fn main() -> Result<(), GGRSError> {
-    /// let local_port : u16 = 7777;
-    /// let num_players : u32 = 2;
-    /// let max_pred : usize = 8;
-    /// let input_size : usize = std::mem::size_of::<u32>();
-    /// let mut session = P2PSession::<Vec<u8>>::new(num_players, input_size, max_pred, local_port)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// The created session will use the default socket type (currently UDP).
-    ///
-    /// # Errors
-    /// - Will return `SocketCreationFailed` if the socket could not be created.
-    pub fn new(
-        num_players: u32,
-        input_size: usize,
-        max_prediction: usize,
-        local_port: u16,
-    ) -> Result<Self, GGRSError> {
-        // udp nonblocking socket creation
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), local_port); //TODO: IpV6?
-        let socket =
-            Box::new(UdpNonBlockingSocket::new(addr).map_err(|_| GGRSError::SocketCreationFailed)?);
-        Ok(Self::new_impl(
-            num_players,
-            input_size,
-            max_prediction,
-            socket,
-        ))
-    }
-}
-
-impl<T: Clone, A: Eq> P2PSession<T, A> {
+impl<T: Config> P2PSession<T> {
     /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
     /// set input delay for local players and then start the session. The session will use the provided socket.
-    pub fn new_with_socket(
+    pub fn new(
         num_players: u32,
-        input_size: usize,
         max_prediction: usize,
-        socket: impl NonBlockingSocket<A> + 'static,
-    ) -> Self {
-        Self::new_impl(num_players, input_size, max_prediction, Box::new(socket))
-    }
-
-    fn new_impl(
-        num_players: u32,
-        input_size: usize,
-        max_prediction: usize,
-        socket: Box<dyn NonBlockingSocket<A>>,
+        socket: impl NonBlockingSocket<T::Address> + 'static,
     ) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
@@ -203,16 +161,15 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
         Self {
             state: SessionState::Initializing,
             num_players,
-            input_size,
             max_prediction,
             fps: DEFAULT_FPS,
             sparse_saving: DEFAULT_SAVE_MODE,
-            socket,
+            socket: Box::new(socket),
             local_connect_status,
             next_recommended_sleep: 0,
             next_spectator_frame: 0,
             frames_ahead: 0,
-            sync_layer: SyncLayer::new(num_players, input_size, max_prediction),
+            sync_layer: SyncLayer::new(num_players, max_prediction),
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             disconnect_frame: NULL_FRAME,
@@ -232,7 +189,7 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
     /// - Returns `InvalidRequest` when adding more than one local player
     pub fn add_player(
         &mut self,
-        player_type: PlayerType<A>,
+        player_type: PlayerType<T::Address>,
         player_handle: PlayerHandle,
     ) -> Result<PlayerHandle, GGRSError> {
         // currently, you can only add players in the init phase
@@ -333,7 +290,7 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
     pub fn advance_frame(
         &mut self,
         local_player_handle: PlayerHandle,
-        local_input: &[u8],
+        local_input: T::Input,
     ) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
@@ -422,11 +379,8 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
         }
 
         //create an input struct for current frame
-        let mut game_input: GameInput = GameInput::new(
-            self.sync_layer.current_frame(),
-            self.input_size,
-            local_input.to_vec(),
-        );
+        let mut game_input =
+            GameInput::<T::Input>::new(self.sync_layer.current_frame(), local_input);
 
         // send the input into the sync layer
         let actual_frame = self
@@ -693,11 +647,6 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
         self.num_players
     }
 
-    /// Returns the input size this session was constructed with.
-    pub fn input_size(&self) -> usize {
-        self.input_size
-    }
-
     /// Returns the number of frames this session is estimated to be ahead of other sessions
     pub fn frames_ahead(&self) -> i32 {
         self.frames_ahead
@@ -729,7 +678,7 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
     fn add_remote_player(
         &mut self,
         player_handle: PlayerHandle,
-        addr: A,
+        addr: T::Address,
     ) -> Result<PlayerHandle, GGRSError> {
         // check if valid player
         if player_handle >= self.num_players as PlayerHandle {
@@ -744,13 +693,8 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
         }
 
         // create a udp protocol endpoint that handles all the messaging to that remote player
-        let mut endpoint = UdpProtocol::new(
-            player_handle,
-            addr,
-            self.num_players,
-            self.input_size,
-            self.max_prediction,
-        );
+        let mut endpoint =
+            UdpProtocol::new(player_handle, addr, self.num_players, self.max_prediction);
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
         endpoint.set_disconnect_timeout(self.disconnect_timeout);
 
@@ -766,7 +710,7 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
     fn add_spectator(
         &mut self,
         player_handle: PlayerHandle,
-        addr: A,
+        addr: T::Address,
     ) -> Result<PlayerHandle, GGRSError> {
         let spectator_handle = player_handle + 1000;
 
@@ -782,7 +726,6 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
             spectator_handle,
             addr,
             self.num_players,
-            self.input_size * self.num_players as usize,
             self.max_prediction,
         );
         endpoint.set_disconnect_notify_start(self.disconnect_notify_start);
@@ -903,25 +846,19 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
             return;
         }
 
+        // TODO: BROKEN
         while self.next_spectator_frame <= confirmed_frame {
             let mut inputs = self
                 .sync_layer
                 .confirmed_inputs(self.next_spectator_frame, &self.local_connect_status);
             assert_eq!(inputs.len(), self.num_players as usize);
 
-            // construct a pseudo input containing input of all players for the spectators
-            let mut concatenated_buffer = Vec::new();
             for input in inputs.iter_mut() {
                 assert!(input.frame == NULL_FRAME || input.frame == self.next_spectator_frame);
-                assert!(input.frame == NULL_FRAME || input.size == self.input_size);
-                concatenated_buffer.append(&mut input.buffer);
             }
 
-            let spectator_input = GameInput::new(
-                self.next_spectator_frame,
-                self.input_size * self.num_players as usize,
-                concatenated_buffer,
-            );
+            let spectator_input = GameInput::blank_input(NULL_FRAME);
+            //GameInput::new(self.next_spectator_frame, ???);
 
             // send it off
             for endpoint in self
@@ -1002,7 +939,7 @@ impl<T: Clone, A: Eq> P2PSession<T, A> {
     }
 
     /// Handle events received from the UDP endpoints. Most events are being forwarded to the user for notification, but some require action.
-    fn handle_event(&mut self, event: Event, player_handle: PlayerHandle) {
+    fn handle_event(&mut self, event: Event<T>, player_handle: PlayerHandle) {
         match event {
             // forward to user
             Event::Synchronizing { total, count } => {

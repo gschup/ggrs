@@ -1,21 +1,19 @@
 use crate::frame_info::GameInput;
 use crate::network::compression::{decode, encode};
-use crate::network::non_blocking_socket::NonBlockingSocket;
-use crate::network::udp_msg::{
-    ConnectionStatus, Input, InputAck, MessageBody, MessageHeader, QualityReply, QualityReport,
-    SyncReply, SyncRequest, UdpMessage,
+use crate::network::messages::{
+    ConnectionStatus, Input, InputAck, Message, MessageBody, MessageHeader, QualityReply,
+    QualityReport, SyncReply, SyncRequest,
 };
 use crate::sessions::p2p_session::{
     Event, DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_FPS,
 };
 use crate::time_sync::TimeSync;
-use crate::{Frame, PlayerHandle, NULL_FRAME};
+use crate::{Config, Frame, NonBlockingSocket, PlayerHandle, NULL_FRAME};
 
 use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
 use std::collections::{HashMap, VecDeque};
 use std::convert::TryFrom;
-use std::net::SocketAddr;
 use std::ops::Add;
 
 use super::network_stats::NetworkStats;
@@ -53,12 +51,14 @@ enum ProtocolState {
     Shutdown,
 }
 
-#[derive(Debug)]
-pub(crate) struct UdpProtocol<A: Eq = SocketAddr> {
+pub(crate) struct UdpProtocol<T>
+where
+    T: Config,
+{
     handle: PlayerHandle,
     magic: u16,
-    send_queue: VecDeque<UdpMessage>,
-    event_queue: VecDeque<Event>,
+    send_queue: VecDeque<Message>,
+    event_queue: VecDeque<Event<T>>,
 
     // state
     state: ProtocolState,
@@ -76,15 +76,15 @@ pub(crate) struct UdpProtocol<A: Eq = SocketAddr> {
     fps: u32,
 
     // the other client
-    peer_addr: A,
+    peer_addr: T::Address,
     remote_magic: u16,
     peer_connect_status: Vec<ConnectionStatus>,
 
     // input compression
-    pending_output: VecDeque<GameInput>,
-    last_acked_input: GameInput,
+    pending_output: VecDeque<GameInput<T::Input>>,
+    last_acked_input: GameInput<T::Input>,
     max_prediction: usize,
-    recv_inputs: HashMap<Frame, GameInput>,
+    recv_inputs: HashMap<Frame, GameInput<T::Input>>,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -100,19 +100,17 @@ pub(crate) struct UdpProtocol<A: Eq = SocketAddr> {
     last_recv_time: Instant,
 }
 
-impl<A: Eq> PartialEq for UdpProtocol<A> {
+impl<T: Config> PartialEq for UdpProtocol<T> {
     fn eq(&self, other: &Self) -> bool {
         self.handle == other.handle
     }
 }
-impl<A: Eq> Eq for UdpProtocol<A> {}
 
-impl<A: Eq> UdpProtocol<A> {
+impl<T: Config> UdpProtocol<T> {
     pub(crate) fn new(
         handle: PlayerHandle,
-        peer_addr: A,
+        peer_addr: T::Address,
         num_players: u32,
-        input_size: usize,
         max_prediction: usize,
     ) -> Self {
         let mut magic = rand::random::<u16>();
@@ -128,7 +126,7 @@ impl<A: Eq> UdpProtocol<A> {
 
         // received input history
         let mut recv_inputs = HashMap::new();
-        recv_inputs.insert(NULL_FRAME, GameInput::blank_input(input_size));
+        recv_inputs.insert(NULL_FRAME, GameInput::blank_input(NULL_FRAME));
 
         Self {
             handle,
@@ -158,7 +156,7 @@ impl<A: Eq> UdpProtocol<A> {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
-            last_acked_input: GameInput::blank_input(input_size),
+            last_acked_input: GameInput::blank_input(NULL_FRAME),
             max_prediction,
             recv_inputs,
 
@@ -239,7 +237,7 @@ impl<A: Eq> UdpProtocol<A> {
         self.state == ProtocolState::Running
     }
 
-    pub(crate) fn is_handling_message(&self, addr: &A) -> bool {
+    pub(crate) fn is_handling_message(&self, addr: &T::Address) -> bool {
         self.peer_addr == *addr
     }
 
@@ -269,7 +267,7 @@ impl<A: Eq> UdpProtocol<A> {
         self.time_sync_layer.average_frame_advantage()
     }
 
-    pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event> {
+    pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event<T>> {
         let now = Instant::now();
         match self.state {
             ProtocolState::Synchronizing => {
@@ -325,9 +323,9 @@ impl<A: Eq> UdpProtocol<A> {
     }
 
     fn pop_pending_output(&mut self, ack_frame: Frame) {
-        while let Some(input) = self.pending_output.front() {
+        while let Some(&input) = self.pending_output.front() {
             if input.frame <= ack_frame {
-                self.last_acked_input = input.clone();
+                self.last_acked_input = input;
                 self.pending_output.pop_front();
             } else {
                 break;
@@ -339,7 +337,10 @@ impl<A: Eq> UdpProtocol<A> {
      *  SENDING MESSAGES
      */
 
-    pub(crate) fn send_all_messages(&mut self, socket: &mut Box<dyn NonBlockingSocket<A>>) {
+    pub(crate) fn send_all_messages(
+        &mut self,
+        socket: &mut Box<dyn NonBlockingSocket<T::Address>>,
+    ) {
         if self.state == ProtocolState::Shutdown {
             self.send_queue.drain(..);
             return;
@@ -350,7 +351,11 @@ impl<A: Eq> UdpProtocol<A> {
         }
     }
 
-    pub(crate) fn send_input(&mut self, input: GameInput, connect_status: &[ConnectionStatus]) {
+    pub(crate) fn send_input(
+        &mut self,
+        input: GameInput<T::Input>,
+        connect_status: &[ConnectionStatus],
+    ) {
         if self.state != ProtocolState::Running {
             return;
         }
@@ -386,7 +391,8 @@ impl<A: Eq> UdpProtocol<A> {
             body.start_frame = input.frame;
 
             // encode all pending inputs to a byte buffer
-            body.bytes = encode(&self.last_acked_input, self.pending_output.iter());
+            let tmp: Vec<T::Input> = self.pending_output.iter().map(|&gi| gi.input).collect();
+            body.bytes = encode(self.last_acked_input.input, tmp.iter());
 
             // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
             assert!(body.bytes.len() <= MAX_PAYLOAD);
@@ -433,7 +439,7 @@ impl<A: Eq> UdpProtocol<A> {
     fn queue_message(&mut self, body: MessageBody) {
         // set the header
         let header = MessageHeader { magic: self.magic };
-        let msg = UdpMessage { header, body };
+        let msg = Message { header, body };
 
         self.packets_sent += 1;
         self.last_send_time = Instant::now();
@@ -447,7 +453,7 @@ impl<A: Eq> UdpProtocol<A> {
      *  RECEIVING MESSAGES
      */
 
-    pub(crate) fn handle_message(&mut self, msg: &UdpMessage) {
+    pub(crate) fn handle_message(&mut self, msg: &Message) {
         // don't handle messages if shutdown
         if self.state == ProtocolState::Shutdown {
             return;
@@ -558,18 +564,19 @@ impl<A: Eq> UdpProtocol<A> {
         if let Some(decode_inp) = self.recv_inputs.get(&decode_frame) {
             self.running_last_input_recv = Instant::now();
 
-            let recv_inputs =
-                decode(decode_inp, body.start_frame, &body.bytes).expect("decoding failed");
+            let recv_inputs = decode(decode_inp.input, &body.bytes).expect("decoding failed");
 
-            for game_input in &recv_inputs {
+            for (i, inp) in recv_inputs.into_iter().enumerate() {
+                let inp_frame = body.start_frame + i as i32;
                 // skip inputs that we don't need
-                if game_input.frame <= self.last_recv_frame() {
+                if inp_frame <= self.last_recv_frame() {
                     continue;
                 }
+
+                let game_input = GameInput::new(inp_frame, inp);
                 // send the input to the session
-                self.recv_inputs
-                    .insert(game_input.frame, game_input.clone());
-                self.event_queue.push_back(Event::Input(game_input.clone()));
+                self.recv_inputs.insert(game_input.frame, game_input);
+                self.event_queue.push_back(Event::Input(game_input));
             }
 
             // send an input ack

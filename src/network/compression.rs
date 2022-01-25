@@ -1,8 +1,12 @@
-use crate::{Frame, GameInput, NULL_FRAME};
+use bytemuck::Pod;
 
-pub(crate) fn encode<'a>(
-    reference: &GameInput,
-    pending_input: impl Iterator<Item = &'a GameInput>,
+use crate::GGRSError;
+
+// special thanks to james7132
+
+pub(crate) fn encode<'a, T: Pod>(
+    reference: T,
+    pending_input: impl Iterator<Item = &'a T>,
 ) -> Vec<u8> {
     // first, do a XOR encoding to the reference input (will probably lead to a lot of same bits in sequence)
     let buf = delta_encode(reference, pending_input);
@@ -10,19 +14,19 @@ pub(crate) fn encode<'a>(
     bitfield_rle::encode(buf)
 }
 
-pub(crate) fn delta_encode<'a>(
-    reference: &GameInput,
-    pending_input: impl Iterator<Item = &'a GameInput>,
+pub(crate) fn delta_encode<'a, T: Pod>(
+    reference: T,
+    pending_input: impl Iterator<Item = &'a T>,
 ) -> Vec<u8> {
-    let ref_bytes = &reference.buffer;
+    let ref_bytes = bytemuck::bytes_of(&reference);
     let (lower, upper) = pending_input.size_hint();
-    let capacity = upper.unwrap_or(lower) * reference.size;
+    let capacity = upper.unwrap_or(lower) * ref_bytes.len();
     let mut bytes = Vec::with_capacity(capacity);
 
-    for (i, input) in pending_input.enumerate() {
-        assert_eq!(input.size, reference.size);
-        assert!(reference.frame == NULL_FRAME || input.frame == reference.frame + i as i32 + 1);
-        let input_bytes = &input.buffer;
+    for input in pending_input {
+        let input_bytes = bytemuck::bytes_of(input);
+        assert_eq!(input_bytes.len(), ref_bytes.len());
+
         for (b1, b2) in ref_bytes.iter().zip(input_bytes.iter()) {
             bytes.push(b1 ^ b2);
         }
@@ -30,40 +34,35 @@ pub(crate) fn delta_encode<'a>(
     bytes
 }
 
-pub(crate) fn decode(
-    reference: &GameInput,
-    start_frame: Frame,
-    data: impl AsRef<[u8]>,
-) -> Result<Vec<GameInput>, Box<dyn std::error::Error>> {
+pub(crate) fn decode<T: Pod>(
+    reference: T,
+    data: &[u8],
+) -> Result<Vec<T>, Box<dyn std::error::Error>> {
     // decode the RLE encoding first
     let buf = bitfield_rle::decode(data)?;
 
     // decode the delta-encoding
-    Ok(delta_decode(reference, start_frame, &buf))
+    Ok(delta_decode(reference, &buf)?)
 }
 
-pub(crate) fn delta_decode(
-    reference: &GameInput,
-    start_frame: Frame,
+pub(crate) fn delta_decode<T: Pod>(
+    reference: T,
     data: &[u8],
-) -> Vec<GameInput> {
-    assert!(data.len() % reference.size == 0);
-    let out_size = data.len() / reference.size;
+) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+    let ref_bytes = bytemuck::bytes_of(&reference);
+    assert!(data.len() % ref_bytes.len() == 0);
+    let out_size = data.len() / ref_bytes.len();
     let mut output = Vec::with_capacity(out_size);
 
     for inp in 0..out_size {
-        let mut buffer = vec![0; reference.size];
-        for (i, byte) in reference.buffer.iter().enumerate() {
-            buffer[i] = byte ^ data[reference.size * inp + i];
+        let mut buffer = vec![0u8; ref_bytes.len()];
+        for i in 0..ref_bytes.len() {
+            buffer[i] = ref_bytes[i] ^ data[ref_bytes.len() * inp + i];
         }
-        output.push(GameInput::new(
-            start_frame + inp as i32,
-            reference.size,
-            buffer,
-        ));
+        output.push(*bytemuck::try_from_bytes::<T>(&buffer).map_err(|_| GGRSError::DecodingError)?);
     }
 
-    output
+    Ok(output)
 }
 
 // #########
@@ -74,20 +73,27 @@ pub(crate) fn delta_decode(
 mod compression_tests {
     use super::*;
 
+    use bytemuck::{Pod, Zeroable};
+
+    #[repr(C)]
+    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+    struct TestInput {
+        inp: u8,
+    }
+
     #[test]
     fn test_encode_decode() {
-        let size = 4;
-        let ref_input = GameInput::new(5, size, vec![0, 0, 1, 0]);
-        let inp0 = GameInput::new(6, size, vec![0, 0, 0, 0]);
-        let inp1 = GameInput::new(7, size, vec![0, 0, 0, 0]);
-        let inp2 = GameInput::new(8, size, vec![0, 0, 0, 0]);
-        let inp3 = GameInput::new(9, size, vec![0, 0, 0, 0]);
-        let inp4 = GameInput::new(10, size, vec![0, 0, 0, 0]);
+        let ref_input = TestInput { inp: 2 };
+        let inp0 = TestInput { inp: 0 };
+        let inp1 = TestInput { inp: 1 };
+        let inp2 = TestInput { inp: 2 };
+        let inp3 = TestInput { inp: 3 };
+        let inp4 = TestInput { inp: 4 };
 
         let pend_inp = vec![inp0, inp1, inp2, inp3, inp4];
 
-        let encoded = encode(&ref_input, pend_inp.iter());
-        let decoded = decode(&ref_input, 6, encoded).unwrap();
+        let encoded = encode(ref_input, pend_inp.iter());
+        let decoded = decode(ref_input, &encoded).unwrap();
 
         assert!(pend_inp == decoded);
     }
