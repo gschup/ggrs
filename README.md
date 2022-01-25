@@ -11,7 +11,7 @@ If you are interested in integrating rollback networking into your game or just 
 
 ## Live Demonstrations
 
-[johanhelsing](https://github.com/johanhelsing) wrote and hosts multiple small demos/games written with GGRS, [bevy]() and [matchbox](https://github.com/johanhelsing/matchbox) running in the browser. Try them out with a friend! Just click the link to get matched with another player! (You can also open the link in two separate windows to play against yourself)
+[johanhelsing](https://github.com/johanhelsing) wrote and hosts multiple small demos/games written with GGRS, [Bevy](https://bevyengine.org/) and [matchbox](https://github.com/johanhelsing/matchbox) running in the browser. Try them out with a friend! Just click the link to get matched with another player! (You can also open the link in two separate windows to play against yourself)
 
 - [Demo](https://helsing.studio/box_game/)
 - [Small Game](https://helsing.studio/extreme/)
