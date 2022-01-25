@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- provided inputs are now generic. The user has to supply a POD struct instead of serialized input.
 
 ## 0.8.0
 
