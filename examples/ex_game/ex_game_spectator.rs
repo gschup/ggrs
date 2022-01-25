@@ -1,4 +1,6 @@
-use box_game::GGRSConfig;
+mod ex_game;
+
+use ex_game::{GGRSConfig, Game};
 use ggrs::{GGRSError, GGRSEvent, P2PSpectatorSession, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
@@ -6,8 +8,6 @@ use std::net::SocketAddr;
 use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
-
-mod box_game;
 
 /// returns a window config for macroquad to use
 fn window_conf() -> Conf {
@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sess.start_session()?;
 
     // Create a new box game
-    let mut game = box_game::BoxGame::new(opt.num_players);
+    let mut game = Game::new(opt.num_players);
 
     // time variables for tick rate
     let mut last_update = Instant::now();

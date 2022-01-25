@@ -1,3 +1,6 @@
+mod ex_game;
+
+use ex_game::Game;
 use ggrs::SyncTestSession;
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
@@ -5,8 +8,6 @@ use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
 const MAX_PRED_FRAMES: usize = 8;
-
-mod box_game;
 
 /// returns a window config for macroquad to use
 fn window_conf() -> Conf {
@@ -43,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Create a new box game
-    let mut game = box_game::BoxGame::new(opt.num_players);
+    let mut game = Game::new(opt.num_players);
 
     // time variables for tick rate
     let mut last_update = Instant::now();

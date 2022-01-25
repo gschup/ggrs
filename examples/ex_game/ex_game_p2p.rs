@@ -1,6 +1,6 @@
-mod box_game;
+mod ex_game;
 
-use box_game::GGRSConfig;
+use ex_game::{GGRSConfig, Game};
 use ggrs::{GGRSError, P2PSession, PlayerType, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sess.start_session()?;
 
     // Create a new box game
-    let mut game = box_game::BoxGame::new(num_players);
+    let mut game = Game::new(num_players);
 
     // time variables for tick rate
     let mut last_update = Instant::now();

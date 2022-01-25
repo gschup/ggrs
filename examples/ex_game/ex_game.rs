@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use bytemuck::{Pod, Zeroable};
 use ggrs::{
-    Config, Frame, GGRSRequest, GameInput, GameState, GameStateCell, PlayerHandle, NULL_FRAME,
+    Config, Frame, GGRSRequest, GameState, GameStateCell, PlayerHandle, PlayerInput, NULL_FRAME,
 };
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -27,15 +27,15 @@ const FRICTION: f32 = 0.98;
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
-pub struct TestInput {
+pub struct Input {
     pub inp: u8,
 }
 
 /// `GGRSConfig` holds all type parameters for GGRS Sessions
 pub struct GGRSConfig;
 impl Config for GGRSConfig {
-    type Input = TestInput;
-    type State = BoxState;
+    type Input = Input;
+    type State = State;
     type Address = SocketAddr;
 }
 
@@ -53,19 +53,19 @@ fn fletcher16(data: &[u8]) -> u16 {
 }
 
 // BoxGame will handle rendering, gamestate, inputs and GGRSRequests
-pub struct BoxGame {
+pub struct Game {
     num_players: usize,
-    game_state: BoxState,
+    game_state: State,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
 }
 
-impl BoxGame {
+impl Game {
     pub fn new(num_players: usize) -> Self {
         assert!(num_players <= 4);
         Self {
             num_players,
-            game_state: BoxState::new(num_players),
+            game_state: State::new(num_players),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
         }
@@ -84,7 +84,7 @@ impl BoxGame {
 
     // save current gamestate, create a checksum
     // creating a checksum here is only relevant for SyncTestSessions
-    fn save_game_state(&mut self, cell: GameStateCell<BoxState>, frame: Frame) {
+    fn save_game_state(&mut self, cell: GameStateCell<State>, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
         let checksum = fletcher16(&buffer) as u64;
@@ -96,11 +96,11 @@ impl BoxGame {
     }
 
     // load gamestate and overwrite
-    fn load_game_state(&mut self, cell: GameStateCell<BoxState>) {
+    fn load_game_state(&mut self, cell: GameStateCell<State>) {
         self.game_state = cell.load().data.expect("No data found.");
     }
 
-    fn advance_frame(&mut self, inputs: Vec<GameInput<TestInput>>) {
+    fn advance_frame(&mut self, inputs: Vec<PlayerInput<Input>>) {
         // advance the game state
         self.game_state.advance(inputs);
 
@@ -159,7 +159,7 @@ impl BoxGame {
 
     #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
-    pub fn local_input(&self, handle: PlayerHandle) -> TestInput {
+    pub fn local_input(&self, handle: PlayerHandle) -> Input {
         let mut inp: u8 = 0;
 
         // player 1 with WASD
@@ -193,7 +193,7 @@ impl BoxGame {
             }
         }
 
-        TestInput { inp }
+        Input { inp }
     }
 
     #[allow(dead_code)]
@@ -204,7 +204,7 @@ impl BoxGame {
 
 // BoxGameState holds all relevant information about the game state
 #[derive(Clone, Serialize, Deserialize)]
-pub struct BoxState {
+pub struct State {
     pub frame: i32,
     pub num_players: usize,
     pub positions: Vec<(f32, f32)>,
@@ -212,7 +212,7 @@ pub struct BoxState {
     pub rotations: Vec<f32>,
 }
 
-impl BoxState {
+impl State {
     pub fn new(num_players: usize) -> Self {
         let mut positions = Vec::new();
         let mut velocities = Vec::new();
@@ -238,7 +238,7 @@ impl BoxState {
         }
     }
 
-    pub fn advance(&mut self, inputs: Vec<GameInput<TestInput>>) {
+    pub fn advance(&mut self, inputs: Vec<PlayerInput<Input>>) {
         // increase the frame counter
         self.frame += 1;
 
