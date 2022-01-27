@@ -57,6 +57,7 @@ impl<T: Config> SyncTestSessionBuilder<T> {
         self
     }
 
+    /// Consumes the builder to construct a new `SyncTestSession`.
     pub fn start_session(self) -> Result<SyncTestSession<T>, GGRSError> {
         if self.check_dist >= self.max_prediction {
             return Err(GGRSError::InvalidRequest {
