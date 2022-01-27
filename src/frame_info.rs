@@ -52,7 +52,7 @@ where
 {
     /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
     pub frame: Frame,
-    /// An input buffer that will hold input data
+    /// The input struct given by the user
     pub input: I,
 }
 

@@ -9,7 +9,7 @@ use crate::Frame;
 pub enum GGRSError {
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
     PredictionThreshold,
-    /// You made an invalid request, usually by using wrong parameters for function calls or starting a session that is already started.
+    /// You made an invalid request, usually by using wrong parameters for function calls.
     InvalidRequest { info: String },
     /// In a `SyncTestSession`, this error is returned if checksums of resimulated frames do not match up with the original checksum.
     MismatchedChecksum { frame: Frame },

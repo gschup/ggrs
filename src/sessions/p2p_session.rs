@@ -123,7 +123,7 @@ where
     frames_ahead: i32,
 
     ///Contains all events to be forwarded to the user.
-    event_queue: VecDeque<GGRSEvent>,
+    event_queue: VecDeque<GGRSEvent<T>>,
 }
 
 impl<T: Config> P2PSession<T> {
@@ -306,23 +306,26 @@ impl<T: Config> P2PSession<T> {
         }
 
         //create an input struct for current frame
-        let mut game_input =
+        let mut player_input =
             PlayerInput::<T::Input>::new(self.sync_layer.current_frame(), local_input);
 
         // send the input into the sync layer
         let actual_frame = self
             .sync_layer
-            .add_local_input(local_player_handle, game_input)?;
+            .add_local_input(local_player_handle, player_input)?;
 
         // if the actual frame is the null frame, the frame has been dropped by the input queues (for example due to changed input delay)
         if actual_frame != NULL_FRAME {
             // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
-            game_input.frame = actual_frame;
+            player_input.frame = actual_frame;
             self.local_connect_status[local_player_handle].last_frame = actual_frame;
 
             for endpoint in self.player_reg.remotes.values_mut() {
+                // TODO: make this nice
+                let mut input_map = HashMap::new();
+                input_map.insert(local_player_handle, player_input);
                 // send the input directly
-                endpoint.send_input(game_input, &self.local_connect_status);
+                endpoint.send_input(&input_map, &self.local_connect_status);
                 endpoint.send_all_messages(&mut self.socket);
             }
         }
@@ -373,21 +376,23 @@ impl<T: Config> P2PSession<T> {
         let mut events = VecDeque::new();
         for endpoint in self.player_reg.remotes.values_mut() {
             let handles = endpoint.handles().clone();
+            let addr = endpoint.peer_addr();
             for event in endpoint.poll(&self.local_connect_status) {
-                events.push_back((event, handles.clone()))
+                events.push_back((event, handles.clone(), addr))
             }
         }
         for endpoint in self.player_reg.spectators.values_mut() {
             let handles = endpoint.handles().clone();
+            let addr = endpoint.peer_addr();
             for event in endpoint.poll(&self.local_connect_status) {
-                events.push_back((event, handles.clone()))
+                events.push_back((event, handles.clone(), addr))
             }
         }
 
-        // handle all events locally - TODO: make it work for multiple handles
-        for (event, handles) in events.drain(..) {
+        // handle all events locally
+        for (event, handles, addr) in events.drain(..) {
             assert_eq!(handles.len(), 1);
-            self.handle_event(event, handles[0]);
+            self.handle_event(event, handles, addr);
         }
 
         // send all queued packets
@@ -454,7 +459,7 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GGRSEvent> {
+    pub fn events(&mut self) -> Drain<GGRSEvent<T>> {
         self.event_queue.drain(..)
     }
 
@@ -607,7 +612,6 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// For each spectator, send all confirmed input up until the minimum confirmed frame.
-    /// TODO: BROKEN
     fn send_confirmed_inputs_to_spectators(&mut self, confirmed_frame: Frame) {
         if self.num_spectators() == 0 {
             return;
@@ -619,17 +623,16 @@ impl<T: Config> P2PSession<T> {
                 .confirmed_inputs(self.next_spectator_frame, &self.local_connect_status);
             assert_eq!(inputs.len(), self.num_players as usize);
 
-            for input in inputs.iter_mut() {
+            let mut input_map = HashMap::new();
+            for (handle, input) in inputs.iter_mut().enumerate() {
                 assert!(input.frame == NULL_FRAME || input.frame == self.next_spectator_frame);
+                input_map.insert(handle, *input);
             }
 
-            let spectator_input = PlayerInput::blank_input(NULL_FRAME);
-            //GameInput::new(self.next_spectator_frame, ???);
-
-            // send it off
+            // send it to all spectators
             for endpoint in self.player_reg.spectators.values_mut() {
                 if endpoint.is_running() {
-                    endpoint.send_input(spectator_input, &self.local_connect_status);
+                    endpoint.send_input(&input_map, &self.local_connect_status);
                 }
             }
 
@@ -698,62 +701,64 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// Handle events received from the UDP endpoints. Most events are being forwarded to the user for notification, but some require action.
-    fn handle_event(&mut self, event: Event<T>, player_handle: PlayerHandle) {
+    fn handle_event(
+        &mut self,
+        event: Event<T>,
+        player_handles: Vec<PlayerHandle>,
+        addr: T::Address,
+    ) {
         match event {
             // forward to user
             Event::Synchronizing { total, count } => {
-                self.event_queue.push_back(GGRSEvent::Synchronizing {
-                    player_handle,
-                    total,
-                    count,
-                });
+                self.event_queue
+                    .push_back(GGRSEvent::Synchronizing { addr, total, count });
             }
             // forward to user
             Event::NetworkInterrupted { disconnect_timeout } => {
                 self.event_queue.push_back(GGRSEvent::NetworkInterrupted {
-                    player_handle,
+                    addr,
                     disconnect_timeout,
                 });
             }
             // forward to user
             Event::NetworkResumed => {
                 self.event_queue
-                    .push_back(GGRSEvent::NetworkResumed { player_handle });
+                    .push_back(GGRSEvent::NetworkResumed { addr });
             }
             // check if all remotes are synced, then forward to user
             Event::Synchronized => {
                 self.check_initial_sync();
-                self.event_queue
-                    .push_back(GGRSEvent::Synchronized { player_handle });
+                self.event_queue.push_back(GGRSEvent::Synchronized { addr });
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
-                // for remote players
-                let last_frame = if player_handle < self.num_players as PlayerHandle {
-                    self.local_connect_status[player_handle].last_frame
-                } else {
-                    NULL_FRAME
-                };
+                for handle in player_handles {
+                    let last_frame = if handle < self.num_players as PlayerHandle {
+                        self.local_connect_status[handle].last_frame
+                    } else {
+                        NULL_FRAME // spectator
+                    };
 
-                self.disconnect_player_at_frame(player_handle, last_frame);
-                self.event_queue
-                    .push_back(GGRSEvent::Disconnected { player_handle });
+                    self.disconnect_player_at_frame(handle, last_frame);
+                }
+
+                self.event_queue.push_back(GGRSEvent::Disconnected { addr });
             }
             // add the input and all associated information
-            Event::Input(input) => {
+            Event::Input { input, player } => {
                 // input only comes from remote players, not spectators
-                assert!(player_handle < self.num_players as PlayerHandle);
-                if !self.local_connect_status[player_handle].disconnected {
+                assert!(player < self.num_players as PlayerHandle);
+                if !self.local_connect_status[player].disconnected {
                     // check if the input comes in the correct sequence
-                    let current_remote_frame = self.local_connect_status[player_handle].last_frame;
+                    let current_remote_frame = self.local_connect_status[player].last_frame;
                     assert!(
                         current_remote_frame == NULL_FRAME
                             || current_remote_frame + 1 == input.frame
                     );
                     // update our info
-                    self.local_connect_status[player_handle].last_frame = input.frame;
+                    self.local_connect_status[player].last_frame = input.frame;
                     // add the remote input
-                    self.sync_layer.add_remote_input(player_handle, input);
+                    self.sync_layer.add_remote_input(player, input);
                 }
             }
         }

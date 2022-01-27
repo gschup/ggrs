@@ -29,6 +29,7 @@ where
     T: Config,
 {
     num_players: usize,
+    local_players: usize,
     max_prediction: usize,
     /// FPS defines the expected update frequency of this session.
     fps: usize,
@@ -50,6 +51,7 @@ impl<T: Config> SessionBuilder<T> {
     pub fn new() -> Self {
         Self {
             player_reg: PlayerRegistry::new(),
+            local_players: 0,
             num_players: DEFAULT_PLAYERS,
             max_prediction: DEFAULT_MAX_PREDICTION_FRAMES,
             fps: DEFAULT_FPS,
@@ -84,6 +86,7 @@ impl<T: Config> SessionBuilder<T> {
         // check if the player handle is valid for the given player type
         match player_type {
             PlayerType::Local => {
+                self.local_players += 1;
                 if player_handle >= self.num_players {
                     return Err(GGRSError::InvalidRequest {
                         info: "The player handle you provided is invalid. For a local player, the handle should be between 0 and num_players".to_owned(),
@@ -246,14 +249,16 @@ impl<T: Config> SessionBuilder<T> {
 
             match player_type {
                 PlayerType::Remote(peer_addr) => {
-                    self.player_reg
-                        .remotes
-                        .insert(peer_addr, self.create_endpoint(handles, peer_addr));
+                    self.player_reg.remotes.insert(
+                        peer_addr,
+                        self.create_endpoint(handles, peer_addr, self.local_players),
+                    );
                 }
                 PlayerType::Spectator(peer_addr) => {
-                    self.player_reg
-                        .spectators
-                        .insert(peer_addr, self.create_endpoint(handles, peer_addr));
+                    self.player_reg.spectators.insert(
+                        peer_addr,
+                        self.create_endpoint(handles, peer_addr, self.num_players), // the host of the spectator sends inputs for all players
+                    );
                 }
                 PlayerType::Local => (),
             }
@@ -280,10 +285,11 @@ impl<T: Config> SessionBuilder<T> {
     ) -> SpectatorSession<T> {
         // create host endpoint
         let mut host = UdpProtocol::new(
-            vec![],
+            (0..self.num_players).collect(),
             host_addr,
             self.num_players,
-            8,
+            1, //should not matter since the spectator is never sending
+            self.max_prediction,
             self.disconnect_timeout,
             self.disconnect_notify_start,
             self.fps,
@@ -318,12 +324,18 @@ impl<T: Config> SessionBuilder<T> {
         ))
     }
 
-    fn create_endpoint(&self, handles: Vec<PlayerHandle>, peer_addr: T::Address) -> UdpProtocol<T> {
+    fn create_endpoint(
+        &self,
+        handles: Vec<PlayerHandle>,
+        peer_addr: T::Address,
+        local_players: usize,
+    ) -> UdpProtocol<T> {
         // create the endpoint, set parameters
         let mut endpoint = UdpProtocol::new(
             handles,
             peer_addr,
             self.num_players,
+            local_players,
             self.max_prediction,
             self.disconnect_timeout,
             self.disconnect_notify_start,

@@ -1,4 +1,3 @@
-use bytemuck::Zeroable;
 use std::collections::{vec_deque::Drain, VecDeque};
 
 use crate::{
@@ -25,11 +24,11 @@ where
 {
     state: SessionState,
     num_players: usize,
-    inputs: Vec<PlayerInput<T::Input>>,
+    inputs: Vec<Vec<PlayerInput<T::Input>>>,
     host_connect_status: Vec<ConnectionStatus>,
     socket: Box<dyn NonBlockingSocket<T::Address>>,
     host: UdpProtocol<T>,
-    event_queue: VecDeque<GGRSEvent>,
+    event_queue: VecDeque<GGRSEvent<T>>,
     current_frame: Frame,
     last_recv_frame: Frame,
     max_frames_behind: usize,
@@ -56,7 +55,10 @@ impl<T: Config> SpectatorSession<T> {
         Self {
             state: SessionState::Synchronizing,
             num_players,
-            inputs: vec![PlayerInput::blank_input(NULL_FRAME); SPECTATOR_BUFFER_SIZE],
+            inputs: vec![
+                vec![PlayerInput::blank_input(NULL_FRAME); num_players];
+                SPECTATOR_BUFFER_SIZE
+            ],
             host_connect_status,
             socket,
             host,
@@ -88,7 +90,7 @@ impl<T: Config> SpectatorSession<T> {
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GGRSEvent> {
+    pub fn events(&mut self) -> Drain<GGRSEvent<T>> {
         self.event_queue.drain(..)
     }
 
@@ -143,13 +145,14 @@ impl<T: Config> SpectatorSession<T> {
 
         // run host poll and get events. This will trigger additional UDP packets to be sent.
         let mut events = VecDeque::new();
+        let addr = self.host.peer_addr();
         for event in self.host.poll(&self.host_connect_status) {
-            events.push_back(event);
+            events.push_back((event, addr));
         }
 
         // handle all events locally
-        for event in events.drain(..) {
-            self.handle_event(event);
+        for (event, addr) in events.drain(..) {
+            self.handle_event(event, addr);
         }
 
         // send out all pending UDP messages
@@ -165,80 +168,67 @@ impl<T: Config> SpectatorSession<T> {
         &self,
         frame_to_grab: Frame,
     ) -> Result<Vec<PlayerInput<T::Input>>, GGRSError> {
-        let merged_input = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
+        let mut player_inputs = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE].clone();
 
         // We haven't received the input from the host yet. Wait.
-        if merged_input.frame < frame_to_grab {
+        if player_inputs[0].frame < frame_to_grab {
             return Err(GGRSError::PredictionThreshold);
         }
 
         // The host is more than `SPECTATOR_BUFFER_SIZE` frames ahead of the spectator. The input we need is gone forever.
-        if merged_input.frame > frame_to_grab {
+        if player_inputs[0].frame > frame_to_grab {
             return Err(GGRSError::SpectatorTooFarBehind);
         }
 
-        // split the inputs back into an input for each player
-        let mut synced_inputs = Vec::new();
-
-        // TODO: BROKEN
         for i in 0..self.num_players as usize {
-            //let start = i * self.input_size;
-            //let end = (i + 1) * self.input_size;
-            //let buffer = &merged_input.buffer[start..end];
-            let mut input = PlayerInput::new(frame_to_grab, T::Input::zeroed());
-
             // disconnected players are identified by NULL_FRAME
             if self.host_connect_status[i].disconnected
                 && self.host_connect_status[i].last_frame < frame_to_grab
             {
-                input.frame = NULL_FRAME;
+                player_inputs[i].frame = NULL_FRAME;
             }
-
-            synced_inputs.push(input);
         }
 
-        Ok(synced_inputs)
+        Ok(player_inputs)
     }
 
-    fn handle_event(&mut self, event: Event<T>) {
-        let player_handle = 0;
+    fn handle_event(&mut self, event: Event<T>, addr: T::Address) {
         match event {
             // forward to user
             Event::Synchronizing { total, count } => {
-                self.event_queue.push_back(GGRSEvent::Synchronizing {
-                    player_handle,
-                    total,
-                    count,
-                });
+                self.event_queue
+                    .push_back(GGRSEvent::Synchronizing { addr, total, count });
             }
             // forward to user
             Event::NetworkInterrupted { disconnect_timeout } => {
                 self.event_queue.push_back(GGRSEvent::NetworkInterrupted {
-                    player_handle,
+                    addr,
                     disconnect_timeout,
                 });
             }
             // forward to user
             Event::NetworkResumed => {
                 self.event_queue
-                    .push_back(GGRSEvent::NetworkResumed { player_handle });
+                    .push_back(GGRSEvent::NetworkResumed { addr });
             }
             // synced with the host, then forward to user
             Event::Synchronized => {
                 self.state = SessionState::Running;
-                self.event_queue
-                    .push_back(GGRSEvent::Synchronized { player_handle });
+                self.event_queue.push_back(GGRSEvent::Synchronized { addr });
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
-                self.event_queue
-                    .push_back(GGRSEvent::Disconnected { player_handle });
+                self.event_queue.push_back(GGRSEvent::Disconnected { addr });
             }
             // add the input and all associated information
-            Event::Input(input) => {
+            Event::Input { input, player } => {
                 // save the input
-                self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE] = input;
-                assert!(input.frame > self.last_recv_frame);
+                self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE][player] = input;
+                println!(
+                    "RECEIVED INPUT FROM {} FOR FRAME {}, LAST RECV FRAME {}",
+                    player, input.frame, self.last_recv_frame
+                );
+                assert!(input.frame >= self.last_recv_frame);
                 self.last_recv_frame = input.frame;
 
                 // update the frame advantage

@@ -32,6 +32,7 @@ pub struct Input {
 }
 
 /// `GGRSConfig` holds all type parameters for GGRS Sessions
+#[derive(Debug)]
 pub struct GGRSConfig;
 impl Config for GGRSConfig {
     type Input = Input;

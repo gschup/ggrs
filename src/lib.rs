@@ -7,7 +7,7 @@
 
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 pub use error::GGRSError;
 pub use frame_info::{GameState, PlayerInput};
@@ -88,24 +88,27 @@ pub enum SessionState {
 
 /// Notifications that you can receive from the session. Handling them is up to the user.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum GGRSEvent {
+pub enum GGRSEvent<T>
+where
+    T: Config,
+{
     /// The session made progress in synchronizing. After `total` roundtrips, the session are synchronized.
     Synchronizing {
-        player_handle: PlayerHandle,
+        addr: T::Address,
         total: u32,
         count: u32,
     },
     /// The session is now synchronized with the remote client.
-    Synchronized { player_handle: PlayerHandle },
+    Synchronized { addr: T::Address },
     /// The remote client has disconnected.
-    Disconnected { player_handle: PlayerHandle },
+    Disconnected { addr: T::Address },
     /// The session has not received packets from the remote client for some time and will disconnect the remote in `disconnect_timeout` ms.
     NetworkInterrupted {
-        player_handle: PlayerHandle,
+        addr: T::Address,
         disconnect_timeout: u128,
     },
     /// Sent only after a `NetworkInterrupted` event, if communication with that player has resumed.
-    NetworkResumed { player_handle: PlayerHandle },
+    NetworkResumed { addr: T::Address },
     /// Sent out if GGRS recommends skipping a few frames to let clients catch up. If you receive this, consider waiting `skip_frames` number of frames.
     WaitRecommendation { skip_frames: u32 },
 }

@@ -39,6 +39,59 @@ fn millis_since_epoch() -> u128 {
     }
 }
 
+// byte-encoded data representing the inputs of a client, possibly for multiple players at the same time
+#[derive(Clone)]
+struct EndpointData {
+    /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
+    pub frame: Frame,
+    /// An input buffer that will hold input data
+    pub bytes: Vec<u8>,
+}
+
+impl EndpointData {
+    fn zeroed<T: Config>(num_players: usize) -> Self {
+        let zeroed = PlayerInput::<T::Input>::blank_input(NULL_FRAME);
+        let size = bytemuck::bytes_of(&zeroed.input).len() * num_players;
+
+        Self {
+            frame: NULL_FRAME,
+            bytes: vec![0; size],
+        }
+    }
+
+    fn from_inputs<T: Config>(
+        num_players: usize,
+        inputs: &HashMap<PlayerHandle, PlayerInput<T::Input>>,
+    ) -> Self {
+        let mut bytes = Vec::new();
+        let mut frame = NULL_FRAME;
+        // in ascending order
+        for handle in 0..num_players {
+            if let Some(input) = inputs.get(&handle) {
+                assert!(frame == NULL_FRAME || frame == input.frame);
+                frame = input.frame;
+                let byte_vec = bytemuck::bytes_of(&input.input);
+                bytes.extend_from_slice(byte_vec);
+            }
+        }
+        Self { frame, bytes }
+    }
+
+    fn to_player_inputs<T: Config>(&self, num_players: usize) -> Vec<PlayerInput<T::Input>> {
+        let mut player_inputs = Vec::new();
+        assert!(self.bytes.len() % num_players == 0);
+        let size = self.bytes.len() / num_players;
+        for p in 0..num_players {
+            let start = p * size;
+            let end = start + size;
+            let input = *bytemuck::try_from_bytes::<T::Input>(&self.bytes[start..end])
+                .expect("Expected received data to be valid.");
+            player_inputs.push(PlayerInput::new(self.frame, input));
+        }
+        player_inputs
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Event<T>
 where
@@ -49,7 +102,10 @@ where
     /// The session is now synchronized with the remote client.
     Synchronized,
     /// The session has received an input from the remote client. This event will not be forwarded to the user.
-    Input(PlayerInput<T::Input>),
+    Input {
+        input: PlayerInput<T::Input>,
+        player: PlayerHandle,
+    },
     /// The remote client has disconnected.
     Disconnected,
     /// The session has not received packets from the remote client since `disconnect_timeout` ms.
@@ -71,6 +127,7 @@ pub(crate) struct UdpProtocol<T>
 where
     T: Config,
 {
+    num_players: usize,
     handles: Vec<PlayerHandle>,
     send_queue: VecDeque<Message>,
     event_queue: VecDeque<Event<T>>,
@@ -97,10 +154,10 @@ where
     peer_connect_status: Vec<ConnectionStatus>,
 
     // input compression
-    pending_output: VecDeque<PlayerInput<T::Input>>,
-    last_acked_input: PlayerInput<T::Input>,
+    pending_output: VecDeque<EndpointData>,
+    last_acked_input: EndpointData,
     max_prediction: usize,
-    recv_inputs: HashMap<Frame, PlayerInput<T::Input>>,
+    recv_inputs: HashMap<Frame, EndpointData>,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -124,9 +181,10 @@ impl<T: Config> PartialEq for UdpProtocol<T> {
 
 impl<T: Config> UdpProtocol<T> {
     pub(crate) fn new(
-        handles: Vec<PlayerHandle>,
+        mut handles: Vec<PlayerHandle>,
         peer_addr: T::Address,
         num_players: usize,
+        local_players: usize,
         max_prediction: usize,
         disconnect_timeout: Duration,
         disconnect_notify_start: Duration,
@@ -137,6 +195,9 @@ impl<T: Config> UdpProtocol<T> {
             magic = rand::random::<u16>();
         }
 
+        handles.sort();
+        let recv_player_num = handles.len();
+
         // peer connection status
         let mut peer_connect_status = Vec::new();
         for _ in 0..num_players {
@@ -145,9 +206,10 @@ impl<T: Config> UdpProtocol<T> {
 
         // received input history
         let mut recv_inputs = HashMap::new();
-        recv_inputs.insert(NULL_FRAME, PlayerInput::blank_input(NULL_FRAME));
+        recv_inputs.insert(NULL_FRAME, EndpointData::zeroed::<T>(recv_player_num));
 
         Self {
+            num_players,
             handles,
             send_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
@@ -175,7 +237,7 @@ impl<T: Config> UdpProtocol<T> {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
-            last_acked_input: PlayerInput::blank_input(NULL_FRAME),
+            last_acked_input: EndpointData::zeroed::<T>(local_players),
             max_prediction,
             recv_inputs,
 
@@ -273,6 +335,10 @@ impl<T: Config> UdpProtocol<T> {
         self.time_sync_layer.average_frame_advantage()
     }
 
+    pub(crate) fn peer_addr(&self) -> T::Address {
+        self.peer_addr
+    }
+
     pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event<T>> {
         let now = Instant::now();
         match self.state {
@@ -329,12 +395,19 @@ impl<T: Config> UdpProtocol<T> {
     }
 
     fn pop_pending_output(&mut self, ack_frame: Frame) {
-        while let Some(&input) = self.pending_output.front() {
-            if input.frame <= ack_frame {
-                self.last_acked_input = input;
-                self.pending_output.pop_front();
-            } else {
-                break;
+        while !self.pending_output.is_empty() {
+            match self.pending_output.front() {
+                Some(input) => {
+                    if input.frame <= ack_frame {
+                        self.last_acked_input = self
+                            .pending_output
+                            .pop_front()
+                            .expect("Expected input to exist");
+                    } else {
+                        break;
+                    }
+                }
+                None => (),
             }
         }
     }
@@ -359,21 +432,23 @@ impl<T: Config> UdpProtocol<T> {
 
     pub(crate) fn send_input(
         &mut self,
-        input: PlayerInput<T::Input>,
+        inputs: &HashMap<PlayerHandle, PlayerInput<T::Input>>,
         connect_status: &[ConnectionStatus],
     ) {
         if self.state != ProtocolState::Running {
             return;
         }
 
+        let endpoint_data = EndpointData::from_inputs::<T>(self.num_players, inputs);
+
         // register the input and advantages in the time sync layer
         self.time_sync_layer.advance_frame(
-            input.frame,
+            endpoint_data.frame,
             self.local_frame_advantage,
             self.remote_frame_advantage,
         );
 
-        self.pending_output.push_back(input);
+        self.pending_output.push_back(endpoint_data);
 
         // we should never have so much pending input for a remote player (if they didn't ack, we should stop at MAX_PREDICTION_THRESHOLD)
         // this is a spectator that didn't ack our input, we just disconnect them
@@ -396,8 +471,8 @@ impl<T: Config> UdpProtocol<T> {
 
             // encode all pending inputs to a byte buffer
             body.bytes = encode(
-                self.last_acked_input.input,
-                self.pending_output.iter().map(|gi| &gi.input),
+                &self.last_acked_input.bytes,
+                self.pending_output.iter().map(|gi| &gi.bytes),
             );
 
             // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
@@ -570,7 +645,7 @@ impl<T: Config> UdpProtocol<T> {
         if let Some(decode_inp) = self.recv_inputs.get(&decode_frame) {
             self.running_last_input_recv = Instant::now();
 
-            let recv_inputs = decode(decode_inp.input, &body.bytes).expect("decoding failed");
+            let recv_inputs = decode(&decode_inp.bytes, &body.bytes).expect("decoding failed");
 
             for (i, inp) in recv_inputs.into_iter().enumerate() {
                 let inp_frame = body.start_frame + i as i32;
@@ -579,10 +654,20 @@ impl<T: Config> UdpProtocol<T> {
                     continue;
                 }
 
-                let game_input = PlayerInput::new(inp_frame, inp);
+                let input_data = EndpointData {
+                    frame: inp_frame,
+                    bytes: inp,
+                };
                 // send the input to the session
-                self.recv_inputs.insert(game_input.frame, game_input);
-                self.event_queue.push_back(Event::Input(game_input));
+                let player_inputs = input_data.to_player_inputs::<T>(self.handles.len());
+                self.recv_inputs.insert(input_data.frame, input_data);
+
+                for (i, player_input) in player_inputs.into_iter().enumerate() {
+                    self.event_queue.push_back(Event::Input {
+                        input: player_input,
+                        player: self.handles[i],
+                    });
+                }
             }
 
             // send an input ack
