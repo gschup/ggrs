@@ -1,7 +1,7 @@
 mod ex_game;
 
 use ex_game::Game;
-use ggrs::SyncTestSessionBuilder;
+use ggrs::SessionBuilder;
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use structopt::StructOpt;
@@ -34,10 +34,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // create a GGRS session
-    let mut sess = SyncTestSessionBuilder::new(opt.num_players)
+    let mut sess = SessionBuilder::new()
+        .with_num_players(opt.num_players)
         .with_check_distance(opt.check_distance)
         .with_input_delay(2)
-        .start_session()?;
+        .start_synctest_session()?;
 
     // Create a new box game
     let mut game = Game::new(opt.num_players);

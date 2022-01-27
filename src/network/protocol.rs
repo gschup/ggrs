@@ -88,7 +88,7 @@ where
     disconnect_timeout: Duration,
     disconnect_notify_start: Duration,
     shutdown_timeout: Instant,
-    fps: u32,
+    fps: usize,
     magic: u16,
 
     // the other client
@@ -130,7 +130,7 @@ impl<T: Config> UdpProtocol<T> {
         max_prediction: usize,
         disconnect_timeout: Duration,
         disconnect_notify_start: Duration,
-        fps: u32,
+        fps: usize,
     ) -> Self {
         let mut magic = rand::random::<u16>();
         while magic == 0 {

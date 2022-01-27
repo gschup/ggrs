@@ -14,10 +14,10 @@ pub use frame_info::{GameState, PlayerInput};
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
-pub use sessions::p2p_session::{P2PSession, P2PSessionBuilder};
-pub use sessions::p2p_spectator_session::{SpectatorSession, SpectatorSessionBuilder};
-#[cfg(feature = "sync_test")]
-pub use sessions::sync_test_session::{SyncTestSession, SyncTestSessionBuilder};
+pub use sessions::builder::SessionBuilder;
+pub use sessions::p2p_session::P2PSession;
+pub use sessions::p2p_spectator_session::SpectatorSession;
+pub use sessions::sync_test_session::SyncTestSession;
 pub use sync_layer::GameStateCell;
 
 pub(crate) mod error;
@@ -26,9 +26,9 @@ pub(crate) mod input_queue;
 pub(crate) mod sync_layer;
 pub(crate) mod time_sync;
 pub(crate) mod sessions {
+    pub(crate) mod builder;
     pub(crate) mod p2p_session;
     pub(crate) mod p2p_spectator_session;
-    #[cfg(feature = "sync_test")]
     pub(crate) mod sync_test_session;
 }
 pub(crate) mod network {

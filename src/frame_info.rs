@@ -1,7 +1,7 @@
 use crate::{Frame, NULL_FRAME};
 
 /// Represents the game state of your game for a single frame. The `data` holds your state, `frame` indicates the associated frame number
-/// and `checksum` can additionally be provided for use during a `SyncTestSession` (requires feature `sync_test`).
+/// and `checksum` can additionally be provided for use during a `SyncTestSession`.
 /// You are expected to return this during `save_game_state()` and use them during `load_game_state()`.
 #[derive(Debug, Clone)]
 pub struct GameState<S: Clone> {
@@ -10,7 +10,6 @@ pub struct GameState<S: Clone> {
     /// The game state
     pub data: Option<S>,
     /// The checksum of the gamestate.
-    #[cfg(feature = "sync_test")]
     pub checksum: u64,
 }
 
@@ -19,7 +18,6 @@ impl<S: Clone> Default for GameState<S> {
         Self {
             frame: NULL_FRAME,
             data: None,
-            #[cfg(feature = "sync_test")]
             checksum: 0,
         }
     }
@@ -30,13 +28,11 @@ impl<S: Clone> GameState<S> {
         Self {
             frame,
             data,
-            #[cfg(feature = "sync_test")]
             checksum: 0,
         }
     }
 }
 
-#[cfg(feature = "sync_test")]
 impl<S: Clone> GameState<S> {
     pub fn new_with_checksum(frame: Frame, data: Option<S>, checksum: u64) -> Self {
         Self {

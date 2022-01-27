@@ -13,17 +13,10 @@ use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::convert::TryInto;
-use std::time::Duration;
 
 const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
-const DEFAULT_SAVE_MODE: bool = false;
-const DEFAULT_INPUT_DELAY: u32 = 0;
-pub(crate) const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
-pub(crate) const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
-pub(crate) const DEFAULT_FPS: u32 = 60;
-pub(crate) const DEFAULT_MAX_PREDICTION_FRAMES: usize = 8;
 
 pub(crate) struct PlayerRegistry<T>
 where
@@ -95,211 +88,6 @@ impl<T: Config> PlayerRegistry<T> {
     }
 }
 
-pub struct P2PSessionBuilder<T>
-where
-    T: Config,
-{
-    num_players: usize,
-    max_prediction: usize,
-    /// FPS defines the expected update frequency of this session.
-    fps: u32,
-    sparse_saving: bool,
-    socket: Box<dyn NonBlockingSocket<T::Address>>,
-    /// The time until a remote player gets disconnected.
-    disconnect_timeout: Duration,
-    /// The time until the client will get a notification that a remote player is about to be disconnected.
-    disconnect_notify_start: Duration,
-    player_reg: PlayerRegistry<T>,
-    input_delay: u32,
-}
-
-/// Builds a new `P2PSession`. A `P2PSession` provides all functionality to connect to remote clients
-/// in a peer-to-peer fashion, exchange inputs and handle the gamestate by saving, loading and advancing.
-impl<T: Config> P2PSessionBuilder<T> {
-    pub fn new(num_players: usize, socket: impl NonBlockingSocket<T::Address> + 'static) -> Self {
-        Self {
-            num_players,
-            max_prediction: DEFAULT_MAX_PREDICTION_FRAMES,
-            socket: Box::new(socket),
-            fps: DEFAULT_FPS,
-            sparse_saving: DEFAULT_SAVE_MODE,
-            disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
-            disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
-            input_delay: DEFAULT_INPUT_DELAY,
-            player_reg: PlayerRegistry::new(),
-        }
-    }
-
-    /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session.
-    /// Player handles for players should be between 0 and `num_players`, spectator handles should be higher than `num_players`.
-    /// Later, you will need the player handle to add input, change parameters or disconnect the player or spectator.
-    ///
-    /// # Errors
-    /// - Returns `InvalidRequest` if a player with that handle has been added before
-    /// - Returns `InvalidRequest` if the handle is invalid for the given `PlayerType`
-    pub fn add_player(
-        mut self,
-        player_type: PlayerType<T::Address>,
-        player_handle: PlayerHandle,
-    ) -> Result<Self, GGRSError> {
-        // check if the player handle is already in use
-        if self.player_reg.handles.contains_key(&player_handle) {
-            return Err(GGRSError::InvalidRequest {
-                info: "Player handle already in use.".to_owned(),
-            });
-        }
-        // check if the player handle is valid for the given player type
-        match player_type {
-            PlayerType::Local => {
-                if player_handle >= self.num_players {
-                    return Err(GGRSError::InvalidRequest {
-                        info: "The player handle you provided is invalid. For a local player, the handle should be between 0 and num_players".to_owned(),
-                    });
-                }
-                // for now, we only allow one local player
-                if let Some(PlayerType::Local) = self.player_reg.player_type(player_handle) {
-                    return Err(GGRSError::InvalidRequest {
-                        info: "Currently, only one local player per session is supported."
-                            .to_owned(),
-                    });
-                }
-            }
-            PlayerType::Remote(_) => {
-                if player_handle >= self.num_players {
-                    return Err(GGRSError::InvalidRequest {
-                        info: "The player handle you provided is invalid. For a remote player, the handle should be between 0 and num_players".to_owned(),
-                    });
-                }
-            }
-            PlayerType::Spectator(_) => {
-                if player_handle < self.num_players {
-                    return Err(GGRSError::InvalidRequest {
-                        info: "The player handle you provided is invalid. For a spectator, the handle should be num_players or higher".to_owned(),
-                    });
-                }
-            }
-        }
-        self.player_reg.handles.insert(player_handle, player_type);
-        Ok(self)
-    }
-
-    /// Change the maximum prediction window. Default is 8.
-    pub fn with_max_prediction_window(mut self, window: usize) -> Self {
-        self.max_prediction = window;
-        self
-    }
-
-    /// Change the amount of frames GGRS will delay the inputs for local players.
-    pub fn with_input_delay(mut self, delay: u32) -> Self {
-        self.input_delay = delay;
-        self
-    }
-
-    /// Sets the sparse saving mode. With sparse saving turned on, only the minimum confirmed frame (for which all inputs from all players are confirmed correct) will be saved.
-    /// This leads to much less save requests at the cost of potentially longer rollbacks and thus more advance frame requests. Recommended, if saving your gamestate
-    /// takes much more time than advancing the game state.
-    pub fn with_sparse_saving_mode(mut self, sparse_saving: bool) -> Self {
-        self.sparse_saving = sparse_saving;
-        self
-    }
-
-    /// Sets the disconnect timeout. The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
-    pub fn with_disconnect_timeout(mut self, timeout: Duration) -> Self {
-        self.disconnect_timeout = timeout;
-        self
-    }
-
-    /// Sets the time before the first notification will be sent in case of a prolonged period of no received packages.
-    pub fn with_disconnect_notify_delay(mut self, notify_delay: Duration) -> Self {
-        self.disconnect_notify_start = notify_delay;
-        self
-    }
-
-    /// Sets the FPS this session is used with. This influences estimations for frame synchronization between sessions.
-    /// # Errors
-    /// - Returns 'InvalidRequest' if the fps is 0
-    pub fn with_fps(mut self, fps: u32) -> Result<Self, GGRSError> {
-        if fps == 0 {
-            return Err(GGRSError::InvalidRequest {
-                info: "FPS should be higher than 0.".to_owned(),
-            });
-        }
-        self.fps = fps;
-        Ok(self)
-    }
-
-    /// Consumes the builder to construct a `P2PSession` and starts synchronization of endpoints.
-    /// # Errors
-    /// - Returns `InvalidRequest` if insufficient players have been registered.
-    pub fn start_session(mut self) -> Result<P2PSession<T>, GGRSError> {
-        // check if all players are added
-        for player_handle in 0..self.num_players {
-            if !self.player_reg.handles.contains_key(&player_handle) {
-                return Err(GGRSError::InvalidRequest{
-                    info: "Not enough players have been added. Keep registering players up to the defined player number.".to_owned(),
-                });
-            }
-        }
-
-        // count the number of players per address
-        let mut addr_count = HashMap::<PlayerType<T::Address>, Vec<PlayerHandle>>::new();
-        for (handle, player_type) in self.player_reg.handles.iter() {
-            match player_type {
-                PlayerType::Remote(_) | PlayerType::Spectator(_) => addr_count
-                    .entry(*player_type)
-                    .or_insert(vec![])
-                    .push(*handle),
-                PlayerType::Local => (),
-            }
-        }
-
-        // for each unique address, create an endpoint
-        for (player_type, handles) in addr_count.into_iter() {
-            // for now, assume every remote player has a unique addr
-            assert_eq!(handles.len(), 1);
-
-            match player_type {
-                PlayerType::Remote(peer_addr) => {
-                    self.player_reg
-                        .remotes
-                        .insert(peer_addr, self.create_endpoint(handles, peer_addr));
-                }
-                PlayerType::Spectator(peer_addr) => {
-                    self.player_reg
-                        .spectators
-                        .insert(peer_addr, self.create_endpoint(handles, peer_addr));
-                }
-                PlayerType::Local => (),
-            }
-        }
-
-        Ok(P2PSession::<T>::new(
-            self.num_players,
-            self.max_prediction,
-            self.socket,
-            self.player_reg,
-            self.sparse_saving,
-            self.input_delay,
-        ))
-    }
-
-    fn create_endpoint(&self, handles: Vec<PlayerHandle>, peer_addr: T::Address) -> UdpProtocol<T> {
-        // create the endpoint, set parameters
-        let mut endpoint = UdpProtocol::new(
-            handles,
-            peer_addr,
-            self.num_players,
-            self.max_prediction,
-            self.disconnect_timeout,
-            self.disconnect_notify_start,
-            self.fps,
-        );
-        // start the synchronization
-        endpoint.synchronize();
-        endpoint
-    }
-}
-
 /// A `P2PSession` provides all functionality to connect to remote clients in a peer-to-peer fashion, exchange inputs and handle the gamestate by saving, loading and advancing.
 pub struct P2PSession<T>
 where
@@ -347,7 +135,7 @@ impl<T: Config> P2PSession<T> {
         socket: Box<dyn NonBlockingSocket<T::Address>>,
         players: PlayerRegistry<T>,
         sparse_saving: bool,
-        input_delay: u32,
+        input_delay: usize,
     ) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();

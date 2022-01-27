@@ -28,7 +28,7 @@ where
     last_requested_frame: Frame,
 
     /// The delay in frames by which inputs are sent back to the user. This can be set during initialization.
-    frame_delay: u32,
+    frame_delay: usize,
 
     /// Our cyclic input queue
     inputs: Vec<PlayerInput<T::Input>>,
@@ -56,7 +56,7 @@ impl<T: Config> InputQueue<T> {
         self.first_incorrect_frame
     }
 
-    pub(crate) fn set_frame_delay(&mut self, delay: u32) {
+    pub(crate) fn set_frame_delay(&mut self, delay: usize) {
         self.frame_delay = delay;
     }
 
@@ -314,7 +314,7 @@ mod input_queue_tests {
     fn test_delayed_inputs() {
         let mut queue = InputQueue::<TestConfig>::new();
         let delay: i32 = 2;
-        queue.set_frame_delay(delay as u32);
+        queue.set_frame_delay(delay as usize);
         for i in 0..10 {
             let input = PlayerInput::new(i, TestInput { inp: i as u8 });
             queue.add_input(input);

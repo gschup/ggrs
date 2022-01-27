@@ -1,7 +1,7 @@
 mod ex_game;
 
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GGRSError, P2PSessionBuilder, PlayerType, SessionState, UdpNonBlockingSocket};
+use ggrs::{GGRSError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
@@ -40,9 +40,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS session
-    let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
-    let mut sess_build = P2PSessionBuilder::<GGRSConfig>::new(num_players, socket)
-        .with_fps(FPS as u32)? // (optional) set expected update frequency
+    let mut sess_build = SessionBuilder::<GGRSConfig>::new()
+        .with_num_players(num_players)
+        .with_fps(FPS as usize)? // (optional) set expected update frequency
         .with_input_delay(2); // (optional) set input delay for the local player
 
     // add players
@@ -64,7 +64,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // start the GGRS session
-    let mut sess = sess_build.start_session()?;
+    let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
+    let mut sess = sess_build.start_p2p_session(socket)?;
 
     // Create a new box game
     let mut game = Game::new(num_players);

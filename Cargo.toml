@@ -10,10 +10,6 @@ repository = "https://github.com/gschup/ggrs"
 keywords = ["gamedev", "networking", "ggpo", "rollback"]
 categories = ["network-programming", "game-development"]
 
-[features]
-default = ["sync_test"]
-sync_test = []
-
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 bincode = "1.3"
@@ -35,15 +31,12 @@ macroquad = "0.3.10"
 [[example]]
 name = "ex_game_p2p"
 path = "examples/ex_game/ex_game_p2p.rs"
-required-features = ["sync_test"]
 
 [[example]]
 name = "ex_game_spectator"
 path = "examples/ex_game/ex_game_spectator.rs"
-required-features = ["sync_test"]
 
 [[example]]
 name = "ex_game_synctest"
 path = "examples/ex_game/ex_game_synctest.rs"
-required-features = ["sync_test"]
 

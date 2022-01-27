@@ -16,7 +16,6 @@ impl<T: Clone> GameStateCell<T> {
         let mut state = self.0.lock();
         assert!(new_state.frame != NULL_FRAME);
         state.frame = new_state.frame;
-        #[cfg(feature = "sync_test")]
         {
             state.checksum = new_state.checksum;
         }
@@ -115,7 +114,7 @@ impl<T: Config> SyncLayer<T> {
         }
     }
 
-    pub(crate) fn set_frame_delay(&mut self, player_handle: PlayerHandle, delay: u32) {
+    pub(crate) fn set_frame_delay(&mut self, player_handle: PlayerHandle, delay: usize) {
         assert!(player_handle < self.num_players as PlayerHandle);
         self.input_queues[player_handle as usize].set_frame_delay(delay);
     }

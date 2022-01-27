@@ -1,7 +1,7 @@
 mod ex_game;
 
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GGRSError, GGRSEvent, SessionState, SpectatorSessionBuilder, UdpNonBlockingSocket};
+use ggrs::{GGRSError, GGRSEvent, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
@@ -38,10 +38,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a GGRS session for a spectator
     let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
-    let mut sess = SpectatorSessionBuilder::<GGRSConfig>::new(opt.num_players, socket, opt.host)
-        .with_max_frames_behind(5) // (optional) when the spectator is more than this amount of frames behind, it will catch up
-        .with_catchup_speed(2) // (optional) set this to 1 if you don't want any catch-ups
-        .start_session();
+    let mut sess = SessionBuilder::<GGRSConfig>::new()
+        .with_num_players(opt.num_players)
+        .with_max_frames_behind(5)? // (optional) when the spectator is more than this amount of frames behind, it will catch up
+        .with_catchup_speed(2)? // (optional) set this to 1 if you don't want any catch-ups
+        .start_spectator_session(opt.host, socket);
 
     // Create a new box game
     let mut game = Game::new(opt.num_players);
