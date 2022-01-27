@@ -7,8 +7,6 @@ use crate::Frame;
 /// This enum contains all error messages this library can return. Most API functions will generally return a `Result<(),GGRSError>`.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGRSError {
-    /// The given player handle was invalid. Usually this indicates you passed a player handle >= num_players.
-    InvalidHandle,
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
     PredictionThreshold,
     /// You made an invalid request, usually by using wrong parameters for function calls or starting a session that is already started.
@@ -30,9 +28,6 @@ pub enum GGRSError {
 impl Display for GGRSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GGRSError::InvalidHandle => {
-                write!(f, "The player handle you provided is invalid.")
-            }
             GGRSError::PredictionThreshold => {
                 write!(
                     f,

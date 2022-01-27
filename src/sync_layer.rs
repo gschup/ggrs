@@ -70,7 +70,7 @@ pub(crate) struct SyncLayer<T>
 where
     T: Config,
 {
-    num_players: u32,
+    num_players: usize,
     max_prediction: usize,
     saved_states: SavedStates<T::State>,
     last_confirmed_frame: Frame,
@@ -81,7 +81,7 @@ where
 
 impl<T: Config> SyncLayer<T> {
     /// Creates a new `SyncLayer` instance with given values.
-    pub(crate) fn new(num_players: u32, max_prediction: usize) -> Self {
+    pub(crate) fn new(num_players: usize, max_prediction: usize) -> Self {
         // initialize input_queues
         let mut input_queues = Vec::new();
         for _ in 0..num_players {

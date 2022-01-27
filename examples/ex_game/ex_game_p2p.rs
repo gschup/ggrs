@@ -1,14 +1,13 @@
 mod ex_game;
 
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GGRSError, P2PSession, PlayerType, SessionState, UdpNonBlockingSocket};
+use ggrs::{GGRSError, P2PSessionBuilder, PlayerType, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
 use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
-const MAX_PRED_FRAME: usize = 8;
 
 /// returns a window config for macroquad to use
 fn window_conf() -> Conf {
@@ -42,40 +41,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a GGRS session
     let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
-    let mut sess = P2PSession::<GGRSConfig>::new(num_players as u32, MAX_PRED_FRAME, socket);
-
-    // if loading/saving is more expensive than long rollbacks, you can turn on sparse saving
-    // sess.set_sparse_saving(true)?;
-
-    // set FPS (default is 60, so this doesn't change anything as is)
-    sess.set_fps(FPS as u32)?;
+    let mut sess_build = P2PSessionBuilder::<GGRSConfig>::new(num_players, socket)
+        .with_fps(FPS as u32)? // (optional) set expected update frequency
+        .with_input_delay(2); // (optional) set input delay for the local player
 
     // add players
     for (i, player_addr) in opt.players.iter().enumerate() {
         // local player
         if player_addr == "localhost" {
-            sess.add_player(PlayerType::Local, i)?;
+            sess_build = sess_build.add_player(PlayerType::Local, i)?;
             local_handle = i;
         } else {
             // remote players
             let remote_addr: SocketAddr = player_addr.parse()?;
-            sess.add_player(PlayerType::Remote(remote_addr), i)?;
+            sess_build = sess_build.add_player(PlayerType::Remote(remote_addr), i)?;
         }
     }
 
     // optionally, add spectators
     for (i, spec_addr) in opt.spectators.iter().enumerate() {
-        sess.add_player(PlayerType::Spectator(*spec_addr), num_players + i)?;
+        sess_build = sess_build.add_player(PlayerType::Spectator(*spec_addr), num_players + i)?;
     }
 
-    // set input delay for the local player
-    sess.set_frame_delay(2, local_handle)?;
-
-    // set change default expected update frequency
-    sess.set_fps(FPS as u32)?;
-
     // start the GGRS session
-    sess.start_session()?;
+    let mut sess = sess_build.start_session()?;
 
     // Create a new box game
     let mut game = Game::new(num_players);

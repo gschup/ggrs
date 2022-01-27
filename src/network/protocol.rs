@@ -4,11 +4,8 @@ use crate::network::messages::{
     ConnectionStatus, Input, InputAck, Message, MessageBody, MessageHeader, QualityReply,
     QualityReport, SyncReply, SyncRequest,
 };
-use crate::sessions::p2p_session::{
-    Event, DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_FPS,
-};
 use crate::time_sync::TimeSync;
-use crate::{Config, Frame, NonBlockingSocket, PlayerHandle, NULL_FRAME};
+use crate::{Config, Frame, GGRSError, NonBlockingSocket, PlayerHandle, NULL_FRAME};
 
 use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
@@ -42,6 +39,25 @@ fn millis_since_epoch() -> u128 {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Event<T>
+where
+    T: Config,
+{
+    /// The session is currently synchronizing with the remote client. It will continue until `count` reaches `total`.
+    Synchronizing { total: u32, count: u32 },
+    /// The session is now synchronized with the remote client.
+    Synchronized,
+    /// The session has received an input from the remote client. This event will not be forwarded to the user.
+    Input(PlayerInput<T::Input>),
+    /// The remote client has disconnected.
+    Disconnected,
+    /// The session has not received packets from the remote client since `disconnect_timeout` ms.
+    NetworkInterrupted { disconnect_timeout: u128 },
+    /// Sent only after a `NetworkInterrupted` event, if communication has resumed.
+    NetworkResumed,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum ProtocolState {
     Initializing,
@@ -55,8 +71,7 @@ pub(crate) struct UdpProtocol<T>
 where
     T: Config,
 {
-    handle: PlayerHandle,
-    magic: u16,
+    handles: Vec<PlayerHandle>,
     send_queue: VecDeque<Message>,
     event_queue: VecDeque<Event<T>>,
 
@@ -74,6 +89,7 @@ where
     disconnect_notify_start: Duration,
     shutdown_timeout: Instant,
     fps: u32,
+    magic: u16,
 
     // the other client
     peer_addr: T::Address,
@@ -102,16 +118,19 @@ where
 
 impl<T: Config> PartialEq for UdpProtocol<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.handle == other.handle
+        self.peer_addr == other.peer_addr
     }
 }
 
 impl<T: Config> UdpProtocol<T> {
     pub(crate) fn new(
-        handle: PlayerHandle,
+        handles: Vec<PlayerHandle>,
         peer_addr: T::Address,
-        num_players: u32,
+        num_players: usize,
         max_prediction: usize,
+        disconnect_timeout: Duration,
+        disconnect_notify_start: Duration,
+        fps: u32,
     ) -> Self {
         let mut magic = rand::random::<u16>();
         while magic == 0 {
@@ -129,8 +148,7 @@ impl<T: Config> UdpProtocol<T> {
         recv_inputs.insert(NULL_FRAME, PlayerInput::blank_input(NULL_FRAME));
 
         Self {
-            handle,
-            magic,
+            handles,
             send_queue: VecDeque::new(),
             event_queue: VecDeque::new(),
 
@@ -144,10 +162,11 @@ impl<T: Config> UdpProtocol<T> {
             disconnect_event_sent: false,
 
             // constants
-            disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
-            disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
+            disconnect_timeout,
+            disconnect_notify_start,
             shutdown_timeout: Instant::now(),
-            fps: DEFAULT_FPS,
+            fps,
+            magic,
 
             // the other client
             peer_addr,
@@ -175,10 +194,6 @@ impl<T: Config> UdpProtocol<T> {
         }
     }
 
-    pub(crate) fn player_handle(&self) -> PlayerHandle {
-        self.handle
-    }
-
     pub(crate) fn update_local_frame_advantage(&mut self, local_frame: Frame) {
         if local_frame == NULL_FRAME || self.last_recv_frame() == NULL_FRAME {
             return;
@@ -190,41 +205,32 @@ impl<T: Config> UdpProtocol<T> {
         self.local_frame_advantage = remote_frame - local_frame;
     }
 
-    pub(crate) fn set_disconnect_timeout(&mut self, timeout: Duration) {
-        self.disconnect_timeout = timeout;
-    }
-
-    pub(crate) fn set_disconnect_notify_start(&mut self, notify_start: Duration) {
-        self.disconnect_notify_start = notify_start;
-    }
-
-    pub(crate) fn set_fps(&mut self, fps: u32) {
-        assert!(fps > 0);
-        self.fps = fps;
-    }
-
-    pub(crate) fn network_stats(&self) -> Option<NetworkStats> {
+    pub(crate) fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
         if self.state != ProtocolState::Synchronizing && self.state != ProtocolState::Running {
-            return None;
+            return Err(GGRSError::NotSynchronized);
         }
 
         let now = millis_since_epoch();
         let seconds = (now - self.stats_start_time) / 1000;
         if seconds == 0 {
-            return None;
+            return Err(GGRSError::NotSynchronized);
         }
 
         let total_bytes_sent = self.bytes_sent + (self.packets_sent * UDP_HEADER_SIZE);
         let bps = total_bytes_sent / seconds as usize;
         //let upd_overhead = (self.packets_sent * UDP_HEADER_SIZE) / self.bytes_sent;
 
-        Some(NetworkStats {
+        Ok(NetworkStats {
             ping: self.round_trip_time,
             send_queue_len: self.pending_output.len(),
             kbps_sent: bps / 1024,
             local_frames_behind: self.local_frame_advantage,
             remote_frames_behind: self.remote_frame_advantage,
         })
+    }
+
+    pub(crate) fn handles(&self) -> &Vec<PlayerHandle> {
+        &self.handles
     }
 
     pub(crate) fn is_synchronized(&self) -> bool {
@@ -368,15 +374,13 @@ impl<T: Config> UdpProtocol<T> {
         );
 
         self.pending_output.push_back(input);
+
+        // we should never have so much pending input for a remote player (if they didn't ack, we should stop at MAX_PREDICTION_THRESHOLD)
+        // this is a spectator that didn't ack our input, we just disconnect them
         if self.pending_output.len() > PENDING_OUTPUT_SIZE {
-            if self.handle >= 1000 {
-                // if this is a spectator that didn't ack our input, we just disconnect them
-                self.event_queue.push_back(Event::Disconnected);
-            } else {
-                // we should never have so much pending input for a remote player (if they didn't ack, we should stop at MAX_PREDICTION_THRESHOLD)
-                assert!(self.pending_output.len() <= PENDING_OUTPUT_SIZE);
-            }
+            self.event_queue.push_back(Event::Disconnected);
         }
+
         self.send_pending_output(connect_status);
     }
 

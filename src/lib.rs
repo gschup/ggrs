@@ -7,15 +7,17 @@
 
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 
+use std::hash::Hash;
+
 pub use error::GGRSError;
 pub use frame_info::{GameState, PlayerInput};
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
-pub use sessions::p2p_session::P2PSession;
-pub use sessions::p2p_spectator_session::P2PSpectatorSession;
+pub use sessions::p2p_session::{P2PSession, P2PSessionBuilder};
+pub use sessions::p2p_spectator_session::{SpectatorSession, SpectatorSessionBuilder};
 #[cfg(feature = "sync_test")]
-pub use sessions::sync_test_session::SyncTestSession;
+pub use sessions::sync_test_session::{SyncTestSession, SyncTestSessionBuilder};
 pub use sync_layer::GameStateCell;
 
 pub(crate) mod error;
@@ -57,7 +59,10 @@ pub type PlayerHandle = usize;
 /// - spectators, who are remote players that do not contribute to the game input.
 /// Both `Remote` and `Spectator` have a socket address associated with them.
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum PlayerType<A = std::net::SocketAddr> {
+pub enum PlayerType<A>
+where
+    A: Copy + Clone + PartialEq + Eq + Hash,
+{
     /// This player plays on the local device.
     Local,
     /// This player plays on a remote device identified by the socket address.
@@ -66,7 +71,7 @@ pub enum PlayerType<A = std::net::SocketAddr> {
     Spectator(A),
 }
 
-impl Default for PlayerType {
+impl<A: Copy + Clone + PartialEq + Eq + Hash> Default for PlayerType<A> {
     fn default() -> Self {
         Self::Local
     }
@@ -75,8 +80,6 @@ impl Default for PlayerType {
 /// A session is always in one of these states. You can query the current state of a session via `current_state()`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SessionState {
-    /// When initializing, you must add all necessary players and start the session to continue.
-    Initializing,
     /// When synchronizing, the session attempts to establish a connection to the remote clients.
     Synchronizing,
     /// When running, the session has synchronized and is ready to take and transmit player input.
@@ -149,7 +152,7 @@ pub trait Config: 'static {
     type State: Clone;
 
     /// The address type which identifies the remote clients
-    type Address: Eq;
+    type Address: Copy + Clone + PartialEq + Eq + Hash;
 }
 
 /// This `NonBlockingSocket` trait is used when you want to use GGRS with your own socket.

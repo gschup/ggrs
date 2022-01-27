@@ -5,8 +5,6 @@ use std::net::SocketAddr;
 
 use ggrs::{Config, Frame, GGRSRequest, GameState, GameStateCell, PlayerInput};
 
-pub const MAX_PRED_FRAMES: usize = 8;
-
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);

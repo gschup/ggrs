@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 use crate::error::GGRSError;
 use crate::frame_info::PlayerInput;
@@ -6,13 +7,78 @@ use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
 use crate::{Config, Frame, GGRSRequest, PlayerHandle};
 
+use super::p2p_session::DEFAULT_MAX_PREDICTION_FRAMES;
+
+const DEFAULT_CHECK_DISTANCE: usize = 2;
+
+/// Builds a new `SyncTestSession`. During a `SyncTestSession`, GGRS will simulate a rollback every frame
+/// and resimulate the last n states, where n is the given `check_distance`.
+/// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
+/// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
+/// This is a great way to test if your system runs deterministically. After creating the session, add a local player, set input delay for them and then start the session.
+///
+pub struct SyncTestSessionBuilder<T>
+where
+    T: Config,
+{
+    num_players: usize,
+    max_prediction: usize,
+    check_dist: usize,
+    input_delay: u32,
+    phantom: PhantomData<T>,
+}
+
+impl<T: Config> SyncTestSessionBuilder<T> {
+    pub fn new(num_players: usize) -> Self {
+        Self {
+            num_players,
+            max_prediction: DEFAULT_MAX_PREDICTION_FRAMES,
+            check_dist: DEFAULT_CHECK_DISTANCE,
+            input_delay: 0,
+            phantom: PhantomData::default(),
+        }
+    }
+
+    /// Change the check distance. Default is 2.
+    pub fn with_check_distance(mut self, check_distance: usize) -> Self {
+        self.check_dist = check_distance;
+        self
+    }
+
+    /// Change the maximum prediction window. Default is 8.
+    pub fn with_max_prediction_window(mut self, window: usize) -> Self {
+        self.max_prediction = window;
+        self
+    }
+
+    /// Change the input delay. Default is 0.
+    pub fn with_input_delay(mut self, delay: u32) -> Self {
+        self.input_delay = delay;
+        self
+    }
+
+    pub fn start_session(self) -> Result<SyncTestSession<T>, GGRSError> {
+        if self.check_dist >= self.max_prediction {
+            return Err(GGRSError::InvalidRequest {
+                info: "Check distance too big.".to_owned(),
+            });
+        }
+        Ok(SyncTestSession::new(
+            self.num_players,
+            self.max_prediction,
+            self.check_dist,
+            self.input_delay,
+        ))
+    }
+}
+
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
 pub struct SyncTestSession<T>
 where
     T: Config,
 {
-    num_players: u32,
+    num_players: usize,
     max_prediction: usize,
     check_distance: usize,
     sync_layer: SyncLayer<T>,
@@ -21,38 +87,29 @@ where
 }
 
 impl<T: Config> SyncTestSession<T> {
-    /// Creates a new `SyncTestSession`. During a sync test, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given `check_distance`.
-    /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
-    /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
-    /// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
-    /// This is a great way to test if your system runs deterministically. After creating the session, add a local player, set input delay for them and then start the session.
-    ///
     /// # Errors
     /// - Will return a `InvalidRequestError` if the `check_distance is` higher than or equal to `MAX_PREDICTION_FRAMES`.
-    pub fn new(
-        num_players: u32,
+    pub(crate) fn new(
+        num_players: usize,
         max_prediction: usize,
         check_distance: usize,
-    ) -> Result<Self, GGRSError> {
-        if check_distance >= max_prediction {
-            return Err(GGRSError::InvalidRequest {
-                info: "Check distance too big.".to_owned(),
-            });
-        }
-        Ok(Self::new_impl(num_players, max_prediction, check_distance))
-    }
-
-    /// Creates a new `SyncTestSession` instance with given values.
-    fn new_impl(num_players: u32, max_prediction: usize, check_distance: usize) -> Self {
+        input_delay: u32,
+    ) -> Self {
         let mut dummy_connect_status = Vec::new();
         for _ in 0..num_players {
             dummy_connect_status.push(ConnectionStatus::default());
         }
+
+        let mut sync_layer = SyncLayer::new(num_players, max_prediction);
+        for i in 0..num_players {
+            sync_layer.set_frame_delay(i, input_delay);
+        }
+
         Self {
             num_players,
             max_prediction,
             check_distance,
-            sync_layer: SyncLayer::new(num_players, max_prediction),
+            sync_layer,
             dummy_connect_status,
             checksum_history: HashMap::default(),
         }
@@ -133,21 +190,23 @@ impl<T: Config> SyncTestSession<T> {
     /// # Errors
     /// Returns `InvalidHandle` if the provided player handle is higher than the number of players.
     /// Returns `InvalidRequest` if the provided player handle refers to a remote player.
-    pub fn set_frame_delay(
+    pub fn set_input_delay(
         &mut self,
         frame_delay: u32,
         player_handle: PlayerHandle,
     ) -> Result<(), GGRSError> {
         // player handle is invalid
         if player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidHandle);
+            return Err(GGRSError::InvalidRequest {
+                info: "The player handle you provided is invalid.".to_owned(),
+            });
         }
         self.sync_layer.set_frame_delay(player_handle, frame_delay);
         Ok(())
     }
 
     /// Returns the number of players this session was constructed with.
-    pub fn num_players(&self) -> u32 {
+    pub fn num_players(&self) -> usize {
         self.num_players
     }
 

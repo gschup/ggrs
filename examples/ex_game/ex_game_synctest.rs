@@ -1,13 +1,12 @@
 mod ex_game;
 
 use ex_game::Game;
-use ggrs::SyncTestSession;
+use ggrs::SyncTestSessionBuilder;
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use structopt::StructOpt;
 
 const FPS: f64 = 60.0;
-const MAX_PRED_FRAMES: usize = 8;
 
 /// returns a window config for macroquad to use
 fn window_conf() -> Conf {
@@ -35,13 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // create a GGRS session
-    let mut sess =
-        SyncTestSession::new(opt.num_players as u32, MAX_PRED_FRAMES, opt.check_distance)?;
-
-    // set input delay for any player you want
-    for i in 0..opt.num_players {
-        sess.set_frame_delay(2, i)?;
-    }
+    let mut sess = SyncTestSessionBuilder::new(opt.num_players)
+        .with_check_distance(opt.check_distance)
+        .with_input_delay(2)
+        .start_session()?;
 
     // Create a new box game
     let mut game = Game::new(opt.num_players);

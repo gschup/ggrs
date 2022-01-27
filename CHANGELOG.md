@@ -4,6 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- sessions are now constructed through their related SessionBuilders
 - overhauled all generics
 - provided inputs are now generic. The user has to supply a POD struct instead of serialized input
 - added a `Config` trait with types to bundle all generic options

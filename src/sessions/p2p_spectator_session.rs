@@ -1,13 +1,19 @@
 use bytemuck::Zeroable;
+use instant::Duration;
 use std::collections::{vec_deque::Drain, VecDeque};
 
 use crate::{
-    network::{messages::ConnectionStatus, protocol::UdpProtocol},
+    network::{
+        messages::ConnectionStatus,
+        protocol::{Event, UdpProtocol},
+    },
     Config, Frame, GGRSError, GGRSEvent, GGRSRequest, NetworkStats, NonBlockingSocket, PlayerInput,
     SessionState, NULL_FRAME,
 };
 
-use super::p2p_session::Event;
+use super::p2p_session::{
+    DEFAULT_DISCONNECT_NOTIFY_START, DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_FPS,
+};
 
 // The amount of inputs a spectator can buffer (a second worth of inputs)
 const SPECTATOR_BUFFER_SIZE: usize = 60;
@@ -15,19 +21,119 @@ const SPECTATOR_BUFFER_SIZE: usize = 60;
 const DEFAULT_MAX_FRAMES_BEHIND: u32 = 10;
 // The amount of frames the spectator advances in a single step if not too far behing
 const NORMAL_SPEED: u32 = 1;
-// The amount of frames the spectator advances in a single step if too far behing
-const DEFAULT_CATCHUP_SPEED: u32 = 2;
+// The amount of frames the spectator advances in a single step if too far behind
+const DEFAULT_CATCHUP_SPEED: u32 = 1;
 // The amount of events a spectator can buffer; should never be an issue if the user polls the events at every step
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
-/// A `P2PSpectatorSession` provides a UDP protocol to connect to a remote host in a peer-to-peer fashion. The host will broadcast all confirmed inputs to this session.
+/// Builds a new `P2PSpectatorSession`. `P2PSpectatorSession`s provide all functionality to connect to a remote host in a peer-to-peer fashion.
+/// The host will broadcast all confirmed inputs to this session.
 /// This session can be used to spectate a session without contributing to the game input.
-pub struct P2PSpectatorSession<T>
+pub struct SpectatorSessionBuilder<T>
+where
+    T: Config,
+{
+    num_players: usize,
+    socket: Box<dyn NonBlockingSocket<T::Address>>,
+    host_addr: T::Address,
+    max_frames_behind: u32,
+    catchup_speed: u32,
+    /// The time until a remote player gets disconnected.
+    disconnect_timeout: Duration,
+    /// The time until the client will get a notification that a remote player is about to be disconnected.
+    disconnect_notify_start: Duration,
+    fps: u32,
+}
+
+impl<T: Config> SpectatorSessionBuilder<T> {
+    pub fn new(
+        num_players: usize,
+        socket: impl NonBlockingSocket<T::Address> + 'static,
+        host_addr: T::Address,
+    ) -> Self {
+        Self {
+            num_players,
+            socket: Box::new(socket),
+            host_addr,
+            max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
+            catchup_speed: DEFAULT_CATCHUP_SPEED,
+            disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
+            disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
+            fps: DEFAULT_FPS,
+        }
+    }
+
+    /// Sets the maximum frames behind. If the spectator is more than this amount of frames behind the received inputs,
+    /// it will catch up with `catchup_speed` amount of frames per step.
+    pub fn with_max_frames_behind(mut self, max_frames_behind: u32) -> Self {
+        self.max_frames_behind = max_frames_behind;
+        self
+    }
+
+    /// Sets the catchup speed. Per default, this is set to 1, so the spectator never catches up.
+    /// If you want the spectator to catch up to the host if `max_frames_behind` is surpassed, set this to a value higher than 1.
+    pub fn with_catchup_speed(mut self, catchup_speed: u32) -> Self {
+        self.catchup_speed = catchup_speed;
+        self
+    }
+
+    /// Sets the disconnect timeout. The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
+    pub fn with_disconnect_timeout(mut self, timeout: Duration) -> Self {
+        self.disconnect_timeout = timeout;
+        self
+    }
+
+    /// Sets the time before the first notification will be sent in case of a prolonged period of no received packages.
+    pub fn with_disconnect_notify_delay(mut self, notify_delay: Duration) -> Self {
+        self.disconnect_notify_start = notify_delay;
+        self
+    }
+
+    /// Sets the FPS this session is used with. This influences estimations for frame synchronization between sessions.
+    /// # Errors
+    /// - Returns 'InvalidRequest' if the fps is 0
+    pub fn with_fps(mut self, fps: u32) -> Result<Self, GGRSError> {
+        if fps == 0 {
+            return Err(GGRSError::InvalidRequest {
+                info: "FPS should be higher than 0.".to_owned(),
+            });
+        }
+        self.fps = fps;
+        Ok(self)
+    }
+
+    /// Consumes the builder to create a new SpectatorSession.
+    pub fn start_session(self) -> SpectatorSession<T> {
+        // create host endpoint
+        let mut host = UdpProtocol::new(
+            vec![],
+            self.host_addr,
+            self.num_players,
+            8,
+            self.disconnect_timeout,
+            self.disconnect_notify_start,
+            self.fps,
+        );
+        host.synchronize();
+        SpectatorSession::new(
+            self.num_players,
+            self.socket,
+            host,
+            self.max_frames_behind,
+            self.catchup_speed,
+        )
+    }
+}
+
+/// `P2PSpectatorSession`s provide all functionality to connect to a remote host in a peer-to-peer fashion.
+/// The host will broadcast all confirmed inputs to this session.
+/// This session can be used to spectate a session without contributing to the game input.
+pub struct SpectatorSession<T>
 where
     T: Config,
 {
     state: SessionState,
-    num_players: u32,
+    num_players: usize,
     inputs: Vec<PlayerInput<T::Input>>,
     host_connect_status: Vec<ConnectionStatus>,
     socket: Box<dyn NonBlockingSocket<T::Address>>,
@@ -39,14 +145,16 @@ where
     catchup_speed: u32,
 }
 
-impl<T: Config> P2PSpectatorSession<T> {
+impl<T: Config> SpectatorSession<T> {
     /// Creates a new `P2PSpectatorSession` for a spectator.
     /// The session will receive inputs from all players from the given host directly.
     /// The session will use the provided socket.
-    pub fn new(
-        num_players: u32,
-        socket: impl NonBlockingSocket<T::Address> + 'static,
-        host_addr: T::Address,
+    pub(crate) fn new(
+        num_players: usize,
+        socket: Box<dyn NonBlockingSocket<T::Address>>,
+        host: UdpProtocol<T>,
+        max_frames_behind: u32,
+        catchup_speed: u32,
     ) -> Self {
         // host connection status
         let mut host_connect_status = Vec::new();
@@ -55,17 +163,17 @@ impl<T: Config> P2PSpectatorSession<T> {
         }
 
         Self {
-            state: SessionState::Initializing,
+            state: SessionState::Synchronizing,
             num_players,
             inputs: vec![PlayerInput::blank_input(NULL_FRAME); SPECTATOR_BUFFER_SIZE],
             host_connect_status,
-            socket: Box::new(socket),
-            host: UdpProtocol::new(0, host_addr, num_players, 8),
+            socket,
+            host,
             event_queue: VecDeque::new(),
             current_frame: NULL_FRAME,
             last_recv_frame: NULL_FRAME,
-            max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
-            catchup_speed: DEFAULT_CATCHUP_SPEED,
+            max_frames_behind,
+            catchup_speed,
         }
     }
 
@@ -124,33 +232,12 @@ impl<T: Config> P2PSpectatorSession<T> {
     /// # Errors
     /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
     pub fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
-        match self.host.network_stats() {
-            Some(stats) => Ok(stats),
-            None => Err(GGRSError::NotSynchronized),
-        }
+        self.host.network_stats()
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
     pub fn events(&mut self) -> Drain<GGRSEvent> {
         self.event_queue.drain(..)
-    }
-
-    /// A spectator can directly start the session. Then, the synchronization process will begin.
-    /// # Errors
-    /// - Returns `InvalidRequest` if the session has already been started.
-    pub fn start_session(&mut self) -> Result<(), GGRSError> {
-        // if we are not in the initialization state, we already started the session at some point
-        if self.state != SessionState::Initializing {
-            return Err(GGRSError::InvalidRequest {
-                info: "Session already started.".to_owned(),
-            });
-        }
-
-        // start the synchronisation
-        self.state = SessionState::Synchronizing;
-        self.host.synchronize();
-
-        Ok(())
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
@@ -218,21 +305,8 @@ impl<T: Config> P2PSpectatorSession<T> {
     }
 
     /// Returns the number of players this session was constructed with.
-    pub fn num_players(&self) -> u32 {
+    pub fn num_players(&self) -> usize {
         self.num_players
-    }
-
-    /// Sets the FPS this session is used with. This influences ping estimates.
-    pub fn set_fps(&mut self, fps: u32) -> Result<(), GGRSError> {
-        if fps == 0 {
-            return Err(GGRSError::InvalidRequest {
-                info: "FPS should be higher than 0.".to_owned(),
-            });
-        }
-
-        self.host.set_fps(fps);
-
-        Ok(())
     }
 
     fn inputs_at_frame(
