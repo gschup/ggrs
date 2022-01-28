@@ -4,9 +4,11 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- sessions are now constructed through their related SessionBuilders
+- users now have to call `add_local_input(..)` for every local player before calling `advance_frame()`
+- enabled multiple players per endpoint
+- sessions are now constructed through a unified `SessionBuilder`
 - overhauled all generics
-- provided inputs are now generic. The user has to supply a POD struct instead of serialized input
+- provided inputs are now generic. The user has to only supply a POD struct instead of serialized input
 - added a `Config` trait with types to bundle all generic options
 - renamed `GameInput` to `PlayerInput`
 - the user now has to explicitly create a socket themselves before creating a session
