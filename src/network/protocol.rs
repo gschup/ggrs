@@ -41,14 +41,14 @@ fn millis_since_epoch() -> u128 {
 
 // byte-encoded data representing the inputs of a client, possibly for multiple players at the same time
 #[derive(Clone)]
-struct EndpointData {
+struct InputBytes {
     /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
     pub frame: Frame,
     /// An input buffer that will hold input data
     pub bytes: Vec<u8>,
 }
 
-impl EndpointData {
+impl InputBytes {
     fn zeroed<T: Config>(num_players: usize) -> Self {
         let zeroed = PlayerInput::<T::Input>::blank_input(NULL_FRAME);
         let size = bytemuck::bytes_of(&zeroed.input).len() * num_players;
@@ -68,8 +68,10 @@ impl EndpointData {
         // in ascending order
         for handle in 0..num_players {
             if let Some(input) = inputs.get(&handle) {
-                assert!(frame == NULL_FRAME || frame == input.frame);
-                frame = input.frame;
+                assert!(frame == NULL_FRAME || input.frame == NULL_FRAME || frame == input.frame);
+                if input.frame != NULL_FRAME {
+                    frame = input.frame;
+                }
                 let byte_vec = bytemuck::bytes_of(&input.input);
                 bytes.extend_from_slice(byte_vec);
             }
@@ -154,10 +156,10 @@ where
     peer_connect_status: Vec<ConnectionStatus>,
 
     // input compression
-    pending_output: VecDeque<EndpointData>,
-    last_acked_input: EndpointData,
+    pending_output: VecDeque<InputBytes>,
+    last_acked_input: InputBytes,
     max_prediction: usize,
-    recv_inputs: HashMap<Frame, EndpointData>,
+    recv_inputs: HashMap<Frame, InputBytes>,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -206,7 +208,7 @@ impl<T: Config> UdpProtocol<T> {
 
         // received input history
         let mut recv_inputs = HashMap::new();
-        recv_inputs.insert(NULL_FRAME, EndpointData::zeroed::<T>(recv_player_num));
+        recv_inputs.insert(NULL_FRAME, InputBytes::zeroed::<T>(recv_player_num));
 
         Self {
             num_players,
@@ -237,7 +239,7 @@ impl<T: Config> UdpProtocol<T> {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
-            last_acked_input: EndpointData::zeroed::<T>(local_players),
+            last_acked_input: InputBytes::zeroed::<T>(local_players),
             max_prediction,
             recv_inputs,
 
@@ -439,7 +441,7 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
 
-        let endpoint_data = EndpointData::from_inputs::<T>(self.num_players, inputs);
+        let endpoint_data = InputBytes::from_inputs::<T>(self.num_players, inputs);
 
         // register the input and advantages in the time sync layer
         self.time_sync_layer.advance_frame(
@@ -654,7 +656,7 @@ impl<T: Config> UdpProtocol<T> {
                     continue;
                 }
 
-                let input_data = EndpointData {
+                let input_data = InputBytes {
                     frame: inp_frame,
                     bytes: inp,
                 };

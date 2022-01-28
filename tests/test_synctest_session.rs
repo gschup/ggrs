@@ -19,8 +19,9 @@ fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
         .start_synctest_session()?;
 
     for i in 0..200 {
-        let inputs = vec![StubInput { inp: i }, StubInput { inp: i }];
-        let requests = sess.advance_frame(&inputs).unwrap();
+        sess.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess.add_local_input(1, StubInput { inp: i }).unwrap();
+        let requests = sess.advance_frame().unwrap();
         stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
@@ -38,8 +39,9 @@ fn test_advance_frames_with_delayed_input() -> Result<(), GGRSError> {
         .start_synctest_session()?;
 
     for i in 0..200 {
-        let inputs = vec![StubInput { inp: i }, StubInput { inp: i }];
-        let requests = sess.advance_frame(&inputs).unwrap();
+        sess.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess.add_local_input(1, StubInput { inp: i }).unwrap();
+        let requests = sess.advance_frame().unwrap();
         stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
@@ -57,8 +59,9 @@ fn test_advance_frames_with_random_checksums() {
         .unwrap();
 
     for i in 0..200 {
-        let inputs = vec![StubInput { inp: i }, StubInput { inp: i }];
-        let requests = sess.advance_frame(&inputs).unwrap();
+        sess.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess.add_local_input(1, StubInput { inp: i }).unwrap();
+        let requests = sess.advance_frame().unwrap();
         stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }

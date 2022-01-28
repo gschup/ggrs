@@ -224,10 +224,6 @@ impl<T: Config> SpectatorSession<T> {
             Event::Input { input, player } => {
                 // save the input
                 self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE][player] = input;
-                println!(
-                    "RECEIVED INPUT FROM {} FOR FRAME {}, LAST RECV FRAME {}",
-                    player, input.frame, self.last_recv_frame
-                );
                 assert!(input.frame >= self.last_recv_frame);
                 self.last_recv_frame = input.frame;
 

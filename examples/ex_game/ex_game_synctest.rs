@@ -60,12 +60,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
 
             // gather inputs
-            let mut all_inputs = Vec::new();
-            for player in 0..opt.num_players {
-                all_inputs.push(game.local_input(player))
+            for handle in 0..opt.num_players {
+                sess.add_local_input(handle, game.local_input(handle))?;
             }
 
-            match sess.advance_frame(&all_inputs) {
+            match sess.advance_frame() {
                 Ok(requests) => game.handle_requests(requests),
                 Err(e) => return Err(Box::new(e)),
             }

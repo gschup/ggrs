@@ -4,7 +4,7 @@ use crate::error::GGRSError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Config, Frame, GGRSRequest};
+use crate::{Config, Frame, GGRSRequest, PlayerHandle};
 
 /// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -18,6 +18,7 @@ where
     sync_layer: SyncLayer<T>,
     dummy_connect_status: Vec<ConnectionStatus>,
     checksum_history: HashMap<Frame, u64>,
+    local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 }
 
 impl<T: Config> SyncTestSession<T> {
@@ -43,8 +44,30 @@ impl<T: Config> SyncTestSession<T> {
             check_distance,
             sync_layer,
             dummy_connect_status,
-            checksum_history: HashMap::default(),
+            checksum_history: HashMap::new(),
+            local_inputs: HashMap::new(),
         }
+    }
+
+    /// Registers local input for a player for the current frame. This should be successfully called for every local player before calling `advance_frame()`.
+    /// If this is called multiple times for the same player before advancing the frame, older given inputs will be overwritten.
+    /// In a sync test, all players are considered to be local, so you need to add input for all of them.
+    ///
+    /// # Errors
+    /// - Returns `InvalidRequest` when the given handle is not valid (i.e. not between 0 and num_players).
+    pub fn add_local_input(
+        &mut self,
+        player_handle: PlayerHandle,
+        input: T::Input,
+    ) -> Result<(), GGRSError> {
+        if player_handle >= self.num_players {
+            return Err(GGRSError::InvalidRequest {
+                info: "The player handle you provided is not valid.".to_owned(),
+            });
+        }
+        let player_input = PlayerInput::<T::Input>::new(self.sync_layer.current_frame(), input);
+        self.local_inputs.insert(player_handle, player_input);
+        Ok(())
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
@@ -53,10 +76,7 @@ impl<T: Config> SyncTestSession<T> {
     ///
     /// # Errors
     /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
-    pub fn advance_frame(
-        &mut self,
-        all_inputs: &[T::Input],
-    ) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
@@ -76,15 +96,19 @@ impl<T: Config> SyncTestSession<T> {
             self.adjust_gamestate(frame_to, &mut requests);
         }
 
-        // pass all inputs into the sync layer
-        assert_eq!(self.num_players as usize, all_inputs.len());
-        for (i, input) in all_inputs.iter().enumerate() {
-            //create an input struct for current frame
-            let input = PlayerInput::new(self.sync_layer.current_frame(), *input);
-
-            // send the input into the sync layer
-            self.sync_layer.add_local_input(i, input)?;
+        // we require inputs for all players
+        if self.num_players as usize != self.local_inputs.len() {
+            return Err(GGRSError::InvalidRequest {
+                info: "Missing local input while calling advance_frame().".to_owned(),
+            });
         }
+        // pass all inputs into the sync layer
+        for (&handle, &input) in self.local_inputs.iter() {
+            // send the input into the sync layer
+            self.sync_layer.add_local_input(handle, input)?;
+        }
+        // clear local inputs after using them
+        self.local_inputs.clear();
 
         // save the current frame in the syncronization layer
         // we can skip all the saving if the check_distance is 0

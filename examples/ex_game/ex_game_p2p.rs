@@ -35,7 +35,6 @@ struct Opt {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
-    let mut local_handle = 0;
     let num_players = opt.players.len();
     assert!(num_players > 0);
 
@@ -50,7 +49,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // local player
         if player_addr == "localhost" {
             sess_build = sess_build.add_player(PlayerType::Local, i)?;
-            local_handle = i;
         } else {
             // remote players
             let remote_addr: SocketAddr = player_addr.parse()?;
@@ -102,7 +100,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // decrease accumulator
                 accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
 
-                match sess.advance_frame(local_handle, game.local_input(0)) {
+                // add input for all local  players
+                for handle in sess.local_player_handles() {
+                    sess.add_local_input(handle, game.local_input(0))?; // we always call game.local_input(0) in order to get WASD inputs.
+                }
+
+                match sess.advance_frame() {
                     Ok(requests) => game.handle_requests(requests),
                     Err(GGRSError::PredictionThreshold) => {
                         println!("Frame {} skipped", sess.current_frame())

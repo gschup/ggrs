@@ -122,8 +122,10 @@ where
     /// How many frames we estimate we are ahead of every remote client
     frames_ahead: i32,
 
-    ///Contains all events to be forwarded to the user.
+    /// Contains all events to be forwarded to the user.
     event_queue: VecDeque<GGRSEvent<T>>,
+    /// Contains all local inputs not yet sent into the system. This should have inputs for every local player before calling advance_frame
+    local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 }
 
 impl<T: Config> P2PSession<T> {
@@ -172,36 +174,34 @@ impl<T: Config> P2PSession<T> {
             disconnect_frame: NULL_FRAME,
             player_reg: players,
             event_queue: VecDeque::new(),
+            local_inputs: HashMap::new(),
         }
     }
 
-    /// Disconnects a remote player and all other remote players with the same address from the session.  
+    /// Registers local input for a player for the current frame. This should be successfully called for every local player before calling `advance_frame()`.
+    /// If this is called multiple times for the same player before advancing the frame, older given inputs will be overwritten.
+    ///
     /// # Errors
-    /// - Returns `InvalidRequest` if you try to disconnect a local player or the provided handle is invalid.
-    pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
-        match self.player_reg.handles.get(&player_handle) {
-            // the local player cannot be disconnected
-            None => Err(GGRSError::InvalidRequest {
-                info: "Invalid Player Handle.".to_owned(),
-            }),
-            Some(PlayerType::Local) => Err(GGRSError::InvalidRequest {
-                info: "Local Player cannot be disconnected.".to_owned(),
-            }),
-            // a remote player can only be disconnected if not already disconnected, since there is some additional logic attached
-            Some(PlayerType::Remote(_)) => {
-                if !self.local_connect_status[player_handle].disconnected {
-                    let last_frame = self.local_connect_status[player_handle].last_frame;
-                    self.disconnect_player_at_frame(player_handle, last_frame);
-                    return Ok(());
-                }
-                Err(GGRSError::PlayerDisconnected)
-            }
-            // disconnecting spectators is simpler
-            Some(PlayerType::Spectator(_)) => {
-                self.disconnect_player_at_frame(player_handle, NULL_FRAME);
-                Ok(())
-            }
+    /// - Returns `InvalidRequest` when the given handle does not refer to a local player.
+    pub fn add_local_input(
+        &mut self,
+        player_handle: PlayerHandle,
+        input: T::Input,
+    ) -> Result<(), GGRSError> {
+        // make sure the input is for a registered local player
+        if !self
+            .player_reg
+            .local_player_handles()
+            .contains(&player_handle)
+        {
+            return Err(GGRSError::InvalidRequest {
+                info: "The player handle you provided is not referring to a local player."
+                    .to_owned(),
+            });
         }
+        let player_input = PlayerInput::<T::Input>::new(self.sync_layer.current_frame(), input);
+        self.local_inputs.insert(player_handle, player_input);
+        Ok(())
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
@@ -211,27 +211,9 @@ impl<T: Config> P2PSession<T> {
     /// # Errors
     /// - Returns `InvalidRequest` if the provided player handle refers to a remote player.
     /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
-    pub fn advance_frame(
-        &mut self,
-        local_player_handle: PlayerHandle,
-        local_input: T::Input,
-    ) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
-
-        // player handle is invalid
-        if local_player_handle > self.num_players as PlayerHandle {
-            return Err(GGRSError::InvalidRequest {
-                info: "The player handle you provided is invalid.".to_owned(),
-            });
-        }
-
-        // player is not a local player
-        if self.player_reg.player_type(local_player_handle) != Some(&PlayerType::Local) {
-            return Err(GGRSError::InvalidRequest {
-                info: "The player handle you provided does not refer to a local player.".to_owned(),
-            });
-        }
 
         // session is not running and synchronzied
         if self.state != SessionState::Running {
@@ -305,30 +287,34 @@ impl<T: Config> P2PSession<T> {
             });
         }
 
-        //create an input struct for current frame
-        let mut player_input =
-            PlayerInput::<T::Input>::new(self.sync_layer.current_frame(), local_input);
-
-        // send the input into the sync layer
-        let actual_frame = self
-            .sync_layer
-            .add_local_input(local_player_handle, player_input)?;
-
-        // if the actual frame is the null frame, the frame has been dropped by the input queues (for example due to changed input delay)
-        if actual_frame != NULL_FRAME {
-            // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
-            player_input.frame = actual_frame;
-            self.local_connect_status[local_player_handle].last_frame = actual_frame;
-
-            for endpoint in self.player_reg.remotes.values_mut() {
-                // TODO: make this nice
-                let mut input_map = HashMap::new();
-                input_map.insert(local_player_handle, player_input);
-                // send the input directly
-                endpoint.send_input(&input_map, &self.local_connect_status);
-                endpoint.send_all_messages(&mut self.socket);
+        // register local inputs in the system and send them
+        for handle in self.player_reg.local_player_handles() {
+            match self.local_inputs.get_mut(&handle) {
+                Some(player_input) => {
+                    // send the input into the sync layer
+                    let actual_frame = self.sync_layer.add_local_input(handle, *player_input)?;
+                    assert!(actual_frame != NULL_FRAME);
+                    // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
+                    player_input.frame = actual_frame;
+                    self.local_connect_status[handle].last_frame = actual_frame;
+                }
+                None => {
+                    return Err(GGRSError::InvalidRequest {
+                        info: "Missing local input while calling advance_frame().".to_owned(),
+                    });
+                }
             }
         }
+
+        // send the inputs to all clients
+        for endpoint in self.player_reg.remotes.values_mut() {
+            // send the input directly
+            endpoint.send_input(&self.local_inputs, &self.local_connect_status);
+            endpoint.send_all_messages(&mut self.socket);
+        }
+
+        // clear the local inputs after sending them
+        self.local_inputs.clear();
 
         // without sparse saving, always save the current frame after correcting and rollbacking
         if !self.sparse_saving {
@@ -401,6 +387,35 @@ impl<T: Config> P2PSession<T> {
         }
         for endpoint in self.player_reg.spectators.values_mut() {
             endpoint.send_all_messages(&mut self.socket);
+        }
+    }
+
+    /// Disconnects a remote player and all other remote players with the same address from the session.  
+    /// # Errors
+    /// - Returns `InvalidRequest` if you try to disconnect a local player or the provided handle is invalid.
+    pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
+        match self.player_reg.handles.get(&player_handle) {
+            // the local player cannot be disconnected
+            None => Err(GGRSError::InvalidRequest {
+                info: "Invalid Player Handle.".to_owned(),
+            }),
+            Some(PlayerType::Local) => Err(GGRSError::InvalidRequest {
+                info: "Local Player cannot be disconnected.".to_owned(),
+            }),
+            // a remote player can only be disconnected if not already disconnected, since there is some additional logic attached
+            Some(PlayerType::Remote(_)) => {
+                if !self.local_connect_status[player_handle].disconnected {
+                    let last_frame = self.local_connect_status[player_handle].last_frame;
+                    self.disconnect_player_at_frame(player_handle, last_frame);
+                    return Ok(());
+                }
+                Err(GGRSError::PlayerDisconnected)
+            }
+            // disconnecting spectators is simpler
+            Some(PlayerType::Spectator(_)) => {
+                self.disconnect_player_at_frame(player_handle, NULL_FRAME);
+                Ok(())
+            }
         }
     }
 
@@ -686,7 +701,6 @@ impl<T: Config> P2PSession<T> {
         for endpoint in self.player_reg.remotes.values() {
             for &handle in endpoint.handles() {
                 if !self.local_connect_status[handle].disconnected {
-                    // TODO: is this still what we want for >2 players?
                     interval = std::cmp::max(interval, endpoint.average_frame_advantage());
                 }
             }

@@ -130,9 +130,11 @@ fn test_advance_frame_p2p_sessions() -> Result<(), GGRSError> {
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
 
-        let requests1 = sess1.advance_frame(0, StubInput { inp: i }).unwrap();
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        let requests1 = sess1.advance_frame().unwrap();
         stub1.handle_requests(requests1);
-        let requests2 = sess2.advance_frame(1, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
         stub2.handle_requests(requests2);
 
         // gamestate evolves
