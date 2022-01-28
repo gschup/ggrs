@@ -223,6 +223,10 @@ impl<T: Config> P2PSession<T> {
         // This list of requests will be returned to the user
         let mut requests = Vec::new();
 
+        /*
+         * ROLLBACKS AND GAME STATE MANAGEMENT
+         */
+
         // if we are in the first frame, we have to save the state
         if self.sync_layer.current_frame() == 0 {
             requests.push(self.sync_layer.save_current_state());
@@ -244,48 +248,35 @@ impl<T: Config> P2PSession<T> {
             self.disconnect_frame = NULL_FRAME;
         }
 
-        // in sparse saving mode, we need to make sure not to lose the last saved frame
         let last_saved = self.sync_layer.last_saved_frame();
-        if self.sparse_saving
-            && self.sync_layer.current_frame() - last_saved >= self.max_prediction as i32
-        {
-            // check if the current frame is confirmed, otherwise we need to roll back
-            if confirmed_frame >= self.sync_layer.current_frame() {
-                // the current frame is confirmed, save it
-                requests.push(self.sync_layer.save_current_state());
-            } else {
-                // roll back to the last saved state, resimulate and save on the way
-                self.adjust_gamestate(last_saved, confirmed_frame, &mut requests);
-            }
-
-            // after all this, we should have saved the confirmed state
-            assert!(
-                confirmed_frame == NULL_FRAME
-                    || self.sync_layer.last_saved_frame()
-                        == std::cmp::min(confirmed_frame, self.sync_layer.current_frame())
-            );
+        if self.sparse_saving {
+            self.check_last_saved_state(last_saved, confirmed_frame, &mut requests);
+        } else {
+            // without sparse saving, always save the current frame after correcting and rollbacking
+            requests.push(self.sync_layer.save_current_state());
         }
 
-        // send confirmed inputs to spectators
+        /*
+         *  SEND OFF AND THROW AWAY INPUTS BEFORE THE CONFIRMED FRAME
+         */
+
+        // send confirmed inputs to spectators before throwing them away
         self.send_confirmed_inputs_to_spectators(confirmed_frame);
 
         // set the last confirmed frame and discard all saved inputs before that frame
         self.sync_layer
             .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
 
+        /*
+         *  WAIT RECOMMENDATION
+         */
+
         // check time sync between clients and send wait recommendation, if appropriate
-        self.frames_ahead = self.max_frame_advantage();
-        if self.sync_layer.current_frame() > self.next_recommended_sleep
-            && self.frames_ahead >= MIN_RECOMMENDATION as i32
-        {
-            self.next_recommended_sleep = self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
-            self.event_queue.push_back(GGRSEvent::WaitRecommendation {
-                skip_frames: self
-                    .frames_ahead
-                    .try_into()
-                    .expect("frames ahead is negative despite being positive."),
-            });
-        }
+        self.check_wait_recommendation();
+
+        /*
+         *  INPUTS
+         */
 
         // register local inputs in the system and send them
         for handle in self.player_reg.local_player_handles() {
@@ -316,10 +307,9 @@ impl<T: Config> P2PSession<T> {
         // clear the local inputs after sending them
         self.local_inputs.clear();
 
-        // without sparse saving, always save the current frame after correcting and rollbacking
-        if !self.sparse_saving {
-            requests.push(self.sync_layer.save_current_state());
-        }
+        /*
+         * ADVANCE THE STATE
+         */
 
         // get correct inputs for the current frame
         let inputs = self
@@ -712,6 +702,47 @@ impl<T: Config> P2PSession<T> {
         }
 
         interval
+    }
+
+    fn check_wait_recommendation(&mut self) {
+        self.frames_ahead = self.max_frame_advantage();
+        if self.sync_layer.current_frame() > self.next_recommended_sleep
+            && self.frames_ahead >= MIN_RECOMMENDATION as i32
+        {
+            self.next_recommended_sleep = self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
+            self.event_queue.push_back(GGRSEvent::WaitRecommendation {
+                skip_frames: self
+                    .frames_ahead
+                    .try_into()
+                    .expect("frames ahead is negative despite being positive."),
+            });
+        }
+    }
+
+    fn check_last_saved_state(
+        &mut self,
+        last_saved: Frame,
+        confirmed_frame: Frame,
+        mut requests: &mut Vec<GGRSRequest<T>>,
+    ) {
+        // in sparse saving mode, we need to make sure not to lose the last saved frame
+        if self.sync_layer.current_frame() - last_saved >= self.max_prediction as i32 {
+            // check if the current frame is confirmed, otherwise we need to roll back
+            if confirmed_frame >= self.sync_layer.current_frame() {
+                // the current frame is confirmed, save it
+                requests.push(self.sync_layer.save_current_state());
+            } else {
+                // roll back to the last saved state, resimulate and save on the way
+                self.adjust_gamestate(last_saved, confirmed_frame, &mut requests);
+            }
+
+            // after all this, we should have saved the confirmed state
+            assert!(
+                confirmed_frame == NULL_FRAME
+                    || self.sync_layer.last_saved_frame()
+                        == std::cmp::min(confirmed_frame, self.sync_layer.current_frame())
+            );
+        }
     }
 
     /// Handle events received from the UDP endpoints. Most events are being forwarded to the user for notification, but some require action.
