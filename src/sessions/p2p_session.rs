@@ -723,7 +723,7 @@ impl<T: Config> P2PSession<T> {
         &mut self,
         last_saved: Frame,
         confirmed_frame: Frame,
-        mut requests: &mut Vec<GGRSRequest<T>>,
+        requests: &mut Vec<GGRSRequest<T>>,
     ) {
         // in sparse saving mode, we need to make sure not to lose the last saved frame
         if self.sync_layer.current_frame() - last_saved >= self.max_prediction as i32 {
@@ -733,7 +733,7 @@ impl<T: Config> P2PSession<T> {
                 requests.push(self.sync_layer.save_current_state());
             } else {
                 // roll back to the last saved state, resimulate and save on the way
-                self.adjust_gamestate(last_saved, confirmed_frame, &mut requests);
+                self.adjust_gamestate(last_saved, confirmed_frame, requests);
             }
 
             // after all this, we should have saved the confirmed state

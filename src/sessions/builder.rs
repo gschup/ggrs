@@ -45,6 +45,12 @@ where
     catchup_speed: usize,
 }
 
+impl<T: Config> Default for SessionBuilder<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Builds a new `P2PSession`. A `P2PSession` provides all functionality to connect to remote clients
 /// in a peer-to-peer fashion, exchange inputs and handle the gamestate by saving, loading and advancing.
 impl<T: Config> SessionBuilder<T> {
@@ -236,7 +242,7 @@ impl<T: Config> SessionBuilder<T> {
             match player_type {
                 PlayerType::Remote(_) | PlayerType::Spectator(_) => addr_count
                     .entry(player_type.clone())
-                    .or_insert(vec![])
+                    .or_insert_with(Vec::new)
                     .push(*handle),
                 PlayerType::Local => (),
             }

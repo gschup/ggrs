@@ -197,7 +197,7 @@ impl<T: Config> UdpProtocol<T> {
             magic = rand::random::<u16>();
         }
 
-        handles.sort();
+        handles.sort_unstable();
         let recv_player_num = handles.len();
 
         // peer connection status
@@ -398,18 +398,15 @@ impl<T: Config> UdpProtocol<T> {
 
     fn pop_pending_output(&mut self, ack_frame: Frame) {
         while !self.pending_output.is_empty() {
-            match self.pending_output.front() {
-                Some(input) => {
-                    if input.frame <= ack_frame {
-                        self.last_acked_input = self
-                            .pending_output
-                            .pop_front()
-                            .expect("Expected input to exist");
-                    } else {
-                        break;
-                    }
+            if let Some(input) = self.pending_output.front() {
+                if input.frame <= ack_frame {
+                    self.last_acked_input = self
+                        .pending_output
+                        .pop_front()
+                        .expect("Expected input to exist");
+                } else {
+                    break;
                 }
-                None => (),
             }
         }
     }
