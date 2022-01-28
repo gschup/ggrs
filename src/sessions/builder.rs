@@ -235,7 +235,7 @@ impl<T: Config> SessionBuilder<T> {
         for (handle, player_type) in self.player_reg.handles.iter() {
             match player_type {
                 PlayerType::Remote(_) | PlayerType::Spectator(_) => addr_count
-                    .entry(*player_type)
+                    .entry(player_type.clone())
                     .or_insert(vec![])
                     .push(*handle),
                 PlayerType::Local => (),
@@ -250,14 +250,14 @@ impl<T: Config> SessionBuilder<T> {
             match player_type {
                 PlayerType::Remote(peer_addr) => {
                     self.player_reg.remotes.insert(
-                        peer_addr,
-                        self.create_endpoint(handles, peer_addr, self.local_players),
+                        peer_addr.clone(),
+                        self.create_endpoint(handles, peer_addr.clone(), self.local_players),
                     );
                 }
                 PlayerType::Spectator(peer_addr) => {
                     self.player_reg.spectators.insert(
-                        peer_addr,
-                        self.create_endpoint(handles, peer_addr, self.num_players), // the host of the spectator sends inputs for all players
+                        peer_addr.clone(),
+                        self.create_endpoint(handles, peer_addr.clone(), self.num_players), // the host of the spectator sends inputs for all players
                     );
                 }
                 PlayerType::Local => (),

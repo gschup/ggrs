@@ -61,7 +61,7 @@ pub type PlayerHandle = usize;
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum PlayerType<A>
 where
-    A: Copy + Clone + PartialEq + Eq + Hash,
+    A: Clone + PartialEq + Eq + Hash,
 {
     /// This player plays on the local device.
     Local,
@@ -71,7 +71,7 @@ where
     Spectator(A),
 }
 
-impl<A: Copy + Clone + PartialEq + Eq + Hash> Default for PlayerType<A> {
+impl<A: Clone + PartialEq + Eq + Hash> Default for PlayerType<A> {
     fn default() -> Self {
         Self::Local
     }
@@ -137,9 +137,47 @@ where
 // #  TRAITS   #
 // #############
 
-//  special thanks to james7132 for the idea
+//  special thanks to james7132 for the idea of a config trait that bundles all generics
 
 /// Compile time parameterization for sessions.
+#[cfg(feature = "sync-send")]
+pub trait Config: 'static + Send + Sync {
+    /// The input type for a session. This is the only game-related data
+    /// transmitted over the network.
+    ///
+    /// Reminder: Types implementing [Pod] may not have the same byte representation
+    /// on platforms with different endianness. GGRS assumes that all players are
+    /// running with the same endianness when encoding and decoding inputs.
+    ///
+    /// [Pod]: bytemuck::Pod
+    type Input: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable + Send + Sync;
+
+    /// The save state type for the session.
+    type State: Clone + Send + Sync;
+
+    /// The address type which identifies the remote clients
+    type Address: Clone + PartialEq + Eq + Hash + Send + Sync;
+}
+
+/// This `NonBlockingSocket` trait is used when you want to use GGRS with your own socket.
+/// However you wish to send and receive messages, it should be implemented through these two methods.
+/// Messages should be sent in an UDP-like fashion, unordered and unreliable.
+/// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
+#[cfg(feature = "sync-send")]
+pub trait NonBlockingSocket<A>: Send + Sync
+where
+    A: Clone + PartialEq + Eq + Hash + Send + Sync,
+{
+    /// Takes an `UdpMessage` and sends it to the given address.
+    fn send_to(&mut self, msg: &Message, addr: &A);
+
+    /// This method should return all messages received since the last time this method was called.
+    /// The pairs `(A, UdpMessage)` indicate from which address each packet was received.
+    fn receive_all_messages(&mut self) -> Vec<(A, Message)>;
+}
+
+/// Compile time parameterization for sessions.
+#[cfg(not(feature = "sync-send"))]
 pub trait Config: 'static {
     /// The input type for a session. This is the only game-related data
     /// transmitted over the network.
@@ -155,16 +193,17 @@ pub trait Config: 'static {
     type State: Clone;
 
     /// The address type which identifies the remote clients
-    type Address: Copy + Clone + PartialEq + Eq + Hash;
+    type Address: Clone + PartialEq + Eq + Hash;
 }
 
 /// This `NonBlockingSocket` trait is used when you want to use GGRS with your own socket.
 /// However you wish to send and receive messages, it should be implemented through these two methods.
 /// Messages should be sent in an UDP-like fashion, unordered and unreliable.
 /// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
+#[cfg(not(feature = "sync-send"))]
 pub trait NonBlockingSocket<A>
 where
-    A: Eq,
+    A: Clone + PartialEq + Eq + Hash,
 {
     /// Takes an `UdpMessage` and sends it to the given address.
     fn send_to(&mut self, msg: &Message, addr: &A);

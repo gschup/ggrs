@@ -10,6 +10,9 @@ repository = "https://github.com/gschup/ggrs"
 keywords = ["gamedev", "networking", "ggpo", "rollback"]
 categories = ["network-programming", "game-development"]
 
+[features]
+sync-send = []
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 bincode = "1.3"

@@ -147,7 +147,7 @@ impl<T: Config> SpectatorSession<T> {
         let mut events = VecDeque::new();
         let addr = self.host.peer_addr();
         for event in self.host.poll(&self.host_connect_status) {
-            events.push_back((event, addr));
+            events.push_back((event, addr.clone()));
         }
 
         // handle all events locally

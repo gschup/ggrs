@@ -39,8 +39,8 @@ impl<T: Config> PlayerRegistry<T> {
     pub(crate) fn local_player_handles(&self) -> Vec<PlayerHandle> {
         self.handles
             .iter()
-            .filter_map(|(&k, &v)| match v {
-                PlayerType::Local => Some(k),
+            .filter_map(|(k, v)| match v {
+                PlayerType::Local => Some(*k),
                 PlayerType::Remote(_) => None,
                 PlayerType::Spectator(_) => None,
             })
@@ -50,9 +50,9 @@ impl<T: Config> PlayerRegistry<T> {
     pub(crate) fn remote_player_handles(&self) -> Vec<PlayerHandle> {
         self.handles
             .iter()
-            .filter_map(|(&k, &v)| match v {
+            .filter_map(|(k, v)| match v {
                 PlayerType::Local => None,
-                PlayerType::Remote(_) => Some(k),
+                PlayerType::Remote(_) => Some(*k),
                 PlayerType::Spectator(_) => None,
             })
             .collect()
@@ -61,10 +61,10 @@ impl<T: Config> PlayerRegistry<T> {
     pub(crate) fn spectator_handles(&self) -> Vec<PlayerHandle> {
         self.handles
             .iter()
-            .filter_map(|(&k, &v)| match v {
-                PlayerType::Local => Some(k),
+            .filter_map(|(k, v)| match v {
+                PlayerType::Local => Some(*k),
                 PlayerType::Remote(_) => None,
-                PlayerType::Spectator(_) => Some(k),
+                PlayerType::Spectator(_) => Some(*k),
             })
             .collect()
     }
@@ -72,14 +72,14 @@ impl<T: Config> PlayerRegistry<T> {
     pub(crate) fn num_players(&self) -> usize {
         self.handles
             .iter()
-            .filter(|&(_, &v)| matches!(v, PlayerType::Local | PlayerType::Remote(_)))
+            .filter(|(_, v)| matches!(v, PlayerType::Local | PlayerType::Remote(_)))
             .count()
     }
 
     pub(crate) fn num_spectators(&self) -> usize {
         self.handles
             .iter()
-            .filter(|&(_, &v)| matches!(v, PlayerType::Spectator(_)))
+            .filter(|(_, v)| matches!(v, PlayerType::Spectator(_)))
             .count()
     }
 
@@ -354,14 +354,14 @@ impl<T: Config> P2PSession<T> {
             let handles = endpoint.handles().clone();
             let addr = endpoint.peer_addr();
             for event in endpoint.poll(&self.local_connect_status) {
-                events.push_back((event, handles.clone(), addr))
+                events.push_back((event, handles.clone(), addr.clone()))
             }
         }
         for endpoint in self.player_reg.spectators.values_mut() {
             let handles = endpoint.handles().clone();
             let addr = endpoint.peer_addr();
             for event in endpoint.poll(&self.local_connect_status) {
-                events.push_back((event, handles.clone(), addr))
+                events.push_back((event, handles.clone(), addr.clone()))
             }
         }
 

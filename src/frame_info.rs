@@ -48,7 +48,7 @@ impl<S: Clone> GameState<S> {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PlayerInput<I>
 where
-    I: PartialEq + Copy + Clone + bytemuck::Pod + bytemuck::Zeroable,
+    I: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable,
 {
     /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
     pub frame: Frame,
@@ -56,7 +56,7 @@ where
     pub input: I,
 }
 
-impl<I: PartialEq + bytemuck::Pod + bytemuck::Zeroable> PlayerInput<I> {
+impl<I: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable> PlayerInput<I> {
     /// Returns true, if the player of that input has disconnected
     pub fn is_disconnected(&self) -> bool {
         self.frame == NULL_FRAME
@@ -84,9 +84,8 @@ impl<I: PartialEq + bytemuck::Pod + bytemuck::Zeroable> PlayerInput<I> {
 
 #[cfg(test)]
 mod game_input_tests {
-    use bytemuck::{Pod, Zeroable};
-
     use super::*;
+    use bytemuck::{Pod, Zeroable};
 
     #[repr(C)]
     #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
@@ -95,7 +94,14 @@ mod game_input_tests {
     }
 
     #[test]
-    fn test_input_equality_bits_only() {
+    fn test_input_equality() {
+        let input1 = PlayerInput::new(0, TestInput { inp: 5 });
+        let input2 = PlayerInput::new(0, TestInput { inp: 5 });
+        assert!(input1.equal(&input2, false));
+    }
+
+    #[test]
+    fn test_input_equality_input_only() {
         let input1 = PlayerInput::new(0, TestInput { inp: 5 });
         let input2 = PlayerInput::new(5, TestInput { inp: 5 });
         assert!(input1.equal(&input2, true)); // different frames, but does not matter

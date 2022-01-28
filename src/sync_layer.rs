@@ -8,7 +8,7 @@ use crate::network::messages::ConnectionStatus;
 use crate::{Config, Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
 
 /// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
-pub struct GameStateCell<T: Clone = Vec<u8>>(Arc<Mutex<GameState<T>>>);
+pub struct GameStateCell<T: Clone>(Arc<Mutex<GameState<T>>>);
 
 impl<T: Clone> GameStateCell<T> {
     /// Saves a `GameState` the user creates into the cell.
@@ -42,7 +42,7 @@ impl<T: Clone> Clone for GameStateCell<T> {
 }
 
 #[derive(Clone)]
-pub(crate) struct SavedStates<T: Clone = Vec<u8>> {
+pub(crate) struct SavedStates<T: Clone> {
     pub states: Vec<GameStateCell<T>>,
 }
 
@@ -284,7 +284,7 @@ mod sync_layer_tests {
 
     impl Config for TestConfig {
         type Input = TestInput;
-        type State = Vec<u8>;
+        type State = u8;
         type Address = SocketAddr;
     }
 

@@ -338,7 +338,7 @@ impl<T: Config> UdpProtocol<T> {
     }
 
     pub(crate) fn peer_addr(&self) -> T::Address {
-        self.peer_addr
+        self.peer_addr.clone()
     }
 
     pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event<T>> {
