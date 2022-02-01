@@ -86,6 +86,20 @@ impl<T: Config> PlayerRegistry<T> {
     pub(crate) fn player_type(&self, handle: PlayerHandle) -> Option<&PlayerType<T::Address>> {
         self.handles.get(&handle)
     }
+
+    pub fn handles_by_address(&self, addr: T::Address) -> Vec<PlayerHandle> {
+        let handles: Vec<PlayerHandle> = self
+            .handles
+            .iter()
+            .filter_map(|(h, player_type)| match player_type {
+                PlayerType::Local => None,
+                PlayerType::Remote(a) => Some((h, a)),
+                PlayerType::Spectator(a) => Some((h, a)),
+            })
+            .filter_map(|(h, a)| if addr == *a { Some(*h) } else { None })
+            .collect();
+        handles
+    }
 }
 
 /// A `P2PSession` provides all functionality to connect to remote clients in a peer-to-peer fashion, exchange inputs and handle the gamestate by saving, loading and advancing.
@@ -491,6 +505,11 @@ impl<T: Config> P2PSession<T> {
     /// Returns the handles of spectators that have been added
     pub fn spectator_handles(&self) -> Vec<PlayerHandle> {
         self.player_reg.spectator_handles()
+    }
+
+    /// Returns all handles associated to a certain address
+    pub fn handles_by_address(&self, addr: T::Address) -> Vec<PlayerHandle> {
+        self.player_reg.handles_by_address(addr)
     }
 
     /// Returns the number of frames this session is estimated to be ahead of other sessions
