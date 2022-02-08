@@ -11,10 +11,9 @@ If you are interested in integrating rollback networking into your game or just 
 
 ## Live Demonstrations
 
-[johanhelsing](https://github.com/johanhelsing) wrote and hosts multiple small demos/games written with GGRS, [Bevy](https://bevyengine.org/) and [matchbox](https://github.com/johanhelsing/matchbox) running in the browser. Try them out with a friend! Just click the link to get matched with another player! (You can also open the link in two separate windows to play against yourself)
+GGRS has a demo app you can try in the browser! It uses [macroquad](https://github.com/not-fl3/macroquad) and [matchbox](https://github.com/johanhelsing/matchbox). Try it out with a friend! Just click the link and match with another player! (You can also open the link in two separate windows to play against yourself)
 
-- [Demo](https://helsing.studio/box_game/)
-- [Small Game](https://helsing.studio/extreme/)
+- [Demo](https://gschup.github.io/ggrs_demo/)
 
 ## Getting Started
 
