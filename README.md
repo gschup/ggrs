@@ -14,6 +14,7 @@ If you are interested in integrating rollback networking into your game or just 
 GGRS has a demo app you can try in the browser! It uses [macroquad](https://github.com/not-fl3/macroquad) and [matchbox](https://github.com/johanhelsing/matchbox). Try it out with a friend! Just click the link and match with another player! (You can also open the link in two separate windows to play against yourself)
 
 - [Demo](https://gschup.github.io/ggrs_demo/)
+- [Demo Repository](https://github.com/gschup/ggrs_demo)
 
 ## Getting Started
 
