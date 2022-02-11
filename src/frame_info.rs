@@ -1,16 +1,15 @@
 use crate::{Frame, NULL_FRAME};
 
-/// Represents the game state of your game for a single frame. The `data` holds your state, `frame` indicates the associated frame number
+/// Represents the game state of your game for a single frame. The `data` holds the game state, `frame` indicates the associated frame number
 /// and `checksum` can additionally be provided for use during a `SyncTestSession`.
-/// You are expected to return this during `save_game_state()` and use them during `load_game_state()`.
 #[derive(Debug, Clone)]
-pub struct GameState<S: Clone> {
+pub(crate) struct GameState<S: Clone> {
     /// The frame to which this info belongs to.
     pub frame: Frame,
     /// The game state
     pub data: Option<S>,
     /// The checksum of the gamestate.
-    pub checksum: u64,
+    pub checksum: Option<u128>,
 }
 
 impl<S: Clone> Default for GameState<S> {
@@ -18,27 +17,7 @@ impl<S: Clone> Default for GameState<S> {
         Self {
             frame: NULL_FRAME,
             data: None,
-            checksum: 0,
-        }
-    }
-}
-
-impl<S: Clone> GameState<S> {
-    pub fn new(frame: Frame, data: Option<S>) -> Self {
-        Self {
-            frame,
-            data,
-            checksum: 0,
-        }
-    }
-}
-
-impl<S: Clone> GameState<S> {
-    pub fn new_with_checksum(frame: Frame, data: Option<S>, checksum: u64) -> Self {
-        Self {
-            frame,
-            data,
-            checksum,
+            checksum: None,
         }
     }
 }
@@ -46,7 +25,7 @@ impl<S: Clone> GameState<S> {
 /// Represents an input for a single player in a single frame. The associated frame is denoted with `frame`.
 /// You do not need to create this struct, but the sessions will provide a `Vec<GameInput>` for you during `advance_frame()`.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct PlayerInput<I>
+pub(crate) struct PlayerInput<I>
 where
     I: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable,
 {
@@ -57,11 +36,6 @@ where
 }
 
 impl<I: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable> PlayerInput<I> {
-    /// Returns true, if the player of that input has disconnected
-    pub fn is_disconnected(&self) -> bool {
-        self.frame == NULL_FRAME
-    }
-
     pub(crate) fn new(frame: Frame, input: I) -> Self {
         Self { frame, input }
     }

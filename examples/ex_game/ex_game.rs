@@ -1,9 +1,7 @@
 use std::net::SocketAddr;
 
 use bytemuck::{Pod, Zeroable};
-use ggrs::{
-    Config, Frame, GGRSRequest, GameState, GameStateCell, PlayerHandle, PlayerInput, NULL_FRAME,
-};
+use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus, PlayerHandle, NULL_FRAME};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -88,20 +86,16 @@ impl Game {
     fn save_game_state(&mut self, cell: GameStateCell<State>, frame: Frame) {
         assert_eq!(self.game_state.frame, frame);
         let buffer = bincode::serialize(&self.game_state).unwrap();
-        let checksum = fletcher16(&buffer) as u64;
-        cell.save(GameState::new_with_checksum(
-            frame,
-            Some(self.game_state.clone()),
-            checksum,
-        ));
+        let checksum = fletcher16(&buffer) as u128;
+        cell.save(frame, Some(self.game_state.clone()), Some(checksum));
     }
 
     // load gamestate and overwrite
     fn load_game_state(&mut self, cell: GameStateCell<State>) {
-        self.game_state = cell.load().data.expect("No data found.");
+        self.game_state = cell.load().expect("No data found.");
     }
 
-    fn advance_frame(&mut self, inputs: Vec<PlayerInput<Input>>) {
+    fn advance_frame(&mut self, inputs: Vec<(Input, InputStatus)>) {
         // advance the game state
         self.game_state.advance(inputs);
 
@@ -239,16 +233,16 @@ impl State {
         }
     }
 
-    pub fn advance(&mut self, inputs: Vec<PlayerInput<Input>>) {
+    pub fn advance(&mut self, inputs: Vec<(Input, InputStatus)>) {
         // increase the frame counter
         self.frame += 1;
 
         for i in 0..self.num_players {
             // get input of that player
-            let input = if inputs[i].frame == NULL_FRAME {
-                4 // disconnected players spin
-            } else {
-                inputs[i].input.inp
+            let input = match inputs[i].1 {
+                InputStatus::Confirmed => inputs[i].0.inp,
+                InputStatus::Predicted => inputs[i].0.inp,
+                InputStatus::Disconnected => 4, // disconnected players spin
             };
 
             // old values

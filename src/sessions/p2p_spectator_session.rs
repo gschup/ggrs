@@ -1,12 +1,13 @@
 use std::collections::{vec_deque::Drain, VecDeque};
 
 use crate::{
+    frame_info::PlayerInput,
     network::{
         messages::ConnectionStatus,
         protocol::{Event, UdpProtocol},
     },
     sessions::builder::MAX_EVENT_QUEUE_SIZE,
-    Config, Frame, GGRSError, GGRSEvent, GGRSRequest, NetworkStats, NonBlockingSocket, PlayerInput,
+    Config, Frame, GGRSError, GGRSEvent, GGRSRequest, InputStatus, NetworkStats, NonBlockingSocket,
     SessionState, NULL_FRAME,
 };
 
@@ -167,8 +168,8 @@ impl<T: Config> SpectatorSession<T> {
     fn inputs_at_frame(
         &self,
         frame_to_grab: Frame,
-    ) -> Result<Vec<PlayerInput<T::Input>>, GGRSError> {
-        let mut player_inputs = self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE].clone();
+    ) -> Result<Vec<(T::Input, InputStatus)>, GGRSError> {
+        let player_inputs = &self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 
         // We haven't received the input from the host yet. Wait.
         if player_inputs[0].frame < frame_to_grab {
@@ -180,16 +181,19 @@ impl<T: Config> SpectatorSession<T> {
             return Err(GGRSError::SpectatorTooFarBehind);
         }
 
-        for i in 0..self.num_players as usize {
-            // disconnected players are identified by NULL_FRAME
-            if self.host_connect_status[i].disconnected
-                && self.host_connect_status[i].last_frame < frame_to_grab
-            {
-                player_inputs[i].frame = NULL_FRAME;
-            }
-        }
-
-        Ok(player_inputs)
+        Ok(player_inputs
+            .iter()
+            .enumerate()
+            .map(|(handle, player_input)| {
+                if self.host_connect_status[handle].disconnected
+                    && self.host_connect_status[handle].last_frame < frame_to_grab
+                {
+                    (player_input.input, InputStatus::Disconnected)
+                } else {
+                    (player_input.input, InputStatus::Confirmed)
+                }
+            })
+            .collect())
     }
 
     fn handle_event(&mut self, event: Event<T>, addr: T::Address) {

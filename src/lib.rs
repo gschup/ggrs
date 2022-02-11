@@ -10,7 +10,7 @@
 use std::{fmt::Debug, hash::Hash};
 
 pub use error::GGRSError;
-pub use frame_info::{GameState, PlayerInput};
+//pub use frame_info::{GameState, PlayerInput};
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
@@ -86,6 +86,17 @@ pub enum SessionState {
     Running,
 }
 
+/// `InputStatus` will always be given together with player inputs when requested to advance the frame.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum InputStatus {
+    /// The input of this player for this frame is an actual received input.
+    Confirmed,
+    /// The input of this player for this frame is predicted.
+    Predicted,
+    /// The player has disconnected at or prior to this frame, so this input is a dummy.
+    Disconnected,
+}
+
 /// Notifications that you can receive from the session. Handling them is up to the user.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum GGRSEvent<T>
@@ -130,7 +141,9 @@ where
     },
     /// You should advance the gamestate with the `inputs` provided to you.
     /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
-    AdvanceFrame { inputs: Vec<PlayerInput<T::Input>> },
+    AdvanceFrame {
+        inputs: Vec<(T::Input, InputStatus)>,
+    },
 }
 
 // #############

@@ -1,3 +1,4 @@
+use bytemuck::Zeroable;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -5,27 +6,33 @@ use crate::error::GGRSError;
 use crate::frame_info::{GameState, PlayerInput};
 use crate::input_queue::InputQueue;
 use crate::network::messages::ConnectionStatus;
-use crate::{Config, Frame, GGRSRequest, PlayerHandle, NULL_FRAME};
+use crate::{Config, Frame, GGRSRequest, InputStatus, PlayerHandle, NULL_FRAME};
 
 /// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
 pub struct GameStateCell<T: Clone>(Arc<Mutex<GameState<T>>>);
 
 impl<T: Clone> GameStateCell<T> {
     /// Saves a `GameState` the user creates into the cell.
-    pub fn save(&self, new_state: GameState<T>) {
+    pub fn save(&self, frame: Frame, data: Option<T>, checksum: Option<u128>) {
         let mut state = self.0.lock();
-        assert!(new_state.frame != NULL_FRAME);
-        state.frame = new_state.frame;
-        {
-            state.checksum = new_state.checksum;
-        }
-        state.data = new_state.data;
+        assert!(frame != NULL_FRAME);
+        state.frame = frame;
+        state.data = data;
+        state.checksum = checksum;
     }
 
     /// Loads a `GameState` that the user previously saved into.
-    pub fn load(&self) -> GameState<T> {
+    pub fn load(&self) -> Option<T> {
         let state = self.0.lock();
-        state.clone()
+        state.data.clone()
+    }
+
+    pub(crate) fn frame(&self) -> Frame {
+        self.0.lock().frame
+    }
+
+    pub(crate) fn checksum(&self) -> Option<u128> {
+        self.0.lock().checksum
     }
 }
 
@@ -177,11 +184,11 @@ impl<T: Config> SyncLayer<T> {
     pub(crate) fn synchronized_inputs(
         &mut self,
         connect_status: &[ConnectionStatus],
-    ) -> Vec<PlayerInput<T::Input>> {
+    ) -> Vec<(T::Input, InputStatus)> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < self.current_frame {
-                inputs.push(PlayerInput::blank_input(NULL_FRAME));
+                inputs.push((T::Input::zeroed(), InputStatus::Disconnected));
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
             }
@@ -321,8 +328,8 @@ mod sync_layer_tests {
 
             if i >= 3 {
                 let sync_inputs = sync_layer.synchronized_inputs(&dummy_connect_status);
-                let player0_inputs = sync_inputs[0].input.inp;
-                let player1_inputs = sync_inputs[1].input.inp;
+                let player0_inputs = sync_inputs[0].0.inp;
+                let player1_inputs = sync_inputs[1].0.inp;
                 assert_eq!(player0_inputs, i as u8 - p1_delay as u8);
                 assert_eq!(player1_inputs, i as u8 - p2_delay as u8);
             }

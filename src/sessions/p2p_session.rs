@@ -329,11 +329,6 @@ impl<T: Config> P2PSession<T> {
         let inputs = self
             .sync_layer
             .synchronized_inputs(&self.local_connect_status);
-        for input in &inputs {
-            // check if input is correct or represents a disconnected player (by NULL_FRAME)
-            assert!(input.frame == NULL_FRAME || input.frame == self.sync_layer.current_frame());
-        }
-
         // advance the frame count
         self.sync_layer.advance_frame();
         requests.push(GGRSRequest::AdvanceFrame { inputs });

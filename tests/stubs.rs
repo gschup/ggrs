@@ -3,7 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
-use ggrs::{Config, Frame, GGRSRequest, GameState, GameStateCell, PlayerInput};
+use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -52,17 +52,14 @@ impl GameStub {
     fn save_game_state(&mut self, cell: GameStateCell<StateStub>, frame: Frame) {
         assert_eq!(self.gs.frame, frame);
         let checksum = calculate_hash(&self.gs);
-        let game_state: GameState<StateStub> =
-            GameState::<StateStub>::new_with_checksum(frame, Some(self.gs), checksum);
-        cell.save(game_state);
+        cell.save(frame, Some(self.gs), Some(checksum as u128));
     }
 
     fn load_game_state(&mut self, cell: GameStateCell<StateStub>) {
-        let game_state: GameState<StateStub> = cell.load();
-        self.gs = game_state.data.unwrap();
+        self.gs = cell.load().unwrap();
     }
 
-    fn advance_frame(&mut self, inputs: Vec<PlayerInput<StubInput>>) {
+    fn advance_frame(&mut self, inputs: Vec<(StubInput, InputStatus)>) {
         self.gs.advance_frame(inputs);
     }
 }
@@ -95,19 +92,15 @@ impl RandomChecksumGameStub {
     fn save_game_state(&mut self, cell: GameStateCell<StateStub>, frame: Frame) {
         assert_eq!(self.gs.frame, frame);
 
-        let random_checksum: u64 = self.rng.gen();
-        cell.save(GameState::new_with_checksum(
-            frame,
-            Some(self.gs),
-            random_checksum,
-        ));
+        let random_checksum: u128 = self.rng.gen();
+        cell.save(frame, Some(self.gs), Some(random_checksum));
     }
 
     fn load_game_state(&mut self, cell: GameStateCell<StateStub>) {
-        self.gs = cell.load().clone().data.expect("No data found.");
+        self.gs = cell.load().expect("No data found.");
     }
 
-    fn advance_frame(&mut self, inputs: Vec<PlayerInput<StubInput>>) {
+    fn advance_frame(&mut self, inputs: Vec<(StubInput, InputStatus)>) {
         self.gs.advance_frame(inputs);
     }
 }
@@ -119,9 +112,9 @@ pub struct StateStub {
 }
 
 impl StateStub {
-    fn advance_frame(&mut self, inputs: Vec<PlayerInput<StubInput>>) {
-        let p0_inputs = inputs[0].input.inp;
-        let p1_inputs = inputs[1].input.inp;
+    fn advance_frame(&mut self, inputs: Vec<(StubInput, InputStatus)>) {
+        let p0_inputs = inputs[0].0.inp;
+        let p1_inputs = inputs[1].0.inp;
 
         if (p0_inputs + p1_inputs) % 2 == 0 {
             self.state += 2;

@@ -4,6 +4,9 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- removed `GameState` from the public API.
+- removed `PlayerInput` from the public API. `AdvanceFrame` requests will now hand over a tuple with the `InputStatus` and status of that input
+- added `InputStatus` enum to distinguish the status of given inputs
 - users now have to call `add_local_input(..)` for every local player before calling `advance_frame()`
 - enabled multiple players per endpoint
 - sessions are now constructed through a unified `SessionBuilder`

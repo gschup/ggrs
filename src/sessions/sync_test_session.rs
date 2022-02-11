@@ -17,7 +17,7 @@ where
     check_distance: usize,
     sync_layer: SyncLayer<T>,
     dummy_connect_status: Vec<ConnectionStatus>,
-    checksum_history: HashMap<Frame, u64>,
+    checksum_history: HashMap<Frame, Option<u128>>,
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 }
 
@@ -120,9 +120,6 @@ impl<T: Config> SyncTestSession<T> {
         let inputs = self
             .sync_layer
             .synchronized_inputs(&self.dummy_connect_status);
-        for input in &inputs {
-            assert_eq!(input.frame, self.sync_layer.current_frame());
-        }
 
         // advance the frame
         requests.push(GGRSRequest::AdvanceFrame { inputs });
@@ -160,18 +157,14 @@ impl<T: Config> SyncTestSession<T> {
             .retain(|&k, _| k >= oldest_allowed_frame);
 
         match self.sync_layer.saved_state_by_frame(frame_to_check) {
-            Some(latest_cell) => {
-                let latest_state = latest_cell.load();
-
-                match self.checksum_history.get(&latest_state.frame) {
-                    Some(cs) => *cs == latest_state.checksum,
-                    None => {
-                        self.checksum_history
-                            .insert(latest_state.frame, latest_state.checksum);
-                        true
-                    }
+            Some(latest_cell) => match self.checksum_history.get(&latest_cell.frame()) {
+                Some(&cs) => cs == latest_cell.checksum(),
+                None => {
+                    self.checksum_history
+                        .insert(latest_cell.frame(), latest_cell.checksum());
+                    true
                 }
-            }
+            },
             None => true,
         }
     }

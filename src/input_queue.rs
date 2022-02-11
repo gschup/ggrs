@@ -1,5 +1,5 @@
 use crate::frame_info::PlayerInput;
-use crate::{Config, Frame, NULL_FRAME};
+use crate::{Config, Frame, InputStatus, NULL_FRAME};
 use std::cmp;
 
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
@@ -101,7 +101,7 @@ impl<T: Config> InputQueue<T> {
     }
 
     /// Returns the game input of a single player for a given frame, if that input does not exist, we return a prediction instead.
-    pub(crate) fn input(&mut self, requested_frame: Frame) -> PlayerInput<T::Input> {
+    pub(crate) fn input(&mut self, requested_frame: Frame) -> (T::Input, InputStatus) {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
         assert!(self.first_incorrect_frame == NULL_FRAME);
@@ -120,7 +120,7 @@ impl<T: Config> InputQueue<T> {
             if offset < self.length {
                 offset = (offset + self.tail) % INPUT_QUEUE_LENGTH;
                 assert!(self.inputs[offset].frame == requested_frame);
-                return self.inputs[offset];
+                return (self.inputs[offset].input, InputStatus::Confirmed);
             }
 
             // The requested frame isn't in the queue. This means we need to return a prediction frame. Predict that the user will do the same thing they did last time.
@@ -143,7 +143,7 @@ impl<T: Config> InputQueue<T> {
         assert!(self.prediction.frame != NULL_FRAME);
         let mut prediction_to_return = self.prediction; // GameInput has copy semantics
         prediction_to_return.frame = requested_frame;
-        prediction_to_return
+        (prediction_to_return.input, InputStatus::Predicted)
     }
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
@@ -305,8 +305,8 @@ mod input_queue_tests {
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i);
             assert_eq!(queue.length, (i + 1) as usize);
-            let input_in_queue = queue.input(i);
-            assert!(input_in_queue.equal(&input, false));
+            let (input_in_queue, _status) = queue.input(i);
+            assert_eq!(input_in_queue.inp, i as u8);
         }
     }
 
@@ -320,8 +320,9 @@ mod input_queue_tests {
             queue.add_input(input);
             assert_eq!(queue.last_added_frame, i + delay);
             assert_eq!(queue.length, (i + delay + 1) as usize);
-            let input_in_queue = queue.input(i + delay);
-            assert!(input_in_queue.equal(&input, true));
+            let (input_in_queue, _status) = queue.input(i);
+            let correct_input = std::cmp::max(0, i - delay) as u8;
+            assert_eq!(input_in_queue.inp, correct_input);
         }
     }
 }
