@@ -4,13 +4,11 @@
 //! Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.
 
 #![forbid(unsafe_code)] // let us try
-
+#![deny(missing_docs)]
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
-
 use std::{fmt::Debug, hash::Hash};
 
 pub use error::GGRSError;
-//pub use frame_info::{GameState, PlayerInput};
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
@@ -45,8 +43,9 @@ pub(crate) mod network {
 
 /// Internally, -1 represents no frame / invalid frame.
 pub const NULL_FRAME: i32 = -1;
-
+/// A frame is a single step of execution.
 pub type Frame = i32;
+/// Each player is identified by a player handle.
 pub type PlayerHandle = usize;
 
 // #############
@@ -105,23 +104,40 @@ where
 {
     /// The session made progress in synchronizing. After `total` roundtrips, the session are synchronized.
     Synchronizing {
+        /// The address of the endpoint.
         addr: T::Address,
+        /// Total number of required successful synchronization steps.
         total: u32,
+        /// Current number of successful synchronization steps.
         count: u32,
     },
     /// The session is now synchronized with the remote client.
-    Synchronized { addr: T::Address },
+    Synchronized {
+        /// The address of the endpoint.
+        addr: T::Address,
+    },
     /// The remote client has disconnected.
-    Disconnected { addr: T::Address },
+    Disconnected {
+        /// The address of the endpoint.
+        addr: T::Address,
+    },
     /// The session has not received packets from the remote client for some time and will disconnect the remote in `disconnect_timeout` ms.
     NetworkInterrupted {
+        /// The address of the endpoint.
         addr: T::Address,
+        /// The client will be disconnected in this amount of ms.
         disconnect_timeout: u128,
     },
     /// Sent only after a `NetworkInterrupted` event, if communication with that player has resumed.
-    NetworkResumed { addr: T::Address },
+    NetworkResumed {
+        /// The address of the endpoint.
+        addr: T::Address,
+    },
     /// Sent out if GGRS recommends skipping a few frames to let clients catch up. If you receive this, consider waiting `skip_frames` number of frames.
-    WaitRecommendation { skip_frames: u32 },
+    WaitRecommendation {
+        /// Amount of frames recommended to be skipped in order to let other clients catch up.
+        skip_frames: u32,
+    },
 }
 
 /// Requests that you can receive from the session. Handling them is mandatory.
@@ -131,17 +147,22 @@ where
 {
     /// You should save the current gamestate in the `cell` provided to you. The given `frame` is a sanity check: The gamestate you save should be from that frame.
     SaveGameState {
+        /// Use `cell.save(...)` to save your state.
         cell: GameStateCell<T::State>,
+        /// The given `frame` is a sanity check: The gamestate you save should be from that frame.
         frame: Frame,
     },
     /// You should load the gamestate in the `cell` provided to you. The given 'frame' is a sanity check: The gamestate you load should be from that frame.
     LoadGameState {
+        /// Use `cell.load()` to load your state.
         cell: GameStateCell<T::State>,
+        /// The given `frame` is a sanity check: The gamestate you load is from that frame.
         frame: Frame,
     },
     /// You should advance the gamestate with the `inputs` provided to you.
     /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
     AdvanceFrame {
+        /// Contains inputs and input status for each player.
         inputs: Vec<(T::Input, InputStatus)>,
     },
 }

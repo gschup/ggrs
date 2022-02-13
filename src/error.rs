@@ -10,9 +10,15 @@ pub enum GGRSError {
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
     PredictionThreshold,
     /// You made an invalid request, usually by using wrong parameters for function calls.
-    InvalidRequest { info: String },
+    InvalidRequest {
+        /// Further specifies why the request was invalid.
+        info: String,
+    },
     /// In a `SyncTestSession`, this error is returned if checksums of resimulated frames do not match up with the original checksum.
-    MismatchedChecksum { frame: Frame },
+    MismatchedChecksum {
+        /// The frame at which the mismatch occurred.
+        frame: Frame,
+    },
     /// A problem occured during creation of the UDP socket.
     SocketCreationFailed,
     /// The Session is not synchronized yet. Please start the session and wait a few ms to let the clients synchronize.
