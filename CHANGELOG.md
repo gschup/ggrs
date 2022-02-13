@@ -4,6 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- nothing here yet
+
+## 0.9.0
+
 - removed `GameState` from the public API.
 - removed `PlayerInput` from the public API. `AdvanceFrame` requests will now hand over a tuple with the `InputStatus` and status of that input
 - added `InputStatus` enum to distinguish the status of given inputs
