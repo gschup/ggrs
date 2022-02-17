@@ -1,6 +1,6 @@
 mod stubs;
 
-use ggrs::{GGRSError, SessionBuilder};
+use ggrs::{GGRSError, GGRSRequest, SessionBuilder};
 use stubs::{StubConfig, StubInput};
 
 #[test]
@@ -11,17 +11,52 @@ fn test_create_session() {
 }
 
 #[test]
-fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
-    let check_distance = 7;
+fn test_advance_frame_no_rollbacks() -> Result<(), GGRSError> {
+    let check_distance = 0;
     let mut stub = stubs::GameStub::new();
     let mut sess = SessionBuilder::new()
         .with_check_distance(check_distance)
         .start_synctest_session()?;
 
     for i in 0..200 {
-        sess.add_local_input(0, StubInput { inp: i }).unwrap();
-        sess.add_local_input(1, StubInput { inp: i }).unwrap();
-        let requests = sess.advance_frame().unwrap();
+        sess.add_local_input(0, StubInput { inp: i })?;
+        sess.add_local_input(1, StubInput { inp: i })?;
+        let requests = sess.advance_frame()?;
+        assert_eq!(requests.len(), 1); // only advance
+        stub.handle_requests(requests);
+        assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
+    let check_distance = 2;
+    let mut stub = stubs::GameStub::new();
+    let mut sess = SessionBuilder::new()
+        .with_check_distance(check_distance)
+        .start_synctest_session()?;
+
+    for i in 0..200 {
+        sess.add_local_input(0, StubInput { inp: i as u32 })?;
+        sess.add_local_input(1, StubInput { inp: i as u32 })?;
+        let requests = sess.advance_frame()?;
+        if i <= check_distance {
+            assert_eq!(requests.len(), 2); // save, advance
+            assert!(matches!(requests[0], GGRSRequest::SaveGameState { .. }));
+            assert!(matches!(requests[1], GGRSRequest::AdvanceFrame { .. }));
+        } else {
+            println!("-- FRAME {i}:");
+            assert_eq!(requests.len(), 6); // load, advance, save, advance, save, advance
+            assert!(matches!(requests[0], GGRSRequest::LoadGameState { .. })); // rollback
+            assert!(matches!(requests[1], GGRSRequest::AdvanceFrame { .. })); // rollback
+            assert!(matches!(requests[2], GGRSRequest::SaveGameState { .. })); // rollback
+            assert!(matches!(requests[3], GGRSRequest::AdvanceFrame { .. })); // rollback
+            assert!(matches!(requests[4], GGRSRequest::SaveGameState { .. }));
+            assert!(matches!(requests[5], GGRSRequest::AdvanceFrame { .. }));
+        }
+
         stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
@@ -39,9 +74,9 @@ fn test_advance_frames_with_delayed_input() -> Result<(), GGRSError> {
         .start_synctest_session()?;
 
     for i in 0..200 {
-        sess.add_local_input(0, StubInput { inp: i }).unwrap();
-        sess.add_local_input(1, StubInput { inp: i }).unwrap();
-        let requests = sess.advance_frame().unwrap();
+        sess.add_local_input(0, StubInput { inp: i })?;
+        sess.add_local_input(1, StubInput { inp: i })?;
+        let requests = sess.advance_frame()?;
         stub.handle_requests(requests);
         assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
     }
@@ -61,8 +96,8 @@ fn test_advance_frames_with_random_checksums() {
     for i in 0..200 {
         sess.add_local_input(0, StubInput { inp: i }).unwrap();
         sess.add_local_input(1, StubInput { inp: i }).unwrap();
-        let requests = sess.advance_frame().unwrap();
+        let requests = sess.advance_frame().unwrap(); // this should give a MismatchedChecksum error
         stub.handle_requests(requests);
-        assert_eq!(stub.gs.frame, i as i32 + 1); // frame should have advanced
+        assert_eq!(stub.gs.frame, i as i32 + 1);
     }
 }
