@@ -408,7 +408,9 @@ impl<T: Config> P2PSession<T> {
                     self.disconnect_player_at_frame(player_handle, last_frame);
                     return Ok(());
                 }
-                Err(GGRSError::PlayerDisconnected)
+                Err(GGRSError::InvalidRequest {
+                    info: "Player already disconnected.".to_owned(),
+                })
             }
             // disconnecting spectators is simpler
             Some(PlayerType::Spectator(_)) => {

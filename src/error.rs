@@ -19,16 +19,10 @@ pub enum GGRSError {
         /// The frame at which the mismatch occurred.
         frame: Frame,
     },
-    /// A problem occured during creation of the UDP socket.
-    SocketCreationFailed,
     /// The Session is not synchronized yet. Please start the session and wait a few ms to let the clients synchronize.
     NotSynchronized,
-    /// The player you are trying to disconnect is already disconnected.
-    PlayerDisconnected,
     /// The spectator got so far behind the host that catching up is impossible.
     SpectatorTooFarBehind,
-    /// Something went wrong while decoding received input data.
-    DecodingError,
 }
 
 impl Display for GGRSError {
@@ -56,25 +50,10 @@ impl Display for GGRSError {
                     frame
                 )
             }
-            GGRSError::SocketCreationFailed => {
-                write!(f, "UPD Socket creation failed.")
-            }
-            GGRSError::PlayerDisconnected => {
-                write!(
-                    f,
-                    "The player you are trying to disconnect is already disconnected."
-                )
-            }
             GGRSError::SpectatorTooFarBehind => {
                 write!(
                     f,
                     "The spectator got so far behind the host that catching up is impossible."
-                )
-            }
-            &GGRSError::DecodingError => {
-                write!(
-                    f,
-                    "Something went wrong while decoding received input data."
                 )
             }
         }
