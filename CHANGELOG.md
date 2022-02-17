@@ -4,6 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- fixed save and advance request ordering during a rollback in P2PSessions
 - remove obsolete error types
 
 ## 0.9.0
