@@ -608,14 +608,10 @@ impl<T: Config> P2PSession<T> {
         self.sync_layer.reset_prediction();
 
         // step forward to the previous current state, but with updated inputs
-        for _ in 0..count {
+        for i in 0..count {
             let inputs = self
                 .sync_layer
                 .synchronized_inputs(&self.local_connect_status);
-
-            // advance the frame
-            self.sync_layer.advance_frame();
-            requests.push(GGRSRequest::AdvanceFrame { inputs });
 
             // decide wether to request a state save
             if self.sparse_saving {
@@ -624,9 +620,15 @@ impl<T: Config> P2PSession<T> {
                     requests.push(self.sync_layer.save_current_state());
                 }
             } else {
-                // without sparse saving, we save every state except the very first one
-                requests.push(self.sync_layer.save_current_state());
+                // without sparse saving, we save every state except the very first (just loaded that))
+                if i > 0 {
+                    requests.push(self.sync_layer.save_current_state());
+                }
             }
+
+            // advance the frame
+            self.sync_layer.advance_frame();
+            requests.push(GGRSRequest::AdvanceFrame { inputs });
         }
         // after all this, we should have arrived at the same frame where we started
         assert_eq!(self.sync_layer.current_frame(), current_frame);
