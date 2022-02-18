@@ -81,6 +81,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Event: {:?}", event);
         }
 
+        // reset timers if we are not ready
+        if sess.current_state() != SessionState::Running {
+            last_update = Instant::now();
+        }
+
         // frames are only happening if the sessions are synchronized
         if sess.current_state() == SessionState::Running {
             // this is to keep ticks between clients synchronized.
