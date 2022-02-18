@@ -81,30 +81,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Event: {:?}", event);
         }
 
-        // reset timers if we are not ready
-        if sess.current_state() != SessionState::Running {
-            last_update = Instant::now();
+        // this is to keep ticks between clients synchronized.
+        // if a client is ahead, it will run frames slightly slower to allow catching up
+        let mut fps_delta = 1. / FPS;
+        if sess.frames_ahead() > 0 {
+            fps_delta *= 1.1;
         }
 
-        // frames are only happening if the sessions are synchronized
-        if sess.current_state() == SessionState::Running {
-            // this is to keep ticks between clients synchronized.
-            // if a client is ahead, it will run frames slightly slower to allow catching up
-            let mut fps_delta = 1. / FPS;
-            if sess.frames_ahead() > 0 {
-                fps_delta *= 1.1;
-            }
+        // get delta time from last iteration and accumulate it
+        let delta = Instant::now().duration_since(last_update);
+        accumulator = accumulator.saturating_add(delta);
+        last_update = Instant::now();
 
-            // get delta time from last iteration and accumulate it
-            let delta = Instant::now().duration_since(last_update);
-            accumulator = accumulator.saturating_add(delta);
-            last_update = Instant::now();
+        // if enough time is accumulated, we run a frame
+        while accumulator.as_secs_f64() > fps_delta {
+            // decrease accumulator
+            accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
 
-            // if enough time is accumulated, we run a frame
-            while accumulator.as_secs_f64() > fps_delta {
-                // decrease accumulator
-                accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
-
+            // frames are only happening if the sessions are synchronized
+            if sess.current_state() == SessionState::Running {
                 // add input for all local  players
                 for handle in sess.local_player_handles() {
                     sess.add_local_input(handle, game.local_input(0))?; // we always call game.local_input(0) in order to get WASD inputs.
