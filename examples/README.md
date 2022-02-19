@@ -50,6 +50,14 @@ cargo run --example ex_game_p2p -- --local-port 7001 --players 127.0.0.1:7000 lo
 cargo run --example ex_game_spectator -- --local-port 7002 --num-players 2 --host 127.0.0.1:7000 
 ```
 
+In order to run a three-player game with two players playing in the same client and a third player playing on a second client,
+run these commands in separate terminals:
+
+```shell
+cargo run --example ex_game_p2p -- --local-port 7000 --players localhost localhost 127.0.0.1:7001
+cargo run --example ex_game_p2p -- --local-port 7001 --players 127.0.0.1:7000 127.0.0.1:7000 localhost
+```
+
 ## ExGame SyncTest
 
 The same game, but without network functionality.

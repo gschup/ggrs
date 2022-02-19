@@ -251,9 +251,6 @@ impl<T: Config> SessionBuilder<T> {
 
         // for each unique address, create an endpoint
         for (player_type, handles) in addr_count.into_iter() {
-            // for now, assume every remote player has a unique addr
-            assert_eq!(handles.len(), 1);
-
             match player_type {
                 PlayerType::Remote(peer_addr) => {
                     self.player_reg.remotes.insert(

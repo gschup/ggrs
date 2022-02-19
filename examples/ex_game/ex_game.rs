@@ -55,6 +55,7 @@ fn fletcher16(data: &[u8]) -> u16 {
 pub struct Game {
     num_players: usize,
     game_state: State,
+    local_handles: Vec<PlayerHandle>,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
 }
@@ -65,6 +66,7 @@ impl Game {
         Self {
             num_players,
             game_state: State::new(num_players),
+            local_handles: Vec::new(),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
         }
@@ -153,12 +155,17 @@ impl Game {
     }
 
     #[allow(dead_code)]
+    pub fn register_local_handles(&mut self, handles: Vec<PlayerHandle>) {
+        self.local_handles = handles
+    }
+
+    #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
     pub fn local_input(&self, handle: PlayerHandle) -> Input {
         let mut inp: u8 = 0;
 
-        // player 1 with WASD
-        if handle == 0 {
+        if handle == self.local_handles[0] {
+            // first local player with WASD
             if is_key_down(KeyCode::W) {
                 inp |= INPUT_UP;
             }
@@ -171,9 +178,8 @@ impl Game {
             if is_key_down(KeyCode::D) {
                 inp |= INPUT_RIGHT;
             }
-        }
-        // player 2 with arrow keys
-        if handle == 1 {
+        } else {
+            // all other local players with arrow keys
             if is_key_down(KeyCode::Up) {
                 inp |= INPUT_UP;
             }

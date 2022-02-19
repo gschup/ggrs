@@ -42,6 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a new box game
     let mut game = Game::new(opt.num_players);
+    game.register_local_handles((0..opt.num_players).collect());
 
     // time variables for tick rate
     let mut last_update = Instant::now();

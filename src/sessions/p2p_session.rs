@@ -376,7 +376,6 @@ impl<T: Config> P2PSession<T> {
 
         // handle all events locally
         for (event, handles, addr) in events.drain(..) {
-            assert_eq!(handles.len(), 1);
             self.handle_event(event, handles, addr);
         }
 

@@ -67,6 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a new box game
     let mut game = Game::new(num_players);
+    game.register_local_handles(sess.local_player_handles());
 
     // time variables for tick rate
     let mut last_update = Instant::now();
@@ -102,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if sess.current_state() == SessionState::Running {
                 // add input for all local  players
                 for handle in sess.local_player_handles() {
-                    sess.add_local_input(handle, game.local_input(0))?; // we always call game.local_input(0) in order to get WASD inputs.
+                    sess.add_local_input(handle, game.local_input(handle))?;
                 }
 
                 match sess.advance_frame() {
