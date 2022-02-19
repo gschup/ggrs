@@ -18,6 +18,10 @@ GGRS has two demo apps you can try in the browser! One written with [macroquad](
 - [Macroquad Demo](https://gschup.github.io/ggrs_demo/)
 - [Macroquad Demo Repository](https://github.com/gschup/ggrs_demo)
 
+## Projects using GGRS
+
+- [Girls with Swords](https://github.com/trian-gles/Girls-with-swords-GGRS)
+
 ## Getting Started
 
 To get started with GGRS, check out the following resources:
@@ -40,26 +44,27 @@ GGRS is in an early stage, but the main functionality for multiple players and s
 
 The authors of GGRS are also maintaining a [bevy](https://bevyengine.org/) plugin. Check it out:
 
-- 👉[Bevy GGRS](https://github.com/gschup/bevy_ggrs)
+- [Bevy GGRS](https://github.com/gschup/bevy_ggrs)
 
 ### WASM support through WebRTC sockets
 
-If you are interested to run a GGRS application in your browser, check the amazing Matchbox project! The repository includes a full running demo you can try right now.
+If you are interested to run a GGRS application in your browser, check the amazing Matchbox project!
 The matchbox sockets are compatible with GGRS through a feature flag:
 
-- 👉[Matchbox](https://github.com/johanhelsing/matchbox)
+- [Matchbox](https://github.com/johanhelsing/matchbox)
 
 ### Godot Wrapper
 
-marcello505 is currently developing a wrapper for [Godot](https://godotengine.org/). Find the repository here:
+[Godot](https://godotengine.org/) is a popular open-source game engine. marcello505 is developing a wrapper for GGRS.
+Find the repository here:
 
-- 👉[Godot GGRS Wrapper](https://github.com/marcello505/godot-ggrs-wrapper)
+- [Godot GGRS Wrapper](https://github.com/marcello505/godot-ggrs-wrapper)
 
 ### Other Rollback Implementations in Rust
 
 Also take a look at the awesome backroll project, a completely async rollback library. Special thanks to james7132 for a lot of inspiration and fruitful discussion.
 
-- 👉[backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)
+- [backroll-rs](https://github.com/HouraiTeahouse/backroll-rs/)
 
 ## Licensing
 
