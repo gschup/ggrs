@@ -23,6 +23,12 @@ pub enum GGRSError {
     NotSynchronized,
     /// The spectator got so far behind the host that catching up is impossible.
     SpectatorTooFarBehind,
+    /// Deprecated, will be removed in next major release
+    SocketCreationFailed,
+    /// Deprecated, will be removed in next major release
+    PlayerDisconnected,
+    /// Deprecated, will be removed in next major release
+    DecodingError,
 }
 
 impl Display for GGRSError {
@@ -56,6 +62,25 @@ impl Display for GGRSError {
                     "The spectator got so far behind the host that catching up is impossible."
                 )
             }
+            GGRSError::SocketCreationFailed => {
+                write!(
+                    f,
+                    "Deprecated, will be removed in next major release."
+                )
+            }
+            GGRSError::PlayerDisconnected => {
+                write!(
+                    f,
+                    "Deprecated, will be removed in next major release."
+                )
+            }
+            GGRSError::DecodingError => {
+                write!(
+                    f,
+                    "Deprecated, will be removed in next major release."
+                )
+            }
+            
         }
     }
 }

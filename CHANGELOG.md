@@ -6,7 +6,6 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 - fixed multiple local players, added example documentation for it
 - fixed save and advance request ordering during a rollback in P2PSessions
-- remove obsolete error types
 
 ## 0.9.0
 
