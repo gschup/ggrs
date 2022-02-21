@@ -4,6 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- nothing here yet
+
+## 0.9.1
+
 - fixed multiple local players, added example documentation for it
 - fixed save and advance request ordering during a rollback in P2PSessions
 
