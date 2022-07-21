@@ -20,6 +20,7 @@ GGRS has two demo apps you can try in the browser! One written with [macroquad](
 
 ## Projects using GGRS
 
+- [NES-bundler](https://github.com/tedsteen/nes-bundler)
 - [Girls with Swords](https://github.com/trian-gles/Girls-with-swords-GGRS) ([gameplay footage](https://youtu.be/TFJSpAqXtiI))
 
 ## Getting Started
