@@ -13,13 +13,12 @@ If you are interested in integrating rollback networking into your game or just 
 
 GGRS has two demo apps you can try in the browser! One written with [macroquad](https://github.com/not-fl3/macroquad), the other written with [bevy](https://bevyengine.org/). Both use [matchbox](https://github.com/johanhelsing/matchbox). Try it out with a friend! Just click the link and match with another player! (You can also open the link in two separate windows to play against yourself)
 
-- [Bevy Demo](https://gschup.github.io/bevy_ggrs_demo/)
-- [Bevy Demo Repository](https://github.com/gschup/bevy_ggrs_demo)
-- [Macroquad Demo](https://gschup.github.io/ggrs_demo/)
-- [Macroquad Demo Repository](https://github.com/gschup/ggrs_demo)
+- [Bevy Demo](https://gschup.github.io/bevy_ggrs_demo/) ([Repository](https://github.com/gschup/bevy_ggrs_demo))
+- [Macroquad Demo](https://gschup.github.io/ggrs_demo/) ([Repository](https://github.com/gschup/ggrs_demo))
 
 ## Projects using GGRS
 
+- [Gamercade](https://gamercade.io/)
 - [NES-bundler](https://github.com/tedsteen/nes-bundler)
 - [Girls with Swords](https://github.com/trian-gles/Girls-with-swords-GGRS) ([gameplay footage](https://youtu.be/TFJSpAqXtiI))
 
