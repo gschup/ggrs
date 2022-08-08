@@ -302,6 +302,7 @@ mod sync_layer_tests {
         for i in 0..20 {
             let game_input = PlayerInput::new(i, TestInput { inp: i as u8 });
             sync_layer.add_local_input(0, game_input).unwrap(); // should crash at frame 7
+            sync_layer.advance_frame();
         }
     }
 
