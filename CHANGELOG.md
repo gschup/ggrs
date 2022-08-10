@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet
+- fixed a bug where sync would not work with RTT higher than SYNC_RETRY_INTERVAL
 
 ## 0.9.1
 
