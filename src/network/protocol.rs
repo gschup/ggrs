@@ -9,7 +9,7 @@ use crate::{Config, Frame, GGRSError, NonBlockingSocket, PlayerHandle, NULL_FRAM
 
 use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
 use std::ops::Add;
 
@@ -19,7 +19,7 @@ const UDP_HEADER_SIZE: usize = 28; // Size of IP + UDP headers
 const NUM_SYNC_PACKETS: u32 = 5;
 const UDP_SHUTDOWN_TIMER: u64 = 5000;
 const PENDING_OUTPUT_SIZE: usize = 128;
-const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(20);
+const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
@@ -137,7 +137,7 @@ where
     // state
     state: ProtocolState,
     sync_remaining_roundtrips: u32,
-    sync_random_request: u32,
+    sync_random_requests: HashSet<u32>,
     running_last_quality_report: Instant,
     running_last_input_recv: Instant,
     disconnect_notify_sent: bool,
@@ -219,7 +219,7 @@ impl<T: Config> UdpProtocol<T> {
             // state
             state: ProtocolState::Initializing,
             sync_remaining_roundtrips: NUM_SYNC_PACKETS,
-            sync_random_request: rand::random::<u32>(),
+            sync_random_requests: HashSet::new(),
             running_last_quality_report: Instant::now(),
             running_last_input_recv: Instant::now(),
             disconnect_notify_sent: false,
@@ -498,9 +498,10 @@ impl<T: Config> UdpProtocol<T> {
     }
 
     fn send_sync_request(&mut self) {
-        self.sync_random_request = rand::random::<u32>();
+        let random_number = rand::random::<u32>();
+        self.sync_random_requests.insert(random_number);
         let body = SyncRequest {
-            random_request: self.sync_random_request,
+            random_request: random_number,
         };
         self.queue_message(MessageBody::SyncRequest(body));
     }
@@ -580,7 +581,7 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
         // this is not the correct reply
-        if self.sync_random_request != body.random_reply {
+        if !self.sync_random_requests.remove(&body.random_reply) {
             return;
         }
         // the sync reply is good, so we send a sync request again until we have finished the required roundtrips. Then, we can conclude the syncing process.
