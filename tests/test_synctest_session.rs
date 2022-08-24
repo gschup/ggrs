@@ -47,7 +47,6 @@ fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
             assert!(matches!(requests[0], GGRSRequest::SaveGameState { .. }));
             assert!(matches!(requests[1], GGRSRequest::AdvanceFrame { .. }));
         } else {
-            println!("-- FRAME {i}:");
             assert_eq!(requests.len(), 6); // load, advance, save, advance, save, advance
             assert!(matches!(requests[0], GGRSRequest::LoadGameState { .. })); // rollback
             assert!(matches!(requests[1], GGRSRequest::AdvanceFrame { .. })); // rollback
