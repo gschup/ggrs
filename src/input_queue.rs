@@ -141,8 +141,7 @@ impl<T: Config> InputQueue<T> {
 
         // We must be predicting, so we return the prediction frame contents. We are adjusting the prediction to have the requested frame.
         assert!(self.prediction.frame != NULL_FRAME);
-        let mut prediction_to_return = self.prediction; // GameInput has copy semantics
-        prediction_to_return.frame = requested_frame;
+        let prediction_to_return = self.prediction; // GameInput has copy semantics
         (prediction_to_return.input, InputStatus::Predicted)
     }
 
