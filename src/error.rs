@@ -4,7 +4,9 @@ use std::fmt::Display;
 
 use crate::Frame;
 
-/// This enum contains all error messages this library can return. Most API functions will generally return a `Result<(),GGRSError>`.
+/// This enum contains all error messages this library can return. Most API functions will generally return a [`Result<(),GGRSError>`].
+///
+/// [`Result<(),GGRSError>`]: std::result::Result
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GGRSError {
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
@@ -14,7 +16,9 @@ pub enum GGRSError {
         /// Further specifies why the request was invalid.
         info: String,
     },
-    /// In a `SyncTestSession`, this error is returned if checksums of resimulated frames do not match up with the original checksum.
+    /// In a [`SyncTestSession`], this error is returned if checksums of resimulated frames do not match up with the original checksum.
+    ///
+    /// [`SyncTestSession`]: crate::SyncTestSession
     MismatchedChecksum {
         /// The frame at which the mismatch occurred.
         frame: Frame,
@@ -63,24 +67,14 @@ impl Display for GGRSError {
                 )
             }
             GGRSError::SocketCreationFailed => {
-                write!(
-                    f,
-                    "Deprecated, will be removed in next major release."
-                )
+                write!(f, "Deprecated, will be removed in next major release.")
             }
             GGRSError::PlayerDisconnected => {
-                write!(
-                    f,
-                    "Deprecated, will be removed in next major release."
-                )
+                write!(f, "Deprecated, will be removed in next major release.")
             }
             GGRSError::DecodingError => {
-                write!(
-                    f,
-                    "Deprecated, will be removed in next major release."
-                )
+                write!(f, "Deprecated, will be removed in next major release.")
             }
-            
         }
     }
 }

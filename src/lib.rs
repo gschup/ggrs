@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)] // let us try
 #![deny(missing_docs)]
+#![deny(rustdoc::broken_intra_doc_links)]
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 use std::{fmt::Debug, hash::Hash};
 
@@ -56,7 +57,7 @@ pub type PlayerHandle = usize;
 /// - local players, who play on the local device,
 /// - remote players, who play on other devices and
 /// - spectators, who are remote players that do not contribute to the game input.
-/// Both `Remote` and `Spectator` have a socket address associated with them.
+/// Both [`PlayerType::Remote`] and [`PlayerType::Spectator`] have a socket address associated with them.
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum PlayerType<A>
 where
@@ -76,7 +77,9 @@ impl<A: Clone + PartialEq + Eq + Hash> Default for PlayerType<A> {
     }
 }
 
-/// A session is always in one of these states. You can query the current state of a session via `current_state()`.
+/// A session is always in one of these states. You can query the current state of a session via [`current_state`].
+///
+/// [`current_state`]: P2PSession#method.current_state
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SessionState {
     /// When synchronizing, the session attempts to establish a connection to the remote clients.
@@ -85,7 +88,7 @@ pub enum SessionState {
     Running,
 }
 
-/// `InputStatus` will always be given together with player inputs when requested to advance the frame.
+/// [`InputStatus`] will always be given together with player inputs when requested to advance the frame.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum InputStatus {
     /// The input of this player for this frame is an actual received input.
@@ -128,7 +131,7 @@ where
         /// The client will be disconnected in this amount of ms.
         disconnect_timeout: u128,
     },
-    /// Sent only after a `NetworkInterrupted` event, if communication with that player has resumed.
+    /// Sent only after a [`GGRSEvent::NetworkInterrupted`] event, if communication with that player has resumed.
     NetworkResumed {
         /// The address of the endpoint.
         addr: T::Address,
@@ -152,7 +155,7 @@ where
         /// The given `frame` is a sanity check: The gamestate you save should be from that frame.
         frame: Frame,
     },
-    /// You should load the gamestate in the `cell` provided to you. The given 'frame' is a sanity check: The gamestate you load should be from that frame.
+    /// You should load the gamestate in the `cell` provided to you. The given `frame` is a sanity check: The gamestate you load should be from that frame.
     LoadGameState {
         /// Use `cell.load()` to load your state.
         cell: GameStateCell<T::State>,
@@ -160,7 +163,7 @@ where
         frame: Frame,
     },
     /// You should advance the gamestate with the `inputs` provided to you.
-    /// Disconnected players are indicated by having `NULL_FRAME` instead of the correct current frame in their input.
+    /// Disconnected players are indicated by having [`NULL_FRAME`] instead of the correct current frame in their input.
     AdvanceFrame {
         /// Contains inputs and input status for each player.
         inputs: Vec<(T::Input, InputStatus)>,
@@ -193,7 +196,7 @@ pub trait Config: 'static + Send + Sync {
     type Address: Clone + PartialEq + Eq + Hash + Send + Sync;
 }
 
-/// This `NonBlockingSocket` trait is used when you want to use GGRS with your own socket.
+/// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.
 /// However you wish to send and receive messages, it should be implemented through these two methods.
 /// Messages should be sent in an UDP-like fashion, unordered and unreliable.
 /// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
@@ -202,11 +205,11 @@ pub trait NonBlockingSocket<A>: Send + Sync
 where
     A: Clone + PartialEq + Eq + Hash + Send + Sync,
 {
-    /// Takes an `UdpMessage` and sends it to the given address.
+    /// Takes a [`Message`] and sends it to the given address.
     fn send_to(&mut self, msg: &Message, addr: &A);
 
     /// This method should return all messages received since the last time this method was called.
-    /// The pairs `(A, UdpMessage)` indicate from which address each packet was received.
+    /// The pairs `(A, Message)` indicate from which address each packet was received.
     fn receive_all_messages(&mut self) -> Vec<(A, Message)>;
 }
 
@@ -230,7 +233,7 @@ pub trait Config: 'static {
     type Address: Clone + PartialEq + Eq + Hash;
 }
 
-/// This `NonBlockingSocket` trait is used when you want to use GGRS with your own socket.
+/// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.
 /// However you wish to send and receive messages, it should be implemented through these two methods.
 /// Messages should be sent in an UDP-like fashion, unordered and unreliable.
 /// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
@@ -239,10 +242,10 @@ pub trait NonBlockingSocket<A>
 where
     A: Clone + PartialEq + Eq + Hash,
 {
-    /// Takes an `UdpMessage` and sends it to the given address.
+    /// Takes a [`Message`] and sends it to the given address.
     fn send_to(&mut self, msg: &Message, addr: &A);
 
     /// This method should return all messages received since the last time this method was called.
-    /// The pairs `(A, UdpMessage)` indicate from which address each packet was received.
+    /// The pairs `(A, Message)` indicate from which address each packet was received.
     fn receive_all_messages(&mut self) -> Vec<(A, Message)>;
 }

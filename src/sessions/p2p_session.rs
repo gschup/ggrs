@@ -102,7 +102,7 @@ impl<T: Config> PlayerRegistry<T> {
     }
 }
 
-/// A `P2PSession` provides all functionality to connect to remote clients in a peer-to-peer fashion, exchange inputs and handle the gamestate by saving, loading and advancing.
+/// A [`P2PSession`] provides all functionality to connect to remote clients in a peer-to-peer fashion, exchange inputs and handle the gamestate by saving, loading and advancing.
 pub struct P2PSession<T>
 where
     T: Config,
@@ -122,7 +122,7 @@ where
     /// Internal State of the Session.
     state: SessionState,
 
-    /// The `P2PSession` uses this socket to send and receive all messages for remote players.
+    /// The [`P2PSession`] uses this socket to send and receive all messages for remote players.
     socket: Box<dyn NonBlockingSocket<T::Address>>,
     /// Handles players and their endpoints
     player_reg: PlayerRegistry<T>,
@@ -131,7 +131,7 @@ where
 
     /// notes which inputs have already been sent to the spectators
     next_spectator_frame: Frame,
-    /// The soonest frame on which the session can send a `GGRSEvent::WaitRecommendation` again.
+    /// The soonest frame on which the session can send a [`GGRSEvent::WaitRecommendation`] again.
     next_recommended_sleep: Frame,
     /// How many frames we estimate we are ahead of every remote client
     frames_ahead: i32,
@@ -143,7 +143,7 @@ where
 }
 
 impl<T: Config> P2PSession<T> {
-    /// Creates a new `P2PSession` for players who participate on the game input. After creating the session, add local and remote players,
+    /// Creates a new [`P2PSession`] for players who participate on the game input. After creating the session, add local and remote players,
     /// set input delay for local players and then start the session. The session will use the provided socket.
     pub(crate) fn new(
         num_players: usize,
@@ -192,11 +192,14 @@ impl<T: Config> P2PSession<T> {
         }
     }
 
-    /// Registers local input for a player for the current frame. This should be successfully called for every local player before calling `advance_frame()`.
+    /// Registers local input for a player for the current frame. This should be successfully called for every local player before calling [`advance_frame()`].
     /// If this is called multiple times for the same player before advancing the frame, older given inputs will be overwritten.
     ///
     /// # Errors
-    /// - Returns `InvalidRequest` when the given handle does not refer to a local player.
+    /// - Returns [`InvalidRequest`] when the given handle does not refer to a local player.
+    ///
+    /// [`advance_frame()`]: Self#method.advance_frame
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
@@ -219,17 +222,21 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
-    /// Returns an order-sensitive `Vec<GGRSRequest>`. You should fulfill all requests in the exact order they are provided.
+    /// Returns an order-sensitive [`Vec<GGRSRequest>`]. You should fulfill all requests in the exact order they are provided.
     /// Failure to do so will cause panics later.
     ///
     /// # Errors
-    /// - Returns `InvalidRequest` if the provided player handle refers to a remote player.
-    /// - Returns `NotSynchronized` if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
+    /// - Returns [`InvalidRequest`] if the provided player handle refers to a remote player.
+    /// - Returns [`NotSynchronized`] if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
+    ///
+    /// [`Vec<GGRSRequest>`]: GGRSRequest
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`NotSynchronized`]: GGRSError::NotSynchronized
     pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
 
-        // session is not running and synchronzied
+        // session is not running and synchronized
         if self.state != SessionState::Running {
             return Err(GGRSError::NotSynchronized);
         }
@@ -357,7 +364,7 @@ impl<T: Config> P2PSession<T> {
             }
         }
 
-        // run enpoint poll and get events from players and spectators. This will trigger additional packets to be sent.
+        // run endpoint poll and get events from players and spectators. This will trigger additional packets to be sent.
         let mut events = VecDeque::new();
         for endpoint in self.player_reg.remotes.values_mut() {
             let handles = endpoint.handles().clone();
@@ -388,9 +395,11 @@ impl<T: Config> P2PSession<T> {
         }
     }
 
-    /// Disconnects a remote player and all other remote players with the same address from the session.  
+    /// Disconnects a remote player and all other remote players with the same address from the session.
     /// # Errors
-    /// - Returns `InvalidRequest` if you try to disconnect a local player or the provided handle is invalid.
+    /// - Returns [`InvalidRequest`] if you try to disconnect a local player or the provided handle is invalid.
+    ///
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
     pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
         match self.player_reg.handles.get(&player_handle) {
             // the local player cannot be disconnected
@@ -419,10 +428,13 @@ impl<T: Config> P2PSession<T> {
         }
     }
 
-    /// Returns a `NetworkStats` struct that gives information about the quality of the network connection.
+    /// Returns a [`NetworkStats`] struct that gives information about the quality of the network connection.
     /// # Errors
-    /// - Returns `InvalidRequest` if the handle not referring to a remote player or spectator.
-    /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
+    /// - Returns [`InvalidRequest`] if the handle not referring to a remote player or spectator.
+    /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
+    ///
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`NotSynchronized`]: GGRSError::NotSynchronized
     pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
         match self.player_reg.handles.get(&player_handle) {
             Some(PlayerType::Remote(addr)) => self
@@ -468,7 +480,7 @@ impl<T: Config> P2PSession<T> {
         self.max_prediction
     }
 
-    /// Returns the current `SessionState` of a session.
+    /// Returns the current [`SessionState`] of a session.
     pub fn current_state(&self) -> SessionState {
         self.state
     }
@@ -555,7 +567,7 @@ impl<T: Config> P2PSession<T> {
         self.check_initial_sync();
     }
 
-    /// Change the session state to `SessionState::Running` if all UDP endpoints are synchronized.
+    /// Change the session state to [`SessionState::Running`] if all UDP endpoints are synchronized.
     fn check_initial_sync(&mut self) {
         // if we are not synchronizing, we don't need to do anything
         if self.state != SessionState::Synchronizing {
