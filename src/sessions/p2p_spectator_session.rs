@@ -11,12 +11,12 @@ use crate::{
     SessionState, NULL_FRAME,
 };
 
-// The amount of frames the spectator advances in a single step if not too far behing
+// The amount of frames the spectator advances in a single step if not too far behind
 const NORMAL_SPEED: usize = 1;
 // The amount of inputs a spectator can buffer (a second worth of inputs)
 pub(crate) const SPECTATOR_BUFFER_SIZE: usize = 60;
 
-/// `P2PSpectatorSession`s provide all functionality to connect to a remote host in a peer-to-peer fashion.
+/// [`SpectatorSession`] provides all functionality to connect to a remote host in a peer-to-peer fashion.
 /// The host will broadcast all confirmed inputs to this session.
 /// This session can be used to spectate a session without contributing to the game input.
 pub struct SpectatorSession<T>
@@ -37,7 +37,7 @@ where
 }
 
 impl<T: Config> SpectatorSession<T> {
-    /// Creates a new `P2PSpectatorSession` for a spectator.
+    /// Creates a new [`SpectatorSession`] for a spectator.
     /// The session will receive inputs from all players from the given host directly.
     /// The session will use the provided socket.
     pub(crate) fn new(
@@ -71,7 +71,7 @@ impl<T: Config> SpectatorSession<T> {
         }
     }
 
-    /// Returns the current `SessionState` of a session.
+    /// Returns the current [`SessionState`] of a session.
     pub fn current_state(&self) -> SessionState {
         self.state
     }
@@ -85,7 +85,9 @@ impl<T: Config> SpectatorSession<T> {
 
     /// Used to fetch some statistics about the quality of the network connection.
     /// # Errors
-    /// - Returns `NotSynchronized` if the session is not connected to other clients yet.
+    /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
+    ///
+    /// [`NotSynchronized`]: GGRSError::NotSynchronized
     pub fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
         self.host.network_stats()
     }
@@ -96,11 +98,14 @@ impl<T: Config> SpectatorSession<T> {
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
-    /// Returns an order-sensitive `Vec<GGRSRequest>`. You should fulfill all requests in the exact order they are provided.
+    /// Returns an order-sensitive [`Vec<GGRSRequest>`]. You should fulfill all requests in the exact order they are provided.
     /// Failure to do so will cause panics later.
     /// # Errors
-    /// - Returns `NotSynchronized` if the session is not yet ready to accept input.
+    /// - Returns [`NotSynchronized`] if the session is not yet ready to accept input.
     /// In this case, you either need to start the session or wait for synchronization between clients.
+    ///
+    /// [`Vec<GGRSRequest>`]: GGRSRequest
+    /// [`NotSynchronized`]: GGRSError::NotSynchronized
     pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         // receive info from host, trigger events and send messages
         self.poll_remote_clients();
@@ -176,7 +181,7 @@ impl<T: Config> SpectatorSession<T> {
             return Err(GGRSError::PredictionThreshold);
         }
 
-        // The host is more than `SPECTATOR_BUFFER_SIZE` frames ahead of the spectator. The input we need is gone forever.
+        // The host is more than [`SPECTATOR_BUFFER_SIZE`] frames ahead of the spectator. The input we need is gone forever.
         if player_inputs[0].frame > frame_to_grab {
             return Err(GGRSError::SpectatorTooFarBehind);
         }

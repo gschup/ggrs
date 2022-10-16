@@ -24,7 +24,7 @@ const DEFAULT_CATCHUP_SPEED: usize = 1;
 // The amount of events a spectator can buffer; should never be an issue if the user polls the events at every step
 pub(crate) const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
-/// The `SessionBuilder` builds all GGRS Sessions. After setting all appropriate values, use `SessionBuilder::start_yxz_session(...)`
+/// The [`SessionBuilder`] builds all GGRS Sessions. After setting all appropriate values, use `SessionBuilder::start_yxz_session(...)`
 /// to consume the builder and create a Session of desired type.
 pub struct SessionBuilder<T>
 where
@@ -77,8 +77,11 @@ impl<T: Config> SessionBuilder<T> {
     /// Later, you will need the player handle to add input, change parameters or disconnect the player or spectator.
     ///
     /// # Errors
-    /// - Returns `InvalidRequest` if a player with that handle has been added before
-    /// - Returns `InvalidRequest` if the handle is invalid for the given `PlayerType`
+    /// - Returns [`InvalidRequest`] if a player with that handle has been added before
+    /// - Returns [`InvalidRequest`] if the handle is invalid for the given [`PlayerType`]
+    ///
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`num_players`]: Self#structfield.num_players
     pub fn add_player(
         mut self,
         player_type: PlayerType<T::Address>,
@@ -166,7 +169,9 @@ impl<T: Config> SessionBuilder<T> {
 
     /// Sets the FPS this session is used with. This influences estimations for frame synchronization between sessions.
     /// # Errors
-    /// - Returns 'InvalidRequest' if the fps is 0
+    /// - Returns [`InvalidRequest`] if the fps is 0
+    ///
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
     pub fn with_fps(mut self, fps: usize) -> Result<Self, GGRSError> {
         if fps == 0 {
             return Err(GGRSError::InvalidRequest {
@@ -185,6 +190,7 @@ impl<T: Config> SessionBuilder<T> {
 
     /// Sets the maximum frames behind. If the spectator is more than this amount of frames behind the received inputs,
     /// it will catch up with `catchup_speed` amount of frames per step.
+    ///
     pub fn with_max_frames_behind(mut self, max_frames_behind: usize) -> Result<Self, GGRSError> {
         if max_frames_behind < 1 {
             return Err(GGRSError::InvalidRequest {
@@ -221,9 +227,11 @@ impl<T: Config> SessionBuilder<T> {
         Ok(self)
     }
 
-    /// Consumes the builder to construct a `P2PSession` and starts synchronization of endpoints.
+    /// Consumes the builder to construct a [`P2PSession`] and starts synchronization of endpoints.
     /// # Errors
-    /// - Returns `InvalidRequest` if insufficient players have been registered.
+    /// - Returns [`InvalidRequest`] if insufficient players have been registered.
+    ///
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
     pub fn start_p2p_session(
         mut self,
         socket: impl NonBlockingSocket<T::Address> + 'static,
@@ -278,8 +286,8 @@ impl<T: Config> SessionBuilder<T> {
         ))
     }
 
-    /// Consumes the builder to create a new `SpectatorSession`.
-    /// A `SpectatorSession` provides all functionality to connect to a remote host in a peer-to-peer fashion.
+    /// Consumes the builder to create a new [`SpectatorSession`].
+    /// A [`SpectatorSession`] provides all functionality to connect to a remote host in a peer-to-peer fashion.
     /// The host will broadcast all confirmed inputs to this session.
     /// This session can be used to spectate a session without contributing to the game input.
     pub fn start_spectator_session(
@@ -308,7 +316,7 @@ impl<T: Config> SessionBuilder<T> {
         )
     }
 
-    /// Consumes the builder to construct a new `SyncTestSession`. During a `SyncTestSession`, GGRS will simulate a rollback every frame
+    /// Consumes the builder to construct a new [`SyncTestSession`]. During a [`SyncTestSession`], GGRS will simulate a rollback every frame
     /// and resimulate the last n states, where n is the given `check_distance`.
     /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
     /// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.

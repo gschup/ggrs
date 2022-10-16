@@ -8,11 +8,14 @@ use crate::input_queue::InputQueue;
 use crate::network::messages::ConnectionStatus;
 use crate::{Config, Frame, GGRSRequest, InputStatus, PlayerHandle, NULL_FRAME};
 
-/// An `Arc<Mutex<GameState>>` that you can `save()`/`load()` a `GameState` to/from. These will be handed to the user as part of a `GGRSRequest`.
+/// An [`Arc<Mutex>`] that you can [`save()`]/[`load()`] a `T` to/from. These will be handed to the user as part of a [`GGRSRequest`].
+///
+/// [`save()`]: GameStateCell#method.save
+/// [`load()`]: GameStateCell#method.load
 pub struct GameStateCell<T: Clone>(Arc<Mutex<GameState<T>>>);
 
 impl<T: Clone> GameStateCell<T> {
-    /// Saves a `GameState` the user creates into the cell.
+    /// Saves a `T` the user creates into the cell.
     pub fn save(&self, frame: Frame, data: Option<T>, checksum: Option<u128>) {
         let mut state = self.0.lock();
         assert!(frame != NULL_FRAME);
@@ -21,7 +24,7 @@ impl<T: Clone> GameStateCell<T> {
         state.checksum = checksum;
     }
 
-    /// Loads a `GameState` that the user previously saved into.
+    /// Loads a `T` that the user previously saved into.
     pub fn load(&self) -> Option<T> {
         let state = self.0.lock();
         state.data.clone()
@@ -170,7 +173,7 @@ impl<T: Config> SyncLayer<T> {
         Ok(self.input_queues[player_handle].add_input(input))
     }
 
-    /// Adds remote input to the correspoinding input queue.
+    /// Adds remote input to the corresponding input queue.
     /// Unlike `add_local_input`, this will not check for correct conditions, as remote inputs have already been checked on another device.
     pub(crate) fn add_remote_input(
         &mut self,
@@ -215,7 +218,7 @@ impl<T: Config> SyncLayer<T> {
 
     /// Sets the last confirmed frame to a given frame. By raising the last confirmed frame, we can discard all previous frames, as they are no longer necessary.
     pub(crate) fn set_last_confirmed_frame(&mut self, mut frame: Frame, sparse_saving: bool) {
-        // dont set the last confirmed frame after the first incorrect frame before a rollback has happened
+        // don't set the last confirmed frame after the first incorrect frame before a rollback has happened
         let mut first_incorrect: Frame = NULL_FRAME;
         for handle in 0..self.num_players as usize {
             first_incorrect = std::cmp::max(
@@ -229,7 +232,7 @@ impl<T: Config> SyncLayer<T> {
             frame = std::cmp::min(frame, self.last_saved_frame);
         }
 
-        // if we set the last confirmed frame beyond the first incorrect frame, we discard inputs that we need later for ajusting the gamestate.
+        // if we set the last confirmed frame beyond the first incorrect frame, we discard inputs that we need later for adjusting the gamestate.
         assert!(first_incorrect == NULL_FRAME || first_incorrect >= frame);
 
         self.last_confirmed_frame = frame;

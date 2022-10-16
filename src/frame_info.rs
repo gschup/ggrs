@@ -29,7 +29,7 @@ pub(crate) struct PlayerInput<I>
 where
     I: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable,
 {
-    /// The frame to which this info belongs to. -1/`NULL_FRAME` represents an invalid frame
+    /// The frame to which this info belongs to. -1/[`NULL_FRAME`] represents an invalid frame
     pub frame: Frame,
     /// The input struct given by the user
     pub input: I,

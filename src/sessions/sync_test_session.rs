@@ -6,7 +6,7 @@ use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
 use crate::{Config, Frame, GGRSRequest, PlayerHandle};
 
-/// During a `SyncTestSession`, GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
+/// During a [`SyncTestSession`], GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
 pub struct SyncTestSession<T>
 where
@@ -49,12 +49,15 @@ impl<T: Config> SyncTestSession<T> {
         }
     }
 
-    /// Registers local input for a player for the current frame. This should be successfully called for every local player before calling `advance_frame()`.
+    /// Registers local input for a player for the current frame. This should be successfully called for every local player before calling [`advance_frame()`].
     /// If this is called multiple times for the same player before advancing the frame, older given inputs will be overwritten.
     /// In a sync test, all players are considered to be local, so you need to add input for all of them.
     ///
     /// # Errors
-    /// - Returns `InvalidRequest` when the given handle is not valid (i.e. not between 0 and num_players).
+    /// - Returns [`InvalidRequest`] when the given handle is not valid (i.e. not between 0 and num_players).
+    ///
+    /// [`advance_frame()`]: Self#method.advance_frame
+    /// [`InvalidRequest`]: GGRSError::InvalidRequest
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
@@ -71,11 +74,14 @@ impl<T: Config> SyncTestSession<T> {
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
-    /// resimulate and compare checksums with the original states. Returns an order-sensitive `Vec<GGRSRequest>`.
+    /// resimulate and compare checksums with the original states. Returns an order-sensitive [`Vec<GGRSRequest>`].
     /// You should fulfill all requests in the exact order they are provided. Failure to do so will cause panics later.
     ///
     /// # Errors
-    /// - Returns `MismatchedChecksumError` if checksums don't match after resimulation.
+    /// - Returns [`MismatchedChecksum`] if checksums don't match after resimulation.
+    ///
+    /// [`Vec<GGRSRequest>`]: GGRSRequest
+    /// [`MismatchedChecksum`]: GGRSError::MismatchedChecksum
     pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
         let mut requests = Vec::new();
 
@@ -110,7 +116,7 @@ impl<T: Config> SyncTestSession<T> {
         // clear local inputs after using them
         self.local_inputs.clear();
 
-        // save the current frame in the syncronization layer
+        // save the current frame in the synchronization layer
         // we can skip all the saving if the check_distance is 0
         if self.check_distance > 0 {
             requests.push(self.sync_layer.save_current_state());
@@ -151,7 +157,7 @@ impl<T: Config> SyncTestSession<T> {
 
     /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once
     fn checksums_consistent(&mut self, frame_to_check: Frame) -> bool {
-        // remove entries older than the check_distance
+        // remove entries older than the `check_distance`
         let oldest_allowed_frame = self.sync_layer.current_frame() - self.check_distance as i32;
         self.checksum_history
             .retain(|&k, _| k >= oldest_allowed_frame);
