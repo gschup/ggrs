@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- added support for fieldless enums in `PlayerInput`
 
 ## 0.9.2
 
