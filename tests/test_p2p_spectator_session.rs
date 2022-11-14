@@ -34,7 +34,7 @@ fn test_synchronize_with_host() -> Result<(), GGRSError> {
     assert_eq!(spec_sess.current_state(), SessionState::Synchronizing);
     assert_eq!(host_sess.current_state(), SessionState::Synchronizing);
 
-    for _ in 0..10 {
+    for _ in 0..50 {
         spec_sess.poll_remote_clients();
         host_sess.poll_remote_clients();
     }

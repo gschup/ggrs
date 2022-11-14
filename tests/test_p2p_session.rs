@@ -83,7 +83,7 @@ fn test_synchronize_p2p_sessions() -> Result<(), GGRSError> {
     assert!(sess1.current_state() == SessionState::Synchronizing);
     assert!(sess2.current_state() == SessionState::Synchronizing);
 
-    for _ in 0..10 {
+    for _ in 0..50 {
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
     }
@@ -115,7 +115,7 @@ fn test_advance_frame_p2p_sessions() -> Result<(), GGRSError> {
     assert!(sess1.current_state() == SessionState::Synchronizing);
     assert!(sess2.current_state() == SessionState::Synchronizing);
 
-    for _ in 0..10 {
+    for _ in 0..50 {
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
     }

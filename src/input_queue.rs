@@ -11,9 +11,9 @@ pub(crate) struct InputQueue<T>
 where
     T: Config,
 {
-    /// The head of the queue. The newest `GameInput` is saved here      
+    /// The head of the queue. The newest `PlayerInput` is saved here      
     head: usize,
-    /// The tail of the queue. The oldest `GameInput` still valid is saved here.
+    /// The tail of the queue. The oldest `PlayerInput` still valid is saved here.
     tail: usize,
     /// The current length of the queue.
     length: usize,
@@ -66,7 +66,7 @@ impl<T: Config> InputQueue<T> {
         self.last_requested_frame = NULL_FRAME;
     }
 
-    /// Returns a `GameInput`, but only if the input for the requested frame is confirmed.
+    /// Returns a `PlayerInput`, but only if the input for the requested frame is confirmed.
     /// In contrast to `input()`, this will not return a prediction if there is no confirmed input for the frame, but panic instead.
     pub(crate) fn confirmed_input(&self, requested_frame: Frame) -> PlayerInput<T::Input> {
         let offset = requested_frame as usize % INPUT_QUEUE_LENGTH;
@@ -141,7 +141,7 @@ impl<T: Config> InputQueue<T> {
 
         // We must be predicting, so we return the prediction frame contents. We are adjusting the prediction to have the requested frame.
         assert!(self.prediction.frame != NULL_FRAME);
-        let prediction_to_return = self.prediction; // GameInput has copy semantics
+        let prediction_to_return = self.prediction; // PlayerInput has copy semantics
         (prediction_to_return.input, InputStatus::Predicted)
     }
 

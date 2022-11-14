@@ -1,4 +1,5 @@
 mod stubs;
+mod stubs_enum;
 
 use ggrs::{GGRSError, GGRSRequest, SessionBuilder};
 use stubs::{StubConfig, StubInput};
