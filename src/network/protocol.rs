@@ -50,9 +50,7 @@ struct InputBytes {
 
 impl InputBytes {
     fn zeroed<T: Config>(num_players: usize) -> Self {
-        let zeroed = PlayerInput::<T::Input>::blank_input(NULL_FRAME);
-        let size = bytemuck::bytes_of(&zeroed.input).len() * num_players;
-
+        let size = core::mem::size_of::<T::Input>() * num_players;
         Self {
             frame: NULL_FRAME,
             bytes: vec![0; size],
