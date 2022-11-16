@@ -2,7 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
-use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus};
+use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus, TransparentPad};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -15,16 +15,27 @@ pub struct GameStubEnum {
 }
 use bytemuck::{CheckedBitPattern, NoUninit, Zeroable};
 
-#[repr(u8)]
-#[derive(Copy, Clone, PartialEq, CheckedBitPattern, NoUninit)]
+#[repr(u16)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum EnumInput {
-    Val1,
-    Val2,
+    Val1(u16),
+    Val2(TransparentPad<u8, 8>),
 }
+unsafe impl NoUninit for EnumInput {}
 
 unsafe impl Zeroable for EnumInput {
     fn zeroed() -> Self {
         unsafe { core::mem::zeroed() }
+    }
+}
+
+unsafe impl CheckedBitPattern for EnumInput {
+    type Bits = u32;
+    fn is_valid_bit_pattern(bits: &u32) -> bool {
+        match *bits {
+            0 | 1 | 2 => true,
+            _ => false,
+        }
     }
 }
 
