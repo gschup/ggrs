@@ -21,6 +21,7 @@ pub enum EnumInput {
     Val1(u16),
     Val2(TransparentPad<u8, 8>),
 }
+
 unsafe impl NoUninit for EnumInput {}
 
 unsafe impl Zeroable for EnumInput {
@@ -31,9 +32,22 @@ unsafe impl Zeroable for EnumInput {
 
 unsafe impl CheckedBitPattern for EnumInput {
     type Bits = u32;
+
     fn is_valid_bit_pattern(bits: &u32) -> bool {
         match *bits {
-            0 | 1 | 2 => true,
+            0b0 => {
+                let alignment = std::mem::align_of::<EnumInput>();
+                let view = &bits as *const _ as *const u8;
+                let inner = &unsafe { view.offset(alignment as isize) as u16 };
+                u16::is_valid_bit_pattern(inner)
+            }
+            0b1 => {
+                let alignment = std::mem::align_of::<EnumInput>();
+                let view = &bits as *const _ as *const u8;
+                let inner = &unsafe { view.offset(alignment as isize) as u32 };
+                let res: Result<&TransparentPad<u8, 8>, _> = bytemuck::checked::try_cast_ref(inner);
+                res.is_ok()
+            }
             _ => false,
         }
     }
