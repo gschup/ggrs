@@ -18,6 +18,7 @@ GGRS has two demo apps you can try in the browser! One written with [macroquad](
 
 ## Projects using GGRS
 
+- [Jumpy](https://github.com/fishfolk/jumpy)
 - [Gamercade](https://gamercade.io/)
 - [NES-bundler](https://github.com/tedsteen/nes-bundler)
 - [Girls with Swords](https://github.com/trian-gles/Girls-with-swords-GGRS) ([gameplay footage](https://youtu.be/TFJSpAqXtiI))
