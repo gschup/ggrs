@@ -1,7 +1,7 @@
 # [![GGRS LOGO](./ggrs_logo.png)](https://github.com/gschup/ggrs)
 
 [![crates.io](https://img.shields.io/crates/v/ggrs?style=for-the-badge)](https://crates.io/crates/ggrs)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/gschup/ggrs/Rust?style=for-the-badge)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/gschup/ggrs/rust.yml?branch=main&style=for-the-badge)
 
 ## P2P Rollback Networking in Rust
 
