@@ -191,7 +191,7 @@ impl<T: Config> InputQueue<T> {
                 self.first_incorrect_frame = frame_number;
             }
 
-            // If this input is the same frame as the last one requested and we still haven't found any mispredicted inputs, we can exit predition mode.
+            // If this input is the same frame as the last one requested and we still haven't found any mispredicted inputs, we can exit prediction mode.
             // Otherwise, advance the prediction frame count up.
             if self.prediction.frame == self.last_requested_frame
                 && self.first_incorrect_frame == NULL_FRAME
