@@ -18,6 +18,7 @@ const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
+#[derive(Debug)]
 pub(crate) struct PlayerRegistry<T>
 where
     T: Config,

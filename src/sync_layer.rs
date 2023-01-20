@@ -285,7 +285,7 @@ mod sync_layer_tests {
     use std::net::SocketAddr;
 
     #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+    #[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable)]
     struct TestInput {
         inp: u8,
     }

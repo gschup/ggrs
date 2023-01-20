@@ -40,7 +40,7 @@ fn millis_since_epoch() -> u128 {
 }
 
 // byte-encoded data representing the inputs of a client, possibly for multiple players at the same time
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct InputBytes {
     /// The frame to which this info belongs to. -1/[`NULL_FRAME`] represents an invalid frame
     pub frame: Frame,
@@ -123,6 +123,7 @@ enum ProtocolState {
     Shutdown,
 }
 
+#[derive(Debug)]
 pub(crate) struct UdpProtocol<T>
 where
     T: Config,

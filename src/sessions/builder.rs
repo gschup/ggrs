@@ -26,6 +26,7 @@ pub(crate) const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 /// The [`SessionBuilder`] builds all GGRS Sessions. After setting all appropriate values, use `SessionBuilder::start_yxz_session(...)`
 /// to consume the builder and create a Session of desired type.
+#[derive(Debug)]
 pub struct SessionBuilder<T>
 where
     T: Config,

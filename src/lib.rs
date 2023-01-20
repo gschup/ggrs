@@ -187,13 +187,13 @@ pub trait Config: 'static + Send + Sync {
     /// running with the same endianness when encoding and decoding inputs.
     ///
     /// [Pod]: bytemuck::Pod
-    type Input: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable + Send + Sync;
+    type Input: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable + Send + Sync + Debug;
 
     /// The save state type for the session.
     type State: Clone + Send + Sync;
 
     /// The address type which identifies the remote clients
-    type Address: Clone + PartialEq + Eq + Hash + Send + Sync;
+    type Address: Debug + Clone + PartialEq + Eq + Hash + Send + Sync + Debug;
 }
 
 /// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.
@@ -229,13 +229,14 @@ pub trait Config: 'static {
         + PartialEq
         + bytemuck::NoUninit
         + bytemuck::CheckedBitPattern
-        + bytemuck::Zeroable;
+        + bytemuck::Zeroable
+        + Debug;
 
     /// The save state type for the session.
     type State: Clone;
 
     /// The address type which identifies the remote clients
-    type Address: Clone + PartialEq + Eq + Hash;
+    type Address: Clone + PartialEq + Eq + Hash + Debug;
 }
 
 /// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.

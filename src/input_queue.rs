@@ -253,7 +253,7 @@ mod input_queue_tests {
     use super::*;
 
     #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+    #[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable)]
     struct TestInput {
         inp: u8,
     }
