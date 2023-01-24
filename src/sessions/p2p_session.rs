@@ -18,7 +18,6 @@ const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
-#[derive(Debug)]
 pub(crate) struct PlayerRegistry<T>
 where
     T: Config,
@@ -26,6 +25,19 @@ where
     pub(crate) handles: HashMap<PlayerHandle, PlayerType<T::Address>>,
     pub(crate) remotes: HashMap<T::Address, UdpProtocol<T>>,
     pub(crate) spectators: HashMap<T::Address, UdpProtocol<T>>,
+}
+
+impl<T> std::fmt::Debug for PlayerRegistry<T>
+where
+    T: Config,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlayerRegistry")
+            .field("handles", &self.handles)
+            .field("remotes", &self.remotes.keys())
+            .field("spectators", &self.spectators.keys())
+            .finish()
+    }
 }
 
 impl<T: Config> PlayerRegistry<T> {

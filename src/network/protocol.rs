@@ -123,7 +123,6 @@ enum ProtocolState {
     Shutdown,
 }
 
-#[derive(Debug)]
 pub(crate) struct UdpProtocol<T>
 where
     T: Config,

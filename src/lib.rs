@@ -187,7 +187,7 @@ pub trait Config: 'static + Send + Sync {
     /// running with the same endianness when encoding and decoding inputs.
     ///
     /// [Pod]: bytemuck::Pod
-    type Input: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable + Send + Sync + Debug;
+    type Input: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable + Send + Sync;
 
     /// The save state type for the session.
     type State: Clone + Send + Sync;
@@ -229,8 +229,7 @@ pub trait Config: 'static {
         + PartialEq
         + bytemuck::NoUninit
         + bytemuck::CheckedBitPattern
-        + bytemuck::Zeroable
-        + Debug;
+        + bytemuck::Zeroable;
 
     /// The save state type for the session.
     type State: Clone;
