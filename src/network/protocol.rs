@@ -2,7 +2,7 @@ use crate::frame_info::PlayerInput;
 use crate::network::compression::{decode, encode};
 use crate::network::messages::{
     ConnectionStatus, Input, InputAck, Message, MessageBody, MessageHeader, QualityReply,
-    QualityReport, SyncReply, SyncRequest,
+    QualityReport, SyncReply, SyncRequest, ChecksumReport,
 };
 use crate::time_sync::TimeSync;
 use crate::{Config, Frame, GGRSError, NonBlockingSocket, PlayerHandle, NULL_FRAME};
@@ -23,6 +23,7 @@ const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
+const CHECKSUM_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
 
 fn millis_since_epoch() -> u128 {
@@ -171,6 +172,11 @@ where
     round_trip_time: u128,
     last_send_time: Instant,
     last_recv_time: Instant,
+
+    // debug desync
+    checksum_history: HashMap<Frame, u32>,
+    last_added_checksum: Frame,
+    last_checksum_send_time: Instant,
 }
 
 impl<T: Config> PartialEq for UdpProtocol<T> {
@@ -253,6 +259,11 @@ impl<T: Config> UdpProtocol<T> {
             round_trip_time: 0,
             last_send_time: Instant::now(),
             last_recv_time: Instant::now(),
+
+            // debug desync
+            checksum_history: HashMap::new(),
+            last_added_checksum: NULL_FRAME,
+            last_checksum_send_time: Instant::now(),
         }
     }
 
@@ -358,6 +369,11 @@ impl<T: Config> UdpProtocol<T> {
                 // periodically send a quality report
                 if self.running_last_quality_report + QUALITY_REPORT_INTERVAL < now {
                     self.send_quality_report();
+                }
+
+                // periodically send a checksum report
+                if self.last_checksum_send_time + CHECKSUM_REPORT_INTERVAL < now {
+                    self.send_checksum_report();
                 }
 
                 // send keep alive packet if we didn't send a packet for some time
@@ -515,6 +531,22 @@ impl<T: Config> UdpProtocol<T> {
         self.queue_message(MessageBody::QualityReport(body));
     }
 
+    fn send_checksum_report(&mut self) {
+        self.last_checksum_send_time = Instant::now();
+        // send a checksum report with the last checksum, if a valid checksum is available
+        if self.last_added_checksum == NULL_FRAME {
+            return;
+        }
+        let (frame, checksum) = self.checksum_history.get_key_value(&self.last_added_checksum)
+            .expect(&format!("Failed to retrieve checksum for frame: {}", self.last_added_checksum));
+        // send checksum report containing the last added checksum
+        let body = ChecksumReport {
+            checksum: *checksum,
+            frame: *frame,
+        };
+        self.queue_message(MessageBody::ChecksumReport(body));
+    }
+
     fn queue_message(&mut self, body: MessageBody) {
         // set the header
         let header = MessageHeader { magic: self.magic };
@@ -560,7 +592,9 @@ impl<T: Config> UdpProtocol<T> {
             MessageBody::InputAck(body) => self.on_input_ack(*body),
             MessageBody::QualityReport(body) => self.on_quality_report(body),
             MessageBody::QualityReply(body) => self.on_quality_reply(body),
+            MessageBody::ChecksumReport(body) => self.on_checksum_report(body),
             MessageBody::KeepAlive => (),
+            
         }
     }
 
@@ -695,6 +729,16 @@ impl<T: Config> UdpProtocol<T> {
         let millis = millis_since_epoch();
         assert!(millis >= body.pong);
         self.round_trip_time = millis - body.pong;
+    }
+
+    /// Upon recveiving a `ChecksumReport`, compare it and notify user if needed.
+    fn on_checksum_report(&self, body: &ChecksumReport) {
+        if let Some(check) = self.checksum_history.get(&body.frame){
+            // compare results, if they dont match notify the user.
+            if *check != body.checksum{
+                //TODO Mismatched checksum. send some event?
+            }
+        }
     }
 
     /// Returns the frame of the last received input
