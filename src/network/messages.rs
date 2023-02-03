@@ -74,7 +74,7 @@ pub(crate) struct QualityReply {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct ChecksumReport {
-    pub checksum: u32, // I dont know what size checksum would be favourable  
+    pub checksum: u128,
     pub frame: Frame, 
 }
 

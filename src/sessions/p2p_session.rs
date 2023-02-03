@@ -13,6 +13,7 @@ use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::convert::TryInto;
+use std::hash;
 
 const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
@@ -140,6 +141,9 @@ where
     event_queue: VecDeque<GGRSEvent<T>>,
     /// Contains all local inputs not yet sent into the system. This should have inputs for every local player before calling advance_frame
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
+
+    /// Desync detection over the network
+    checksum_history: HashMap<Frame, Option<u128>>,
 }
 
 impl<T: Config> P2PSession<T> {
@@ -189,6 +193,7 @@ impl<T: Config> P2PSession<T> {
             player_reg: players,
             event_queue: VecDeque::new(),
             local_inputs: HashMap::new(),
+            checksum_history: HashMap::new(),
         }
     }
 
@@ -294,6 +299,13 @@ impl<T: Config> P2PSession<T> {
 
         // check time sync between clients and send wait recommendation, if appropriate
         self.check_wait_recommendation();
+
+        /*
+         *  DESYNC DETECTION
+         */
+        // collect compare and check the last checksums against the other peers
+        self.collect_local_confirmed_checksum();
+        self.compare_local_checksums_against_peers();
 
         /*
          *  INPUTS
@@ -840,6 +852,37 @@ impl<T: Config> P2PSession<T> {
         // check event queue size and discard oldest events if too big
         while self.event_queue.len() > MAX_EVENT_QUEUE_SIZE {
             self.event_queue.pop_front();
+        }
+    }
+
+    fn collect_local_confirmed_checksum(&mut self) {
+        let frame_to_collect = self.confirmed_frame();
+        if frame_to_collect != NULL_FRAME {
+            match self.sync_layer.saved_state_by_frame(frame_to_collect) {
+                Some(cell) => {
+                    self.checksum_history.insert(cell.frame(), cell.checksum());
+                }
+                None => (),
+            };
+        }
+    }
+
+    fn compare_local_checksums_against_peers(&mut self) {
+        // for now lets compare to personal checksums
+        for (_, remote) in &self.player_reg.remotes {
+            for (remote_frame, remote_checksum) in remote.checksum_history() {
+                if let Some(Some(local_checksum)) = self.checksum_history.get(remote_frame) {
+                    // compare checksums and add an event if it does not match
+                    if *local_checksum != *remote_checksum {
+                        self.event_queue.push_back(GGRSEvent::DesyncDetected {
+                            frame: *remote_frame,
+                            local_checksum: *local_checksum,
+                            remote_checksum: *remote_checksum,
+                            remote_addr: remote.peer_addr(),
+                        });
+                    }
+                }
+            }
         }
     }
 }

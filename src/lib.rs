@@ -141,6 +141,17 @@ where
         /// Amount of frames recommended to be skipped in order to let other clients catch up.
         skip_frames: u32,
     },
+    /// Sent whenever GGRS locally detected a discrepancy between local and remote checksums
+    DesyncDetected{
+        /// Frame of the checksums
+        frame: Frame,
+        /// local checksum for the given frame
+        local_checksum: u128,
+        /// remote checksum for the given frame
+        remote_checksum: u128,
+        /// remote address of the endpoint.
+        remote_addr: T::Address,
+    }
 }
 
 /// Requests that you can receive from the session. Handling them is mandatory.

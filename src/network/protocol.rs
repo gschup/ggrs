@@ -174,8 +174,8 @@ where
     last_recv_time: Instant,
 
     // debug desync
-    checksum_history: HashMap<Frame, u32>,
-    last_added_checksum: Frame,
+    checksum_history: HashMap<Frame, u128>,
+    last_added_checksum_frame: Frame,
     last_checksum_send_time: Instant,
 }
 
@@ -262,7 +262,7 @@ impl<T: Config> UdpProtocol<T> {
 
             // debug desync
             checksum_history: HashMap::new(),
-            last_added_checksum: NULL_FRAME,
+            last_added_checksum_frame: NULL_FRAME,
             last_checksum_send_time: Instant::now(),
         }
     }
@@ -532,13 +532,15 @@ impl<T: Config> UdpProtocol<T> {
     }
 
     fn send_checksum_report(&mut self) {
-        self.last_checksum_send_time = Instant::now();
         // send a checksum report with the last checksum, if a valid checksum is available
-        if self.last_added_checksum == NULL_FRAME {
+        self.last_checksum_send_time = Instant::now();
+        // no checksums to send. return.
+        if self.last_added_checksum_frame == NULL_FRAME {
             return;
         }
-        let (frame, checksum) = self.checksum_history.get_key_value(&self.last_added_checksum)
-            .expect(&format!("Failed to retrieve checksum for frame: {}", self.last_added_checksum));
+        let (frame, checksum) = self.checksum_history
+            .get_key_value(&self.last_added_checksum_frame)
+            .expect(&format!("Failed to retrieve checksum for frame: {}", self.last_added_checksum_frame));
         // send checksum report containing the last added checksum
         let body = ChecksumReport {
             checksum: *checksum,
@@ -731,14 +733,12 @@ impl<T: Config> UdpProtocol<T> {
         self.round_trip_time = millis - body.pong;
     }
 
-    /// Upon recveiving a `ChecksumReport`, compare it and notify user if needed.
-    fn on_checksum_report(&self, body: &ChecksumReport) {
-        if let Some(check) = self.checksum_history.get(&body.frame){
-            // compare results, if they dont match notify the user.
-            if *check != body.checksum{
-                //TODO Mismatched checksum. send some event?
-            }
+    /// Upon recveiving a `ChecksumReport`, add it to the checksum history
+    fn on_checksum_report(&mut self, body: &ChecksumReport) {
+        if self.last_added_checksum_frame < body.frame {
+            self.last_added_checksum_frame = body.frame;
         }
+        self.checksum_history.insert(body.frame, body.checksum);
     }
 
     /// Returns the frame of the last received input
@@ -747,5 +747,9 @@ impl<T: Config> UdpProtocol<T> {
             Some((k, _)) => *k,
             None => NULL_FRAME,
         }
+    }
+
+    pub(crate) fn checksum_history(&self) -> &HashMap<Frame, u128> {
+        &self.checksum_history
     }
 }
