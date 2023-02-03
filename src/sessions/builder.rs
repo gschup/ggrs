@@ -11,6 +11,7 @@ use super::p2p_spectator_session::SPECTATOR_BUFFER_SIZE;
 
 const DEFAULT_PLAYERS: usize = 2;
 const DEFAULT_SAVE_MODE: bool = false;
+const DEFAULT_DETECTION_MODE: bool = false;
 const DEFAULT_INPUT_DELAY: usize = 0;
 const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
 const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
@@ -36,6 +37,7 @@ where
     /// FPS defines the expected update frequency of this session.
     fps: usize,
     sparse_saving: bool,
+    desync_detection: bool,
     /// The time until a remote player gets disconnected.
     disconnect_timeout: Duration,
     /// The time until the client will get a notification that a remote player is about to be disconnected.
@@ -63,6 +65,7 @@ impl<T: Config> SessionBuilder<T> {
             max_prediction: DEFAULT_MAX_PREDICTION_FRAMES,
             fps: DEFAULT_FPS,
             sparse_saving: DEFAULT_SAVE_MODE,
+            desync_detection: DEFAULT_DETECTION_MODE,
             disconnect_timeout: DEFAULT_DISCONNECT_TIMEOUT,
             disconnect_notify_start: DEFAULT_DISCONNECT_NOTIFY_START,
             input_delay: DEFAULT_INPUT_DELAY,
@@ -152,6 +155,13 @@ impl<T: Config> SessionBuilder<T> {
     /// takes much more time than advancing the game state.
     pub fn with_sparse_saving_mode(mut self, sparse_saving: bool) -> Self {
         self.sparse_saving = sparse_saving;
+        self
+    }
+
+    /// Sets the desync detection mode. With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
+    /// If an desync is found the session will send a DesyncDetected event.
+    pub fn with_desync_detection_mode(mut self, desync_detection: bool) -> Self {
+        self.desync_detection = desync_detection;
         self
     }
 
@@ -282,6 +292,7 @@ impl<T: Config> SessionBuilder<T> {
             Box::new(socket),
             self.player_reg,
             self.sparse_saving,
+            self.desync_detection,
             self.input_delay,
         ))
     }

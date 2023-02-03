@@ -144,6 +144,8 @@ where
     /// Contains all local inputs not yet sent into the system. This should have inputs for every local player before calling advance_frame
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 
+    /// With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
+    desync_detection: bool,
     /// Desync detection over the network
     checksum_history: VecDeque<(Frame, u128)>,
 }
@@ -157,6 +159,7 @@ impl<T: Config> P2PSession<T> {
         socket: Box<dyn NonBlockingSocket<T::Address>>,
         players: PlayerRegistry<T>,
         sparse_saving: bool,
+        desync_detection: bool,
         input_delay: usize,
     ) -> Self {
         // local connection status
@@ -195,6 +198,7 @@ impl<T: Config> P2PSession<T> {
             player_reg: players,
             event_queue: VecDeque::new(),
             local_inputs: HashMap::new(),
+            desync_detection,
             checksum_history: VecDeque::new(),
         }
     }
@@ -298,9 +302,11 @@ impl<T: Config> P2PSession<T> {
         /*
          *  DESYNC DETECTION
          */
-        //collect, send, compare and check the last checksums against the other peers
-        self.check_checksum_send_interval();
-        self.compare_local_checksums_against_peers();
+        // collect, send, compare and check the last checksums against the other peers
+        if self.desync_detection {
+            self.check_checksum_send_interval();
+            self.compare_local_checksums_against_peers();
+        }
 
         /*
          *  WAIT RECOMMENDATION
