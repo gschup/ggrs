@@ -865,10 +865,6 @@ impl<T: Config> P2PSession<T> {
                     for (local_frame, local_checksum) in &self.checksum_history {
                         // if checksums are equal for the same frame send desync event
                         if *local_frame == *remote_frame && *local_checksum != *remote_checksum {
-                            println!(
-                                "frame: {}, local: {}, remote: {}",
-                                local_frame, local_checksum, remote_checksum
-                            );
                             self.event_queue.push_back(GGRSEvent::DesyncDetected {
                                 frame: *local_frame,
                                 local_checksum: *local_checksum,
