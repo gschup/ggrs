@@ -858,8 +858,8 @@ impl<T: Config> P2PSession<T> {
     }
 
     fn compare_local_checksums_against_peers(&mut self) {
-        let frame_to_check = self.confirmed_frame();
-        if frame_to_check != NULL_FRAME && self.current_frame() % CHECKSUM_REPORT_INTERVAL == 0 {
+        let current = self.current_frame();
+        if current % CHECKSUM_REPORT_INTERVAL == 0 && current > self.max_prediction as i32 {
             for (_, remote) in &self.player_reg.remotes {
                 for (remote_frame, remote_checksum) in remote.checksum_history() {
                     for (local_frame, local_checksum) in &self.checksum_history {
