@@ -863,10 +863,9 @@ impl<T: Config> P2PSession<T> {
     }
 
     fn compare_local_checksums_against_peers(&mut self) {
-        let current = self.current_frame();
         match self.desync_detection {
             DesyncDetection::On { interval } => {
-                if current % interval as i32 != 0 {
+                if self.current_frame() % interval as i32 != 0 {
                     return;
                 }
 
@@ -890,10 +889,11 @@ impl<T: Config> P2PSession<T> {
     }
 
     fn check_checksum_send_interval(&mut self) {
-        let frame_to_send = self.sync_layer.last_saved_frame() - 1;
-        let current = self.current_frame();
         match self.desync_detection {
             DesyncDetection::On { interval } => {
+                let frame_to_send = self.sync_layer.last_saved_frame() - 1;
+                let current = self.current_frame();
+                
                 if current % interval as i32 == 0 && frame_to_send > self.max_prediction as i32 {
                     let cell = self
                         .sync_layer
