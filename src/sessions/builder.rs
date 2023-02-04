@@ -4,14 +4,14 @@ use instant::Duration;
 
 use crate::{
     network::protocol::UdpProtocol, sessions::p2p_session::PlayerRegistry, Config, GGRSError,
-    NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession, SyncTestSession,
+    NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession, SyncTestSession, DesyncDetection,
 };
 
 use super::p2p_spectator_session::SPECTATOR_BUFFER_SIZE;
 
 const DEFAULT_PLAYERS: usize = 2;
 const DEFAULT_SAVE_MODE: bool = false;
-const DEFAULT_DETECTION_MODE: bool = false;
+const DEFAULT_DETECTION_MODE: DesyncDetection = DesyncDetection::Off;
 const DEFAULT_INPUT_DELAY: usize = 0;
 const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_millis(2000);
 const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
@@ -37,7 +37,7 @@ where
     /// FPS defines the expected update frequency of this session.
     fps: usize,
     sparse_saving: bool,
-    desync_detection: bool,
+    desync_detection: DesyncDetection,
     /// The time until a remote player gets disconnected.
     disconnect_timeout: Duration,
     /// The time until the client will get a notification that a remote player is about to be disconnected.
@@ -159,8 +159,8 @@ impl<T: Config> SessionBuilder<T> {
     }
 
     /// Sets the desync detection mode. With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
-    /// If an desync is found the session will send a DesyncDetected event.
-    pub fn with_desync_detection_mode(mut self, desync_detection: bool) -> Self {
+    /// If a desync is found the session will send a DesyncDetected event.
+    pub fn with_desync_detection_mode(mut self, desync_detection: DesyncDetection) -> Self {
         self.desync_detection = desync_detection;
         self
     }

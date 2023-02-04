@@ -709,14 +709,14 @@ impl<T: Config> UdpProtocol<T> {
 
     /// Upon recveiving a `ChecksumReport`, add it to the checksum history
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
+        while self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
+            self.checksum_history.pop_back();
+        }
+        
         if self.last_added_checksum_frame < body.frame {
             self.last_added_checksum_frame = body.frame;
             self.checksum_history
                 .push_front((body.frame, body.checksum));
-        }
-
-        while self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-            self.checksum_history.pop_back();
         }
     }
 

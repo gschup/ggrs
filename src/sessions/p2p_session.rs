@@ -4,6 +4,7 @@ use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
 use crate::network::protocol::UdpProtocol;
 use crate::sync_layer::SyncLayer;
+use crate::DesyncDetection;
 use crate::{
     network::protocol::Event, Config, Frame, GGRSEvent, GGRSRequest, NonBlockingSocket,
     PlayerHandle, PlayerType, SessionState, NULL_FRAME,
@@ -13,12 +14,10 @@ use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::convert::TryInto;
-use std::hash;
 
 const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
-const CHECKSUM_REPORT_INTERVAL: Frame = 10; // report 6 times a second.
 const MAX_CHECKSUM_HISTORY_SIZE: usize = 192;
 
 pub(crate) struct PlayerRegistry<T>
@@ -145,7 +144,7 @@ where
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 
     /// With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
-    desync_detection: bool,
+    desync_detection: DesyncDetection,
     /// Desync detection over the network
     checksum_history: VecDeque<(Frame, u128)>,
 }
@@ -159,7 +158,7 @@ impl<T: Config> P2PSession<T> {
         socket: Box<dyn NonBlockingSocket<T::Address>>,
         players: PlayerRegistry<T>,
         sparse_saving: bool,
-        desync_detection: bool,
+        desync_detection: DesyncDetection,
         input_delay: usize,
     ) -> Self {
         // local connection status
@@ -303,7 +302,7 @@ impl<T: Config> P2PSession<T> {
          *  DESYNC DETECTION
          */
         // collect, send, compare and check the last checksums against the other peers
-        if self.desync_detection {
+        if self.desync_detection != DesyncDetection::Off {
             self.check_checksum_send_interval();
             self.compare_local_checksums_against_peers();
         }
@@ -865,46 +864,59 @@ impl<T: Config> P2PSession<T> {
 
     fn compare_local_checksums_against_peers(&mut self) {
         let current = self.current_frame();
-        if current % CHECKSUM_REPORT_INTERVAL == 0 && current > self.max_prediction as i32 {
-            for (_, remote) in &self.player_reg.remotes {
-                for (remote_frame, remote_checksum) in remote.checksum_history() {
-                    for (local_frame, local_checksum) in &self.checksum_history {
-                        // if checksums are equal for the same frame send desync event
-                        if *local_frame == *remote_frame && *local_checksum != *remote_checksum {
-                            self.event_queue.push_back(GGRSEvent::DesyncDetected {
-                                frame: *local_frame,
-                                local_checksum: *local_checksum,
-                                remote_checksum: *remote_checksum,
-                                remote_addr: remote.peer_addr(),
-                            });
-                            // exit function desync already detected
-                            return;
+        match self.desync_detection {
+            DesyncDetection::On { interval } => {
+                if current % interval as i32 == 0 {
+                    for (_, remote) in &self.player_reg.remotes {
+                        for (remote_frame, remote_checksum) in remote.checksum_history() {
+                            for (local_frame, local_checksum) in &self.checksum_history {
+                                // if checksums are equal for the same frame send desync event
+                                if *local_frame == *remote_frame
+                                    && *local_checksum != *remote_checksum
+                                {
+                                    self.event_queue.push_back(GGRSEvent::DesyncDetected {
+                                        frame: *local_frame,
+                                        local_checksum: *local_checksum,
+                                        remote_checksum: *remote_checksum,
+                                        addr: remote.peer_addr(),
+                                    });
+                                    // exit function desync already detected
+                                    return;
+                                }
+                            }
                         }
                     }
                 }
             }
+            DesyncDetection::Off => (),
         }
     }
 
     fn check_checksum_send_interval(&mut self) {
         let frame_to_send = self.sync_layer.last_saved_frame() - 1;
-        if self.current_frame() % CHECKSUM_REPORT_INTERVAL == 0
-            && frame_to_send > self.max_prediction as i32
-        {
-            let cell = self
-                .sync_layer
-                .saved_state_by_frame(frame_to_send)
-                .expect(&format!("cell not found!: frame {}", frame_to_send));
-            if let Some(checksum) = cell.checksum() {
-                for (_, remote) in &mut self.player_reg.remotes {
-                    remote.send_checksum_report(frame_to_send, checksum);
+        match self.desync_detection {
+            DesyncDetection::On { interval } => {
+                if self.current_frame() % interval as i32 == 0
+                    && frame_to_send > self.max_prediction as i32
+                {
+                    let cell = self
+                        .sync_layer
+                        .saved_state_by_frame(frame_to_send)
+                        .expect(&format!("cell not found!: frame {}", frame_to_send));
+
+                    if let Some(checksum) = cell.checksum() {
+                        for (_, remote) in &mut self.player_reg.remotes {
+                            remote.send_checksum_report(frame_to_send, checksum);
+                        }
+                        // collect locally for later comparison
+                        self.checksum_history.push_front((frame_to_send, checksum));
+                    }
                 }
-                // collect locally for later comparison
-                self.checksum_history.push_front((frame_to_send, checksum));
+                while self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
+                    self.checksum_history.pop_back();
+                }
             }
-        }
-        while self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-            self.checksum_history.pop_back();
+            DesyncDetection::Off => (),
         }
     }
 }
