@@ -18,7 +18,7 @@ use std::convert::TryInto;
 const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
-const MAX_CHECKSUM_HISTORY_SIZE: usize = 192;
+const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
 
 pub(crate) struct PlayerRegistry<T>
 where

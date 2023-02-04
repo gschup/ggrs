@@ -11,7 +11,6 @@ use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
-use std::hash::{self, Hash};
 use std::ops::Add;
 
 use super::network_stats::NetworkStats;
@@ -25,7 +24,7 @@ const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
-const MAX_CHECKSUM_HISTORY_SIZE: usize = 128;
+const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
 
 fn millis_since_epoch() -> u128 {
     #[cfg(not(target_arch = "wasm32"))]
