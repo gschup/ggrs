@@ -219,13 +219,13 @@ impl State {
         let mut velocities = Vec::new();
         let mut rotations = Vec::new();
 
-        let r = WINDOW_WIDTH as f32 / 4.0;
+        let r = WINDOW_WIDTH / 4.0;
 
         for i in 0..num_players as i32 {
             let rot = i as f32 / num_players as f32 * 2.0 * std::f32::consts::PI;
-            let x = WINDOW_WIDTH as f32 / 2.0 + r * rot.cos();
-            let y = WINDOW_HEIGHT as f32 / 2.0 + r * rot.sin();
-            positions.push((x as f32, y as f32));
+            let x = WINDOW_WIDTH / 2.0 + r * rot.cos();
+            let y = WINDOW_HEIGHT / 2.0 + r * rot.sin();
+            positions.push((x, y));
             velocities.push((0.0, 0.0));
             rotations.push((rot + std::f32::consts::PI) % (2.0 * std::f32::consts::PI));
         }

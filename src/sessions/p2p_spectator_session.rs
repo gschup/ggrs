@@ -240,7 +240,7 @@ impl<T: Config> SpectatorSession<T> {
                 self.host.update_local_frame_advantage(input.frame);
 
                 // update the host connection status
-                for i in 0..self.num_players as usize {
+                for i in 0..self.num_players {
                     self.host_connect_status[i] = self.host.peer_connect_status(i);
                 }
             }

@@ -103,7 +103,7 @@ impl<T: Config> SyncTestSession<T> {
         }
 
         // we require inputs for all players
-        if self.num_players as usize != self.local_inputs.len() {
+        if self.num_players != self.local_inputs.len() {
             return Err(GGRSError::InvalidRequest {
                 info: "Missing local input while calling advance_frame().".to_owned(),
             });

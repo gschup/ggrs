@@ -238,14 +238,14 @@ impl<T: Config> SyncLayer<T> {
         self.last_confirmed_frame = frame;
         if self.last_confirmed_frame > 0 {
             for i in 0..self.num_players {
-                self.input_queues[i as usize].discard_confirmed_frames(frame - 1);
+                self.input_queues[i].discard_confirmed_frames(frame - 1);
             }
         }
     }
 
     /// Finds the earliest incorrect frame detected by the individual input queues
     pub(crate) fn check_simulation_consistency(&self, mut first_incorrect: Frame) -> Frame {
-        for handle in 0..self.num_players as usize {
+        for handle in 0..self.num_players {
             let incorrect = self.input_queues[handle].first_incorrect_frame();
             if incorrect != NULL_FRAME
                 && (first_incorrect == NULL_FRAME || incorrect < first_incorrect)

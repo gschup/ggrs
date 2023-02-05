@@ -655,7 +655,7 @@ impl<T: Config> P2PSession<T> {
             let mut inputs = self
                 .sync_layer
                 .confirmed_inputs(self.next_spectator_frame, &self.local_connect_status);
-            assert_eq!(inputs.len(), self.num_players as usize);
+            assert_eq!(inputs.len(), self.num_players);
 
             let mut input_map = HashMap::new();
             for (handle, input) in inputs.iter_mut().enumerate() {
