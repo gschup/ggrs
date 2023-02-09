@@ -4,7 +4,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- nothing here yet...
+- `SessionBuilder` now implements debug. This requires `Config::Address` to have Debug
+- First approach at desync detection for p2p sessions
 
 ## 0.9.3
 
