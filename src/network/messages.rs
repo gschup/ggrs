@@ -73,6 +73,12 @@ pub(crate) struct QualityReply {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub(crate) struct ChecksumReport {
+    pub checksum: u128,
+    pub frame: Frame, 
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct MessageHeader {
     pub magic: u16,
 }
@@ -85,6 +91,7 @@ pub(crate) enum MessageBody {
     InputAck(InputAck),
     QualityReport(QualityReport),
     QualityReply(QualityReply),
+    ChecksumReport(ChecksumReport),
     KeepAlive,
 }
 
@@ -97,3 +104,5 @@ pub struct Message {
     pub(crate) header: MessageHeader,
     pub(crate) body: MessageBody,
 }
+
+

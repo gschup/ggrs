@@ -2,8 +2,9 @@ use crate::error::GGRSError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
-use crate::network::protocol::UdpProtocol;
+use crate::network::protocol::{UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
 use crate::sync_layer::SyncLayer;
+use crate::DesyncDetection;
 use crate::{
     network::protocol::Event, Config, Frame, GGRSEvent, GGRSRequest, NonBlockingSocket,
     PlayerHandle, PlayerType, SessionState, NULL_FRAME,
@@ -153,6 +154,11 @@ where
     event_queue: VecDeque<GGRSEvent<T>>,
     /// Contains all local inputs not yet sent into the system. This should have inputs for every local player before calling advance_frame
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
+
+    /// With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
+    desync_detection: DesyncDetection,
+    /// Desync detection over the network
+    local_checksum_history: HashMap<Frame, u128>,
 }
 
 impl<T: Config> P2PSession<T> {
@@ -164,6 +170,7 @@ impl<T: Config> P2PSession<T> {
         socket: Box<dyn NonBlockingSocket<T::Address>>,
         players: PlayerRegistry<T>,
         sparse_saving: bool,
+        desync_detection: DesyncDetection,
         input_delay: usize,
     ) -> Self {
         // local connection status
@@ -202,6 +209,8 @@ impl<T: Config> P2PSession<T> {
             player_reg: players,
             event_queue: VecDeque::new(),
             local_inputs: HashMap::new(),
+            desync_detection,
+            local_checksum_history: HashMap::new(),
         }
     }
 
@@ -300,6 +309,15 @@ impl<T: Config> P2PSession<T> {
         // set the last confirmed frame and discard all saved inputs before that frame
         self.sync_layer
             .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
+
+        /*
+         *  DESYNC DETECTION
+         */
+        // collect, send, compare and check the last checksums against the other peers
+        if self.desync_detection != DesyncDetection::Off {
+            self.check_checksum_send_interval();
+            self.compare_local_checksums_against_peers();
+        }
 
         /*
          *  WAIT RECOMMENDATION
@@ -853,6 +871,62 @@ impl<T: Config> P2PSession<T> {
         // check event queue size and discard oldest events if too big
         while self.event_queue.len() > MAX_EVENT_QUEUE_SIZE {
             self.event_queue.pop_front();
+        }
+    }
+
+    fn compare_local_checksums_against_peers(&mut self) {
+        match self.desync_detection {
+            DesyncDetection::On { interval } => {
+                if self.current_frame() % interval as i32 != 0 {
+                    return;
+                }
+
+                for (_, remote) in &self.player_reg.remotes {
+                    for (remote_frame, remote_checksum) in remote.checksum_history() {
+                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame) {
+                            if *local_checksum != *remote_checksum {
+                                self.event_queue.push_back(GGRSEvent::DesyncDetected {
+                                    frame: *remote_frame,
+                                    local_checksum: *local_checksum,
+                                    remote_checksum: *remote_checksum,
+                                    addr: remote.peer_addr(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            DesyncDetection::Off => (),
+        }
+    }
+
+    fn check_checksum_send_interval(&mut self) {
+        match self.desync_detection {
+            DesyncDetection::On { interval } => {
+                let frame_to_send = self.sync_layer.last_saved_frame() - 1;
+                let current = self.current_frame();
+                
+                if current % interval as i32 == 0 && frame_to_send > self.max_prediction as i32 {
+                    let cell = self
+                        .sync_layer
+                        .saved_state_by_frame(frame_to_send)
+                        .expect(&format!("cell not found!: frame {}", frame_to_send));
+
+                    if let Some(checksum) = cell.checksum() {
+                        for (_, remote) in &mut self.player_reg.remotes {
+                            remote.send_checksum_report(frame_to_send, checksum);
+                        }
+                        // collect locally for later comparison
+                        self.local_checksum_history.insert(frame_to_send, checksum);
+                    }
+                }
+                if self.local_checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
+                    // keep the checksums later than current - max_checksum_size
+                    self.local_checksum_history
+                        .retain(|&frame, _| frame > current - MAX_CHECKSUM_HISTORY_SIZE as i32);
+                }
+            }
+            DesyncDetection::Off => (),
         }
     }
 }

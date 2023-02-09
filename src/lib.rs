@@ -53,6 +53,18 @@ pub type PlayerHandle = usize;
 // #   ENUMS   #
 // #############
 
+/// Desync detection by comparing checksums between peers.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum DesyncDetection {
+    /// Desync detection is turned on with a specified interval rate given by the user.
+    On {
+        /// interval rate given by the user. e.g. at 60hz an interval of 10 results to 6 reports a second.
+        interval: u32,
+    },
+    /// Desync detection is turned off
+    Off,
+}
+
 /// Defines the three types of players that GGRS considers:
 /// - local players, who play on the local device,
 /// - remote players, who play on other devices and
@@ -140,6 +152,17 @@ where
     WaitRecommendation {
         /// Amount of frames recommended to be skipped in order to let other clients catch up.
         skip_frames: u32,
+    },
+    /// Sent whenever GGRS locally detected a discrepancy between local and remote checksums
+    DesyncDetected {
+        /// Frame of the checksums
+        frame: Frame,
+        /// local checksum for the given frame
+        local_checksum: u128,
+        /// remote checksum for the given frame
+        remote_checksum: u128,
+        /// remote address of the endpoint.
+        addr: T::Address,
     },
 }
 

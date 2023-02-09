@@ -1,8 +1,8 @@
 use crate::frame_info::PlayerInput;
 use crate::network::compression::{decode, encode};
 use crate::network::messages::{
-    ConnectionStatus, Input, InputAck, Message, MessageBody, MessageHeader, QualityReply,
-    QualityReport, SyncReply, SyncRequest,
+    ChecksumReport, ConnectionStatus, Input, InputAck, Message, MessageBody, MessageHeader,
+    QualityReply, QualityReport, SyncReply, SyncRequest,
 };
 use crate::time_sync::TimeSync;
 use crate::{Config, Frame, GGRSError, NonBlockingSocket, PlayerHandle, NULL_FRAME};
@@ -24,6 +24,7 @@ const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
+pub const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
 
 fn millis_since_epoch() -> u128 {
     #[cfg(not(target_arch = "wasm32"))]
@@ -171,6 +172,10 @@ where
     round_trip_time: u128,
     last_send_time: Instant,
     last_recv_time: Instant,
+
+    // debug desync
+    checksum_history: HashMap<Frame, u128>,
+    last_added_checksum_frame: Frame,
 }
 
 impl<T: Config> PartialEq for UdpProtocol<T> {
@@ -253,6 +258,10 @@ impl<T: Config> UdpProtocol<T> {
             round_trip_time: 0,
             last_send_time: Instant::now(),
             last_recv_time: Instant::now(),
+
+            // debug desync
+            checksum_history: HashMap::new(),
+            last_added_checksum_frame: NULL_FRAME,
         }
     }
 
@@ -560,6 +569,7 @@ impl<T: Config> UdpProtocol<T> {
             MessageBody::InputAck(body) => self.on_input_ack(*body),
             MessageBody::QualityReport(body) => self.on_quality_report(body),
             MessageBody::QualityReply(body) => self.on_quality_reply(body),
+            MessageBody::ChecksumReport(body) => self.on_checksum_report(body),
             MessageBody::KeepAlive => (),
         }
     }
@@ -697,11 +707,37 @@ impl<T: Config> UdpProtocol<T> {
         self.round_trip_time = millis - body.pong;
     }
 
+    /// Upon recveiving a `ChecksumReport`, add it to the checksum history
+    fn on_checksum_report(&mut self, body: &ChecksumReport) {
+        if self.last_added_checksum_frame < body.frame {
+            if self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
+                // keep the checksums later than last_added_checksum_frame - max_checksum_size
+                self.checksum_history.retain(|&frame, _| {
+                    frame > self.last_added_checksum_frame - MAX_CHECKSUM_HISTORY_SIZE as i32
+                });
+            }
+            self.last_added_checksum_frame = body.frame;
+            self.checksum_history.insert(body.frame, body.checksum);
+        }
+    }
+
     /// Returns the frame of the last received input
     fn last_recv_frame(&self) -> Frame {
         match self.recv_inputs.iter().max_by_key(|&(k, _)| k) {
             Some((k, _)) => *k,
             None => NULL_FRAME,
         }
+    }
+
+    pub(crate) fn checksum_history(&self) -> &HashMap<Frame, u128> {
+        &self.checksum_history
+    }
+
+    pub(crate) fn send_checksum_report(&mut self, frame_to_send: Frame, checksum: u128) {
+        let body = ChecksumReport {
+            frame: frame_to_send,
+            checksum: checksum,
+        };
+        self.queue_message(MessageBody::ChecksumReport(body));
     }
 }
