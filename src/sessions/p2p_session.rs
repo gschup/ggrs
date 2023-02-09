@@ -27,6 +27,19 @@ where
     pub(crate) spectators: HashMap<T::Address, UdpProtocol<T>>,
 }
 
+impl<T> std::fmt::Debug for PlayerRegistry<T>
+where
+    T: Config,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlayerRegistry")
+            .field("handles", &self.handles)
+            .field("remotes", &self.remotes.keys())
+            .field("spectators", &self.spectators.keys())
+            .finish()
+    }
+}
+
 impl<T: Config> PlayerRegistry<T> {
     pub(crate) fn new() -> Self {
         Self {

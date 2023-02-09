@@ -193,7 +193,7 @@ pub trait Config: 'static + Send + Sync {
     type State: Clone + Send + Sync;
 
     /// The address type which identifies the remote clients
-    type Address: Clone + PartialEq + Eq + Hash + Send + Sync;
+    type Address: Clone + PartialEq + Eq + Hash + Send + Sync + Debug;
 }
 
 /// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.
@@ -235,7 +235,7 @@ pub trait Config: 'static {
     type State: Clone;
 
     /// The address type which identifies the remote clients
-    type Address: Clone + PartialEq + Eq + Hash;
+    type Address: Clone + PartialEq + Eq + Hash + Debug;
 }
 
 /// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.
