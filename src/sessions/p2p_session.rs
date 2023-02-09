@@ -2,7 +2,7 @@ use crate::error::GGRSError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
-use crate::network::protocol::UdpProtocol;
+use crate::network::protocol::{UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
 use crate::sync_layer::SyncLayer;
 use crate::DesyncDetection;
 use crate::{
@@ -18,7 +18,6 @@ use std::convert::TryInto;
 const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
 const MAX_EVENT_QUEUE_SIZE: usize = 100;
-const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
 
 pub(crate) struct PlayerRegistry<T>
 where
@@ -146,7 +145,7 @@ where
     /// With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
     desync_detection: DesyncDetection,
     /// Desync detection over the network
-    checksum_history: HashMap<Frame, u128>,
+    local_checksum_history: HashMap<Frame, u128>,
 }
 
 impl<T: Config> P2PSession<T> {
@@ -198,7 +197,7 @@ impl<T: Config> P2PSession<T> {
             event_queue: VecDeque::new(),
             local_inputs: HashMap::new(),
             desync_detection,
-            checksum_history: HashMap::new(),
+            local_checksum_history: HashMap::new(),
         }
     }
 
@@ -871,7 +870,7 @@ impl<T: Config> P2PSession<T> {
 
                 for (_, remote) in &self.player_reg.remotes {
                     for (remote_frame, remote_checksum) in remote.checksum_history() {
-                        if let Some(local_checksum) = self.checksum_history.get(remote_frame) {
+                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame) {
                             if *local_checksum != *remote_checksum {
                                 self.event_queue.push_back(GGRSEvent::DesyncDetected {
                                     frame: *remote_frame,
@@ -905,12 +904,12 @@ impl<T: Config> P2PSession<T> {
                             remote.send_checksum_report(frame_to_send, checksum);
                         }
                         // collect locally for later comparison
-                        self.checksum_history.insert(frame_to_send, checksum);
+                        self.local_checksum_history.insert(frame_to_send, checksum);
                     }
                 }
-                while self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
+                if self.local_checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
                     // keep the checksums later than current - max_checksum_size
-                    self.checksum_history
+                    self.local_checksum_history
                         .retain(|&frame, _| frame > current - MAX_CHECKSUM_HISTORY_SIZE as i32);
                 }
             }
