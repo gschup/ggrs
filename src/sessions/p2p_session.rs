@@ -709,7 +709,7 @@ impl<T: Config> P2PSession<T> {
     /// Check if players are registered as disconnected for earlier frames on other remote players in comparison to our local assumption.
     /// Disconnect players that are disconnected for other players and update the frame they disconnected
     fn update_player_disconnects(&mut self) {
-        for handle in 0..self.num_players as usize {
+        for handle in 0..self.num_players {
             let mut queue_connected = true;
             let mut queue_min_confirmed = i32::MAX;
 

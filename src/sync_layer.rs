@@ -126,12 +126,12 @@ impl<T: Config> SyncLayer<T> {
 
     pub(crate) fn set_frame_delay(&mut self, player_handle: PlayerHandle, delay: usize) {
         assert!(player_handle < self.num_players as PlayerHandle);
-        self.input_queues[player_handle as usize].set_frame_delay(delay);
+        self.input_queues[player_handle].set_frame_delay(delay);
     }
 
     pub(crate) fn reset_prediction(&mut self) {
         for i in 0..self.num_players {
-            self.input_queues[i as usize].reset_prediction();
+            self.input_queues[i].reset_prediction();
         }
     }
 
@@ -220,7 +220,7 @@ impl<T: Config> SyncLayer<T> {
     pub(crate) fn set_last_confirmed_frame(&mut self, mut frame: Frame, sparse_saving: bool) {
         // don't set the last confirmed frame after the first incorrect frame before a rollback has happened
         let mut first_incorrect: Frame = NULL_FRAME;
-        for handle in 0..self.num_players as usize {
+        for handle in 0..self.num_players {
             first_incorrect = std::cmp::max(
                 first_incorrect,
                 self.input_queues[handle].first_incorrect_frame(),
