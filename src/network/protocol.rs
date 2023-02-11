@@ -707,7 +707,7 @@ impl<T: Config> UdpProtocol<T> {
         self.round_trip_time = millis - body.pong;
     }
 
-    /// Upon recveiving a `ChecksumReport`, add it to the checksum history
+    /// Upon receiving a `ChecksumReport`, add it to the checksum history
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
         if self.last_added_checksum_frame < body.frame {
             if self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
@@ -736,7 +736,7 @@ impl<T: Config> UdpProtocol<T> {
     pub(crate) fn send_checksum_report(&mut self, frame_to_send: Frame, checksum: u128) {
         let body = ChecksumReport {
             frame: frame_to_send,
-            checksum: checksum,
+            checksum,
         };
         self.queue_message(MessageBody::ChecksumReport(body));
     }

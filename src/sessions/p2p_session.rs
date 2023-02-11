@@ -709,7 +709,7 @@ impl<T: Config> P2PSession<T> {
     /// Check if players are registered as disconnected for earlier frames on other remote players in comparison to our local assumption.
     /// Disconnect players that are disconnected for other players and update the frame they disconnected
     fn update_player_disconnects(&mut self) {
-        for handle in 0..self.num_players as usize {
+        for handle in 0..self.num_players {
             let mut queue_connected = true;
             let mut queue_min_confirmed = i32::MAX;
 
@@ -881,9 +881,10 @@ impl<T: Config> P2PSession<T> {
                     return;
                 }
 
-                for (_, remote) in &self.player_reg.remotes {
+                for remote in self.player_reg.remotes.values() {
                     for (remote_frame, remote_checksum) in remote.checksum_history() {
-                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame) {
+                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame)
+                        {
                             if *local_checksum != *remote_checksum {
                                 self.event_queue.push_back(GGRSEvent::DesyncDetected {
                                     frame: *remote_frame,
@@ -905,15 +906,15 @@ impl<T: Config> P2PSession<T> {
             DesyncDetection::On { interval } => {
                 let frame_to_send = self.sync_layer.last_saved_frame() - 1;
                 let current = self.current_frame();
-                
+
                 if current % interval as i32 == 0 && frame_to_send > self.max_prediction as i32 {
                     let cell = self
                         .sync_layer
                         .saved_state_by_frame(frame_to_send)
-                        .expect(&format!("cell not found!: frame {}", frame_to_send));
+                        .unwrap_or_else(|| panic!("cell not found!: frame {frame_to_send}"));
 
                     if let Some(checksum) = cell.checksum() {
-                        for (_, remote) in &mut self.player_reg.remotes {
+                        for remote in self.player_reg.remotes.values_mut() {
                             remote.send_checksum_report(frame_to_send, checksum);
                         }
                         // collect locally for later comparison
