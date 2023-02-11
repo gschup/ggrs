@@ -75,7 +75,7 @@ pub(crate) struct QualityReply {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct ChecksumReport {
     pub checksum: u128,
-    pub frame: Frame, 
+    pub frame: Frame,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -104,5 +104,3 @@ pub struct Message {
     pub(crate) header: MessageHeader,
     pub(crate) body: MessageBody,
 }
-
-

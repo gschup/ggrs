@@ -883,7 +883,8 @@ impl<T: Config> P2PSession<T> {
 
                 for (_, remote) in &self.player_reg.remotes {
                     for (remote_frame, remote_checksum) in remote.checksum_history() {
-                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame) {
+                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame)
+                        {
                             if *local_checksum != *remote_checksum {
                                 self.event_queue.push_back(GGRSEvent::DesyncDetected {
                                     frame: *remote_frame,
@@ -905,7 +906,7 @@ impl<T: Config> P2PSession<T> {
             DesyncDetection::On { interval } => {
                 let frame_to_send = self.sync_layer.last_saved_frame() - 1;
                 let current = self.current_frame();
-                
+
                 if current % interval as i32 == 0 && frame_to_send > self.max_prediction as i32 {
                     let cell = self
                         .sync_layer

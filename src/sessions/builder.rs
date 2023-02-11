@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use instant::Duration;
 
 use crate::{
-    network::protocol::UdpProtocol, sessions::p2p_session::PlayerRegistry, Config, GGRSError,
-    NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession, SyncTestSession, DesyncDetection,
+    network::protocol::UdpProtocol, sessions::p2p_session::PlayerRegistry, Config, DesyncDetection,
+    GGRSError, NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession,
+    SyncTestSession,
 };
 
 use super::p2p_spectator_session::SPECTATOR_BUFFER_SIZE;
