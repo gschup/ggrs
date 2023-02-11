@@ -736,7 +736,7 @@ impl<T: Config> UdpProtocol<T> {
     pub(crate) fn send_checksum_report(&mut self, frame_to_send: Frame, checksum: u128) {
         let body = ChecksumReport {
             frame: frame_to_send,
-            checksum: checksum,
+            checksum,
         };
         self.queue_message(MessageBody::ChecksumReport(body));
     }

@@ -881,7 +881,7 @@ impl<T: Config> P2PSession<T> {
                     return;
                 }
 
-                for (_, remote) in &self.player_reg.remotes {
+                for remote in self.player_reg.remotes.values() {
                     for (remote_frame, remote_checksum) in remote.checksum_history() {
                         if let Some(local_checksum) = self.local_checksum_history.get(remote_frame)
                         {
@@ -911,10 +911,10 @@ impl<T: Config> P2PSession<T> {
                     let cell = self
                         .sync_layer
                         .saved_state_by_frame(frame_to_send)
-                        .expect(&format!("cell not found!: frame {}", frame_to_send));
+                        .unwrap_or_else(|| panic!("cell not found!: frame {frame_to_send}"));
 
                     if let Some(checksum) = cell.checksum() {
-                        for (_, remote) in &mut self.player_reg.remotes {
+                        for remote in self.player_reg.remotes.values_mut() {
                             remote.send_checksum_report(frame_to_send, checksum);
                         }
                         // collect locally for later comparison
