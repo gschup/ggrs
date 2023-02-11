@@ -41,8 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session
     let mut sess_build = SessionBuilder::<GGRSConfig>::new()
         .with_num_players(num_players)
-        .with_fps(FPS as usize)? // (optional) set expected update frequency
-        .with_input_delay(2); // (optional) set input delay for the local player
+        // (optional) exchange and validate state checsums
+        .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 100 })
+        // (optional) set expected update frequency
+        .with_fps(FPS as usize)?
+        // (optional) set input delay for the local player
+        .with_input_delay(2);
 
     // add players
     for (i, player_addr) in opt.players.iter().enumerate() {
