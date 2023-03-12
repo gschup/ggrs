@@ -3,13 +3,17 @@
 //! The callback-style API from the original library has been replaced with a much saner, simpler control flow.
 //! Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.
 
-#![forbid(unsafe_code)] // let us try
+// FIXME: commented just to try out a concept of padding for supporting field enum in `Config::Input`.
+// Eventually support should come from bytemuck and we're back to safe code.
+// #![forbid(unsafe_code)] // let us try
+
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 use std::{fmt::Debug, hash::Hash};
 
 pub use error::GGRSError;
+pub use init_pad::TransparentPad;
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
@@ -21,6 +25,7 @@ pub use sync_layer::GameStateCell;
 
 pub(crate) mod error;
 pub(crate) mod frame_info;
+pub(crate) mod init_pad;
 pub(crate) mod input_queue;
 pub(crate) mod sync_layer;
 pub(crate) mod time_sync;

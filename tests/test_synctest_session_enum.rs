@@ -1,6 +1,6 @@
 mod stubs_enum;
 
-use ggrs::{GGRSError, SessionBuilder};
+use ggrs::{GGRSError, SessionBuilder, TransparentPad};
 
 #[test]
 fn test_enum_advance_frames_with_delayed_input() -> Result<(), GGRSError> {
@@ -11,7 +11,10 @@ fn test_enum_advance_frames_with_delayed_input() -> Result<(), GGRSError> {
         .with_input_delay(2)
         .start_synctest_session()?;
 
-    let inputs = [stubs_enum::EnumInput::Val1, stubs_enum::EnumInput::Val2];
+    let inputs = [
+        stubs_enum::EnumInput::Val1(16),
+        stubs_enum::EnumInput::Val2(TransparentPad::new(8)),
+    ];
     for i in 0..200 {
         let input = inputs[i % inputs.len()];
         sess.add_local_input(0, input)?;

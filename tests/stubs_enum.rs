@@ -2,7 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
-use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus};
+use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus, TransparentPad};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -15,16 +15,41 @@ pub struct GameStubEnum {
 }
 use bytemuck::{CheckedBitPattern, NoUninit, Zeroable};
 
-#[repr(u8)]
-#[derive(Copy, Clone, PartialEq, CheckedBitPattern, NoUninit)]
+#[repr(u16)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum EnumInput {
-    Val1,
-    Val2,
+    Val1(u16),
+    Val2(TransparentPad<u8, 8>),
 }
+
+unsafe impl NoUninit for EnumInput {}
 
 unsafe impl Zeroable for EnumInput {
     fn zeroed() -> Self {
         unsafe { core::mem::zeroed() }
+    }
+}
+
+unsafe impl CheckedBitPattern for EnumInput {
+    type Bits = u32;
+
+    fn is_valid_bit_pattern(bits: &u32) -> bool {
+        match *bits {
+            0b0 => {
+                let alignment = std::mem::align_of::<EnumInput>();
+                let view = &bits as *const _ as *const u8;
+                let inner = &unsafe { view.offset(alignment as isize) as u16 };
+                u16::is_valid_bit_pattern(inner)
+            }
+            0b1 => {
+                let alignment = std::mem::align_of::<EnumInput>();
+                let view = &bits as *const _ as *const u8;
+                let inner = &unsafe { view.offset(alignment as isize) as u32 };
+                let res: Result<&TransparentPad<u8, 8>, _> = bytemuck::checked::try_cast_ref(inner);
+                res.is_ok()
+            }
+            _ => false,
+        }
     }
 }
 
