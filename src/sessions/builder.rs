@@ -107,13 +107,6 @@ impl<T: Config> SessionBuilder<T> {
                         info: "The player handle you provided is invalid. For a local player, the handle should be between 0 and num_players".to_owned(),
                     });
                 }
-                // for now, we only allow one local player
-                if let Some(PlayerType::Local) = self.player_reg.player_type(player_handle) {
-                    return Err(GGRSError::InvalidRequest {
-                        info: "Currently, only one local player per session is supported."
-                            .to_owned(),
-                    });
-                }
             }
             PlayerType::Remote(_) => {
                 if player_handle >= self.num_players {
