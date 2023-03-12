@@ -97,10 +97,6 @@ impl<T: Config> PlayerRegistry<T> {
             .count()
     }
 
-    pub(crate) fn player_type(&self, handle: PlayerHandle) -> Option<&PlayerType<T::Address>> {
-        self.handles.get(&handle)
-    }
-
     pub fn handles_by_address(&self, addr: T::Address) -> Vec<PlayerHandle> {
         let handles: Vec<PlayerHandle> = self
             .handles
