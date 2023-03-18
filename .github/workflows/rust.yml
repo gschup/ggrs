@@ -27,8 +27,8 @@ jobs:
         run: cargo fmt --check
 
   check-wasm:
-    name: Check wasm
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
       - name: Install stable wasm toolchain
@@ -38,7 +38,7 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
-      - name: Run cargo check
+      - name: Check wasm
         uses: actions-rs/cargo@v1
         with:
           command: check
