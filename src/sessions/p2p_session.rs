@@ -651,7 +651,7 @@ impl<T: Config> P2PSession<T> {
                 .sync_layer
                 .synchronized_inputs(&self.local_connect_status);
 
-            // decide wether to request a state save
+            // decide whether to request a state save
             if self.sparse_saving {
                 // with sparse saving, we only save exactly the min_confirmed frame
                 if self.sync_layer.current_frame() == min_confirmed {

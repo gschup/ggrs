@@ -61,7 +61,7 @@ cargo run --example ex_game_p2p -- --local-port 7001 --players 127.0.0.1:7000 12
 ## ExGame SyncTest
 
 The same game, but without network functionality.
-Instead, the SyncTestSession focusses on simulating rollbacks and comparing checksums.
+Instead, the SyncTestSession focuses on simulating rollbacks and comparing checksums.
 You can use the Arrow Keys in addition to WASD in order to move the second player.
 
 ### Launching ExGame SyncTest

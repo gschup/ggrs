@@ -131,7 +131,7 @@ impl<T: Config> SyncTestSession<T> {
         requests.push(GGRSRequest::AdvanceFrame { inputs });
         self.sync_layer.advance_frame();
 
-        // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer wont complain about missing
+        // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer won't complain about missing
         // inputs from other players
         let safe_frame = self.sync_layer.current_frame() - self.check_distance as i32;
 
