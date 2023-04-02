@@ -78,7 +78,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 ## 0.4.4
 
 - fixed a bug where p2p sessions would falsely skip frames even when there able to run the frame
-- implemented some first steps towards WASM compatability
+- implemented some first steps towards WASM compatibility
 
 ## 0.4.3
 
