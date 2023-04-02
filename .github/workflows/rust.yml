@@ -32,14 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install stable wasm toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
+          targets: wasm32-unknown-unknown
       - name: Check wasm
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --target wasm32-unknown-unknown --features wasm-bindgen
+        run: cargo check --target wasm32-unknown-unknown --features wasm-bindgen
