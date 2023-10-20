@@ -271,6 +271,11 @@ impl<T: Config> SyncLayer<T> {
     pub(crate) fn last_saved_frame(&self) -> Frame {
         self.last_saved_frame
     }
+
+    /// Returns the latest confirmed frame
+    pub(crate) fn last_confirmed_frame(&self) -> Frame {
+        self.last_confirmed_frame
+    }
 }
 
 // #########
