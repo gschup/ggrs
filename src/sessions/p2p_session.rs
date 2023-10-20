@@ -875,20 +875,25 @@ impl<T: Config> P2PSession<T> {
 
     fn compare_local_checksums_against_peers(&mut self) {
         match self.desync_detection {
-            DesyncDetection::On { interval } => {
-                if self.current_frame() % interval as i32 != 0 {
-                    return;
-                }
-
-                for remote in self.player_reg.remotes.values() {
-                    for (remote_frame, remote_checksum) in remote.checksum_history() {
-                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame)
+            DesyncDetection::On { .. } => {
+                for remote in self.player_reg.remotes.values_mut() {
+                    while remote.pending_checksums.len() > 0 {
+                        // todo: clean up when/if a drain filter variant is added for VecDeque
+                        let (remote_frame, _) = remote.pending_checksums.back().unwrap();
+                        if *remote_frame >= self.sync_layer.last_confirmed_frame() {
+                            break;
+                        }
+                        if let Some(&local_checksum) =
+                            self.local_checksum_history.get(&remote_frame)
                         {
-                            if *local_checksum != *remote_checksum {
+                            let (remote_frame, remote_checksum) =
+                                remote.pending_checksums.pop_back().unwrap();
+
+                            if local_checksum != remote_checksum {
                                 self.event_queue.push_back(GGRSEvent::DesyncDetected {
-                                    frame: *remote_frame,
-                                    local_checksum: *local_checksum,
-                                    remote_checksum: *remote_checksum,
+                                    frame: remote_frame,
+                                    local_checksum,
+                                    remote_checksum,
                                     addr: remote.peer_addr(),
                                 });
                             }

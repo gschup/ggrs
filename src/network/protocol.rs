@@ -175,7 +175,7 @@ where
     last_recv_time: Instant,
 
     // debug desync
-    checksum_history: HashMap<Frame, u128>,
+    pub(crate) pending_checksums: VecDeque<(Frame, u128)>,
     last_added_checksum_frame: Frame,
 }
 
@@ -261,7 +261,7 @@ impl<T: Config> UdpProtocol<T> {
             last_recv_time: Instant::now(),
 
             // debug desync
-            checksum_history: HashMap::new(),
+            pending_checksums: VecDeque::new(),
             last_added_checksum_frame: NULL_FRAME,
         }
     }
@@ -711,13 +711,10 @@ impl<T: Config> UdpProtocol<T> {
     /// Upon receiving a `ChecksumReport`, add it to the checksum history
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
         if self.last_added_checksum_frame < body.frame {
-            if self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-                let oldest_frame_to_keep = self.last_added_checksum_frame;
-                self.checksum_history
-                    .retain(|&frame, _| frame >= oldest_frame_to_keep as i32);
-            }
-            self.last_added_checksum_frame = body.frame;
-            self.checksum_history.insert(body.frame, body.checksum);
+            self.pending_checksums
+                .truncate(MAX_CHECKSUM_HISTORY_SIZE - 1);
+            self.pending_checksums
+                .push_front((body.frame, body.checksum));
         }
     }
 
@@ -727,10 +724,6 @@ impl<T: Config> UdpProtocol<T> {
             Some((k, _)) => *k,
             None => NULL_FRAME,
         }
-    }
-
-    pub(crate) fn checksum_history(&self) -> &HashMap<Frame, u128> {
-        &self.checksum_history
     }
 
     pub(crate) fn send_checksum_report(&mut self, frame_to_send: Frame, checksum: u128) {
