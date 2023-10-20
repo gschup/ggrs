@@ -150,8 +150,16 @@ impl Game {
             "Frame {}: Checksum {}",
             self.periodic_checksum.0, self.periodic_checksum.1
         );
+        let force_desync_info_str = format!("Press SPACE to trigger a desync");
         draw_text(&last_checksum_str, 20.0, 20.0, 30.0, WHITE);
         draw_text(&periodic_checksum_str, 20.0, 40.0, 30.0, WHITE);
+        draw_text(
+            &force_desync_info_str,
+            90.0,
+            WINDOW_HEIGHT * 9.0 / 10.0,
+            30.0,
+            WHITE,
+        );
     }
 
     #[allow(dead_code)]
