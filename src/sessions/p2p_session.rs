@@ -925,10 +925,10 @@ impl<T: Config> P2PSession<T> {
                     }
 
                     if self.local_checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-                        // keep the checksums later than current - max_checksum_size
-                        self.local_checksum_history.retain(|&frame, _| {
-                            frame > frame_to_send - MAX_CHECKSUM_HISTORY_SIZE as i32
-                        });
+                        let oldest_frame_to_keep = frame_to_send
+                            - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
+                        self.local_checksum_history
+                            .retain(|&frame, _| frame >= oldest_frame_to_keep as i32);
                     }
                 }
             }

@@ -24,6 +24,7 @@ const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
+/// Number of old checksums to keep in memory
 pub const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
 
 fn millis_since_epoch() -> u128 {
@@ -711,10 +712,9 @@ impl<T: Config> UdpProtocol<T> {
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
         if self.last_added_checksum_frame < body.frame {
             if self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-                // keep the checksums later than last_added_checksum_frame - max_checksum_size
-                self.checksum_history.retain(|&frame, _| {
-                    frame > self.last_added_checksum_frame - MAX_CHECKSUM_HISTORY_SIZE as i32
-                });
+                let oldest_frame_to_keep = self.last_added_checksum_frame;
+                self.checksum_history
+                    .retain(|&frame, _| frame >= oldest_frame_to_keep as i32);
             }
             self.last_added_checksum_frame = body.frame;
             self.checksum_history.insert(body.frame, body.checksum);
