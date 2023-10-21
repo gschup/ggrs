@@ -263,3 +263,60 @@ fn test_desyncs_detected() -> Result<(), GGRSError> {
 
     Ok(())
 }
+
+#[test]
+#[serial]
+fn test_desyncs_and_input_delay_no_panic() -> Result<(), GGRSError> {
+    let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
+    let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+    let desync_mode = DesyncDetection::On { interval: 100 };
+
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let mut sess1 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Remote(addr2), 1)?
+        .with_input_delay(5)
+        .with_desync_detection_mode(desync_mode)
+        .start_p2p_session(socket1)?;
+
+    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let mut sess2 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Remote(addr1), 0)?
+        .add_player(PlayerType::Local, 1)?
+        .with_input_delay(5)
+        .with_desync_detection_mode(desync_mode)
+        .start_p2p_session(socket2)?;
+
+    while sess1.current_state() != SessionState::Running
+        && sess2.current_state() != SessionState::Running
+    {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+    }
+
+    // drain events
+    assert!(sess1.events().chain(sess2.events()).all(|e| match e {
+        GGRSEvent::Synchronizing { .. } | GGRSEvent::Synchronized { .. } => true,
+        _ => false,
+    }));
+
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
+
+    // run normally for some frames (past first desync interval)
+    for i in 0..110 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+    }
+
+    Ok(())
+}
