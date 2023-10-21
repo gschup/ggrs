@@ -1,6 +1,9 @@
 mod stubs;
 
-use ggrs::{GGRSError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
+use ggrs::{
+    DesyncDetection, GGRSError, GGRSEvent, PlayerType, SessionBuilder, SessionState,
+    UdpNonBlockingSocket,
+};
 use serial_test::serial;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use stubs::{StubConfig, StubInput};
@@ -141,6 +144,122 @@ fn test_advance_frame_p2p_sessions() -> Result<(), GGRSError> {
         assert_eq!(stub1.gs.frame, i as i32 + 1);
         assert_eq!(stub2.gs.frame, i as i32 + 1);
     }
+
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_desyncs_detected() -> Result<(), GGRSError> {
+    let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
+    let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+    let desync_mode = DesyncDetection::On { interval: 100 };
+
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let mut sess1 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Remote(addr2), 1)?
+        .with_desync_detection_mode(desync_mode)
+        .start_p2p_session(socket1)?;
+
+    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let mut sess2 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Remote(addr1), 0)?
+        .add_player(PlayerType::Local, 1)?
+        .with_desync_detection_mode(desync_mode)
+        .start_p2p_session(socket2)?;
+
+    while sess1.current_state() != SessionState::Running
+        && sess2.current_state() != SessionState::Running
+    {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+    }
+
+    // drain events
+    assert!(sess1.events().chain(sess2.events()).all(|e| match e {
+        GGRSEvent::Synchronizing { .. } | GGRSEvent::Synchronized { .. } => true,
+        _ => false,
+    }));
+
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
+
+    // run normally for some frames (past first desync interval)
+    let reps = 110;
+    for i in 0..reps {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+    }
+
+    // check that there are no unexpected events yet
+    assert_eq!(sess1.events().len(), 0);
+    assert_eq!(sess2.events().len(), 0);
+
+    // run for some more frames
+    let reps = 100;
+    for _ in 0..reps {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+
+        // mess up state for peer 1
+        stub1.gs.state = 1234;
+
+        // keep input steady (to avoid loads, which would restore valid state)
+        sess1.add_local_input(0, StubInput { inp: 0 }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: 1 }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+    }
+
+    // check that we got desync events
+    let sess1_events: Vec<_> = sess1.events().collect();
+    let sess2_events: Vec<_> = sess2.events().collect();
+    assert_eq!(sess1_events.len(), 1);
+    assert_eq!(sess2_events.len(), 1);
+
+    let GGRSEvent::DesyncDetected {
+        frame: desync_frame1,
+        local_checksum: desync_local_checksum1,
+        remote_checksum: desync_remote_checksum1,
+        addr: desync_addr1,
+    } = sess1_events[0]
+    else {
+        panic!("no desync for peer 1");
+    };
+    assert_eq!(desync_frame1, 200);
+    assert_eq!(desync_addr1, addr2);
+    assert_ne!(desync_local_checksum1, desync_remote_checksum1);
+
+    let GGRSEvent::DesyncDetected {
+        frame: desync_frame2,
+        local_checksum: desync_local_checksum2,
+        remote_checksum: desync_remote_checksum2,
+        addr: desync_addr2,
+    } = sess2_events[0]
+    else {
+        panic!("no desync for peer 2");
+    };
+    assert_eq!(desync_frame2, 200);
+    assert_eq!(desync_addr2, addr1);
+    assert_ne!(desync_local_checksum2, desync_remote_checksum2);
+
+    // check that checksums match
+    assert_eq!(desync_remote_checksum1, desync_local_checksum2);
+    assert_eq!(desync_remote_checksum2, desync_local_checksum1);
 
     Ok(())
 }
