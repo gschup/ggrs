@@ -186,8 +186,7 @@ fn test_desyncs_detected() -> Result<(), GGRSError> {
     let mut stub2 = stubs::GameStub::new();
 
     // run normally for some frames (past first desync interval)
-    let reps = 110;
-    for i in 0..reps {
+    for i in 0..110 {
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
 
@@ -206,8 +205,7 @@ fn test_desyncs_detected() -> Result<(), GGRSError> {
     assert_eq!(sess2.events().len(), 0);
 
     // run for some more frames
-    let reps = 100;
-    for _ in 0..reps {
+    for _ in 0..100 {
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
 
@@ -304,7 +302,7 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GGRSError> {
     let mut stub2 = stubs::GameStub::new();
 
     // run normally for some frames (past first desync interval)
-    for i in 0..110 {
+    for i in 0..150 {
         sess1.poll_remote_clients();
         sess2.poll_remote_clients();
 
