@@ -914,7 +914,9 @@ impl<T: Config> P2PSession<T> {
                     self.last_sent_checksum_frame + interval as i32
                 };
 
-                if self.sync_layer.last_confirmed_frame() >= frame_to_send {
+                if frame_to_send <= self.sync_layer.last_confirmed_frame()
+                    && frame_to_send < self.sync_layer.last_saved_frame()
+                {
                     let cell = self
                         .sync_layer
                         .saved_state_by_frame(frame_to_send)
