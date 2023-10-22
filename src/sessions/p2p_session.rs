@@ -897,6 +897,8 @@ impl<T: Config> P2PSession<T> {
                                     addr: remote.peer_addr(),
                                 });
                             }
+                        } else {
+                            break;
                         }
                     }
                 }
