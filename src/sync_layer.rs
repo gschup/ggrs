@@ -51,6 +51,16 @@ impl<T: Clone> Clone for GameStateCell<T> {
     }
 }
 
+impl<T: Clone> std::fmt::Debug for GameStateCell<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let inner = self.0.lock();
+        f.debug_struct("GameStateCell")
+            .field("frame", &inner.frame)
+            .field("checksum", &inner.checksum)
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct SavedStates<T: Clone> {
     pub states: Vec<GameStateCell<T>>,
