@@ -713,13 +713,22 @@ impl<T: Config> UdpProtocol<T> {
 
     /// Upon receiving a `ChecksumReport`, add it to the checksum history
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
+        let interval = if let DesyncDetection::On { interval } = self.desync_detection {
+            interval
+        } else {
+            debug_assert!(
+                false,
+                "Received checksum report, but desync detection is off. Check
+                that configuration is consistent between peers."
+            );
+            1
+        };
+
         if self.pending_checksums.len() >= MAX_CHECKSUM_HISTORY_SIZE {
-            if let DesyncDetection::On { interval } = self.desync_detection {
-                let oldest_frame_to_keep =
-                    body.frame - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
-                self.pending_checksums
-                    .retain(|&frame, _| frame >= oldest_frame_to_keep);
-            }
+            let oldest_frame_to_keep =
+                body.frame - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
+            self.pending_checksums
+                .retain(|&frame, _| frame >= oldest_frame_to_keep);
         }
         self.pending_checksums.insert(body.frame, body.checksum);
     }
