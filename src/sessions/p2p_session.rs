@@ -877,18 +877,16 @@ impl<T: Config> P2PSession<T> {
         match self.desync_detection {
             DesyncDetection::On { .. } => {
                 for remote in self.player_reg.remotes.values_mut() {
-                    while remote.pending_checksums.len() > 0 {
-                        // todo: clean up when/if a drain filter variant is added for VecDeque
-                        let (remote_frame, _) = remote.pending_checksums.back().unwrap();
-                        if *remote_frame >= self.sync_layer.last_confirmed_frame() {
-                            break;
+                    let mut checked_frames = Vec::new();
+
+                    for (&remote_frame, &remote_checksum) in &remote.pending_checksums {
+                        if remote_frame >= self.sync_layer.last_confirmed_frame() {
+                            // we're still waiting for inputs for this frame
+                            continue;
                         }
                         if let Some(&local_checksum) =
                             self.local_checksum_history.get(&remote_frame)
                         {
-                            let (remote_frame, remote_checksum) =
-                                remote.pending_checksums.pop_back().unwrap();
-
                             if local_checksum != remote_checksum {
                                 self.event_queue.push_back(GGRSEvent::DesyncDetected {
                                     frame: remote_frame,
@@ -897,9 +895,12 @@ impl<T: Config> P2PSession<T> {
                                     addr: remote.peer_addr(),
                                 });
                             }
-                        } else {
-                            break;
+                            checked_frames.push(remote_frame);
                         }
+                    }
+
+                    for frame in checked_frames {
+                        remote.pending_checksums.remove_entry(&frame);
                     }
                 }
             }
@@ -937,7 +938,7 @@ impl<T: Config> P2PSession<T> {
                         let oldest_frame_to_keep = frame_to_send
                             - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
                         self.local_checksum_history
-                            .retain(|&frame, _| frame >= oldest_frame_to_keep as i32);
+                            .retain(|&frame, _| frame >= oldest_frame_to_keep);
                     }
                 }
             }

@@ -322,6 +322,7 @@ impl<T: Config> SessionBuilder<T> {
             self.disconnect_timeout,
             self.disconnect_notify_start,
             self.fps,
+            DesyncDetection::Off,
         );
         host.synchronize();
         SpectatorSession::new(
@@ -369,6 +370,7 @@ impl<T: Config> SessionBuilder<T> {
             self.disconnect_timeout,
             self.disconnect_notify_start,
             self.fps,
+            self.desync_detection,
         );
         // start the synchronization
         endpoint.synchronize();
