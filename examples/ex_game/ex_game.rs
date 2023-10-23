@@ -170,13 +170,12 @@ impl Game {
     #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
     pub fn local_input(&mut self, handle: PlayerHandle) -> Input {
-
         // manually teleport the player to the center of the screen, but not through a proper input
         // this will create a forced desync (unless player one is already at the center)
-            if is_key_pressed(KeyCode::Space) {
-                self.game_state.positions[handle] = (WINDOW_WIDTH *0.5, WINDOW_HEIGHT * 0.5);
-            }
-        
+        if is_key_pressed(KeyCode::Space) {
+            self.game_state.positions[handle] = (WINDOW_WIDTH * 0.5, WINDOW_HEIGHT * 0.5);
+        }
+
         let mut inp: u8 = 0;
 
         if handle == self.local_handles[0] {
