@@ -4,6 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- `GameStateCell` now implements debug.
+- fixed a bug where checksums of unconfirmed frames were compared during desync detection.
+- You can now trigger a desync manually in the example game by pressing SPACE.
+
 ## 0.9.4
 
 - `SessionBuilder` now implements debug. This requires `Config::Address` to have Debug
