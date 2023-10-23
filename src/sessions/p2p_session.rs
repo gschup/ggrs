@@ -155,6 +155,8 @@ where
     desync_detection: DesyncDetection,
     /// Desync detection over the network
     local_checksum_history: HashMap<Frame, u128>,
+    /// The last frame we sent a checksum for
+    last_sent_checksum_frame: Frame,
 }
 
 impl<T: Config> P2PSession<T> {
@@ -207,6 +209,7 @@ impl<T: Config> P2PSession<T> {
             local_inputs: HashMap::new(),
             desync_detection,
             local_checksum_history: HashMap::new(),
+            last_sent_checksum_frame: NULL_FRAME,
         }
     }
 
@@ -872,24 +875,32 @@ impl<T: Config> P2PSession<T> {
 
     fn compare_local_checksums_against_peers(&mut self) {
         match self.desync_detection {
-            DesyncDetection::On { interval } => {
-                if self.current_frame() % interval as i32 != 0 {
-                    return;
-                }
+            DesyncDetection::On { .. } => {
+                for remote in self.player_reg.remotes.values_mut() {
+                    let mut checked_frames = Vec::new();
 
-                for remote in self.player_reg.remotes.values() {
-                    for (remote_frame, remote_checksum) in remote.checksum_history() {
-                        if let Some(local_checksum) = self.local_checksum_history.get(remote_frame)
+                    for (&remote_frame, &remote_checksum) in &remote.pending_checksums {
+                        if remote_frame >= self.sync_layer.last_confirmed_frame() {
+                            // we're still waiting for inputs for this frame
+                            continue;
+                        }
+                        if let Some(&local_checksum) =
+                            self.local_checksum_history.get(&remote_frame)
                         {
-                            if *local_checksum != *remote_checksum {
+                            if local_checksum != remote_checksum {
                                 self.event_queue.push_back(GGRSEvent::DesyncDetected {
-                                    frame: *remote_frame,
-                                    local_checksum: *local_checksum,
-                                    remote_checksum: *remote_checksum,
+                                    frame: remote_frame,
+                                    local_checksum,
+                                    remote_checksum,
                                     addr: remote.peer_addr(),
                                 });
                             }
+                            checked_frames.push(remote_frame);
                         }
+                    }
+
+                    for frame in checked_frames {
+                        remote.pending_checksums.remove_entry(&frame);
                     }
                 }
             }
@@ -900,10 +911,15 @@ impl<T: Config> P2PSession<T> {
     fn check_checksum_send_interval(&mut self) {
         match self.desync_detection {
             DesyncDetection::On { interval } => {
-                let frame_to_send = self.sync_layer.last_saved_frame() - 1;
-                let current = self.current_frame();
+                let frame_to_send = if self.last_sent_checksum_frame == NULL_FRAME {
+                    interval as i32
+                } else {
+                    self.last_sent_checksum_frame + interval as i32
+                };
 
-                if current % interval as i32 == 0 && frame_to_send > self.max_prediction as i32 {
+                if frame_to_send <= self.sync_layer.last_confirmed_frame()
+                    && frame_to_send < self.sync_layer.last_saved_frame()
+                {
                     let cell = self
                         .sync_layer
                         .saved_state_by_frame(frame_to_send)
@@ -913,14 +929,17 @@ impl<T: Config> P2PSession<T> {
                         for remote in self.player_reg.remotes.values_mut() {
                             remote.send_checksum_report(frame_to_send, checksum);
                         }
+                        self.last_sent_checksum_frame = frame_to_send;
                         // collect locally for later comparison
                         self.local_checksum_history.insert(frame_to_send, checksum);
                     }
-                }
-                if self.local_checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-                    // keep the checksums later than current - max_checksum_size
-                    self.local_checksum_history
-                        .retain(|&frame, _| frame > current - MAX_CHECKSUM_HISTORY_SIZE as i32);
+
+                    if self.local_checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
+                        let oldest_frame_to_keep = frame_to_send
+                            - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
+                        self.local_checksum_history
+                            .retain(|&frame, _| frame >= oldest_frame_to_keep);
+                    }
                 }
             }
             DesyncDetection::Off => (),

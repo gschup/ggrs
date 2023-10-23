@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session
     let mut sess_build = SessionBuilder::<GGRSConfig>::new()
         .with_num_players(num_players)
-        // (optional) exchange and validate state checsums
+        // (optional) exchange and validate state checksums
         .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 100 })
         // (optional) set expected update frequency
         .with_fps(FPS as usize)?
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // render the game state
         game.render();
 
-        // wait for the next loop (macroquads wants it so)
+        // wait for the next loop (macroquad wants it so)
         next_frame().await;
     }
 }

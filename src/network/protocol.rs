@@ -5,7 +5,9 @@ use crate::network::messages::{
     QualityReply, QualityReport, SyncReply, SyncRequest,
 };
 use crate::time_sync::TimeSync;
-use crate::{Config, Frame, GGRSError, NonBlockingSocket, PlayerHandle, NULL_FRAME};
+use crate::{
+    Config, DesyncDetection, Frame, GGRSError, NonBlockingSocket, PlayerHandle, NULL_FRAME,
+};
 
 use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
@@ -24,6 +26,7 @@ const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
+/// Number of old checksums to keep in memory
 pub const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
 
 fn millis_since_epoch() -> u128 {
@@ -174,8 +177,8 @@ where
     last_recv_time: Instant,
 
     // debug desync
-    checksum_history: HashMap<Frame, u128>,
-    last_added_checksum_frame: Frame,
+    pub(crate) pending_checksums: HashMap<Frame, u128>,
+    desync_detection: DesyncDetection,
 }
 
 impl<T: Config> PartialEq for UdpProtocol<T> {
@@ -194,6 +197,7 @@ impl<T: Config> UdpProtocol<T> {
         disconnect_timeout: Duration,
         disconnect_notify_start: Duration,
         fps: usize,
+        desync_detection: DesyncDetection,
     ) -> Self {
         let mut magic = rand::random::<u16>();
         while magic == 0 {
@@ -260,8 +264,8 @@ impl<T: Config> UdpProtocol<T> {
             last_recv_time: Instant::now(),
 
             // debug desync
-            checksum_history: HashMap::new(),
-            last_added_checksum_frame: NULL_FRAME,
+            pending_checksums: HashMap::new(),
+            desync_detection,
         }
     }
 
@@ -709,16 +713,24 @@ impl<T: Config> UdpProtocol<T> {
 
     /// Upon receiving a `ChecksumReport`, add it to the checksum history
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
-        if self.last_added_checksum_frame < body.frame {
-            if self.checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-                // keep the checksums later than last_added_checksum_frame - max_checksum_size
-                self.checksum_history.retain(|&frame, _| {
-                    frame > self.last_added_checksum_frame - MAX_CHECKSUM_HISTORY_SIZE as i32
-                });
-            }
-            self.last_added_checksum_frame = body.frame;
-            self.checksum_history.insert(body.frame, body.checksum);
+        let interval = if let DesyncDetection::On { interval } = self.desync_detection {
+            interval
+        } else {
+            debug_assert!(
+                false,
+                "Received checksum report, but desync detection is off. Check
+                that configuration is consistent between peers."
+            );
+            1
+        };
+
+        if self.pending_checksums.len() >= MAX_CHECKSUM_HISTORY_SIZE {
+            let oldest_frame_to_keep =
+                body.frame - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
+            self.pending_checksums
+                .retain(|&frame, _| frame >= oldest_frame_to_keep);
         }
+        self.pending_checksums.insert(body.frame, body.checksum);
     }
 
     /// Returns the frame of the last received input
@@ -727,10 +739,6 @@ impl<T: Config> UdpProtocol<T> {
             Some((k, _)) => *k,
             None => NULL_FRAME,
         }
-    }
-
-    pub(crate) fn checksum_history(&self) -> &HashMap<Frame, u128> {
-        &self.checksum_history
     }
 
     pub(crate) fn send_checksum_report(&mut self, frame_to_send: Frame, checksum: u128) {
