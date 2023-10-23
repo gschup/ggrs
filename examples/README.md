@@ -11,6 +11,7 @@ There is no real game, just movement with ice physics. Optionally, you can speci
 - S to accelerate backwards
 - A to turn left
 - D to turn right
+- SPACE to move player 1 to (0, 0) locally (this will create a desync)
 
 ### Important Disclaimer - Determinism
 

@@ -150,8 +150,16 @@ impl Game {
             "Frame {}: Checksum {}",
             self.periodic_checksum.0, self.periodic_checksum.1
         );
+        let force_desync_info_str = format!("Press SPACE to trigger a desync");
         draw_text(&last_checksum_str, 20.0, 20.0, 30.0, WHITE);
         draw_text(&periodic_checksum_str, 20.0, 40.0, 30.0, WHITE);
+        draw_text(
+            &force_desync_info_str,
+            90.0,
+            WINDOW_HEIGHT * 9.0 / 10.0,
+            30.0,
+            WHITE,
+        );
     }
 
     #[allow(dead_code)]
@@ -161,7 +169,8 @@ impl Game {
 
     #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
-    pub fn local_input(&self, handle: PlayerHandle) -> Input {
+    pub fn local_input(&mut self, handle: PlayerHandle) -> Input {
+        self.trigger_desync();
         let mut inp: u8 = 0;
 
         if handle == self.local_handles[0] {
@@ -195,6 +204,14 @@ impl Game {
         }
 
         Input { inp }
+    }
+
+    // move player one to origin on local session only
+    // this will create a forced desync (unless player one is already at the origin)
+    pub fn trigger_desync(&mut self) {
+        if is_key_pressed(KeyCode::Space) {
+            self.game_state.positions[0] = (0.0, 0.0);
+        }
     }
 
     #[allow(dead_code)]
