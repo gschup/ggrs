@@ -155,6 +155,11 @@ impl<T: Config> SyncTestSession<T> {
         self.max_prediction
     }
 
+    /// Returns the check distance set on creation, i.e. the length of the simulated rollbacks
+    pub fn check_distance(&self) -> usize {
+        self.check_distance
+    }
+
     /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once
     fn checksums_consistent(&mut self, frame_to_check: Frame) -> bool {
         // remove entries older than the `check_distance`
