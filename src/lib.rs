@@ -234,6 +234,27 @@ where
     /// This method should return all messages received since the last time this method was called.
     /// The pairs `(A, Message)` indicate from which address each packet was received.
     fn receive_all_messages(&mut self) -> Vec<(A, Message)>;
+
+    /// Broadcast a single [`Message`] to all provided addresses.
+    fn send_to_many(&mut self, message: &Message, addresses: &[&A]) {
+        for address in addresses {
+            self.send_to(message, address);
+        }
+    }
+
+    /// Send many [`Messages`](`Message`) to a single addresses.
+    fn send_many_to(&mut self, messages: &[Message], address: &A) {
+        for message in messages {
+            self.send_to(message, address);
+        }
+    }
+
+    /// Send many [`Messages`](`Message`) to all provided addresses.
+    fn send_many_to_many(&mut self, messages: &[Message], addresses: &[&A]) {
+        for message in messages {
+            self.send_to_many(message, addresses);
+        }
+    }
 }
 
 /// Compile time parameterization for sessions.
@@ -276,4 +297,25 @@ where
     /// This method should return all messages received since the last time this method was called.
     /// The pairs `(A, Message)` indicate from which address each packet was received.
     fn receive_all_messages(&mut self) -> Vec<(A, Message)>;
+
+    /// Broadcast a single [`Message`] to all provided addresses.
+    fn send_to_many(&mut self, message: &Message, addresses: &[&A]) {
+        for address in addresses {
+            self.send_to(message, address);
+        }
+    }
+
+    /// Send many [`Messages`](`Message`) to a single addresses.
+    fn send_many_to(&mut self, messages: &[Message], address: &A) {
+        for message in messages {
+            self.send_to(message, address);
+        }
+    }
+
+    /// Send many [`Messages`](`Message`) to all provided addresses.
+    fn send_many_to_many(&mut self, messages: &[Message], addresses: &[&A]) {
+        for message in messages {
+            self.send_to_many(message, addresses);
+        }
+    }
 }
