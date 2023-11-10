@@ -3,7 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
-use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus};
+use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -39,12 +39,12 @@ impl GameStub {
     }
 
     #[allow(dead_code)]
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<StubConfig>>) {
+    pub fn handle_requests(&mut self, requests: Vec<GgrsRequest<StubConfig>>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
-                GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
-                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+                GgrsRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
+                GgrsRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GgrsRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
         }
     }
@@ -79,12 +79,12 @@ impl RandomChecksumGameStub {
     }
 
     #[allow(dead_code)]
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<StubConfig>>) {
+    pub fn handle_requests(&mut self, requests: Vec<GgrsRequest<StubConfig>>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
-                GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
-                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+                GgrsRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
+                GgrsRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GgrsRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
         }
     }

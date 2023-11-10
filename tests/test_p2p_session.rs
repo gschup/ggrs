@@ -1,7 +1,7 @@
 mod stubs;
 
 use ggrs::{
-    DesyncDetection, GGRSError, GGRSEvent, PlayerType, SessionBuilder, SessionState,
+    DesyncDetection, GgrsError, GgrsEvent, PlayerType, SessionBuilder, SessionState,
     UdpNonBlockingSocket,
 };
 use serial_test::serial;
@@ -10,7 +10,7 @@ use stubs::{StubConfig, StubInput};
 
 #[test]
 #[serial]
-fn test_add_more_players() -> Result<(), GGRSError> {
+fn test_add_more_players() -> Result<(), GgrsError> {
     let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
     let remote_addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let remote_addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8081);
@@ -30,7 +30,7 @@ fn test_add_more_players() -> Result<(), GGRSError> {
 
 #[test]
 #[serial]
-fn test_start_session() -> Result<(), GGRSError> {
+fn test_start_session() -> Result<(), GgrsError> {
     let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
     let remote_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let spec_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8090);
@@ -45,7 +45,7 @@ fn test_start_session() -> Result<(), GGRSError> {
 
 #[test]
 #[serial]
-fn test_disconnect_player() -> Result<(), GGRSError> {
+fn test_disconnect_player() -> Result<(), GgrsError> {
     let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
     let remote_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
     let spec_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8090);
@@ -67,7 +67,7 @@ fn test_disconnect_player() -> Result<(), GGRSError> {
 
 #[test]
 #[serial]
-fn test_synchronize_p2p_sessions() -> Result<(), GGRSError> {
+fn test_synchronize_p2p_sessions() -> Result<(), GgrsError> {
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
 
@@ -99,7 +99,7 @@ fn test_synchronize_p2p_sessions() -> Result<(), GGRSError> {
 
 #[test]
 #[serial]
-fn test_advance_frame_p2p_sessions() -> Result<(), GGRSError> {
+fn test_advance_frame_p2p_sessions() -> Result<(), GgrsError> {
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
 
@@ -150,7 +150,7 @@ fn test_advance_frame_p2p_sessions() -> Result<(), GGRSError> {
 
 #[test]
 #[serial]
-fn test_desyncs_detected() -> Result<(), GGRSError> {
+fn test_desyncs_detected() -> Result<(), GgrsError> {
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
     let desync_mode = DesyncDetection::On { interval: 100 };
@@ -178,7 +178,7 @@ fn test_desyncs_detected() -> Result<(), GGRSError> {
 
     // drain events
     assert!(sess1.events().chain(sess2.events()).all(|e| match e {
-        GGRSEvent::Synchronizing { .. } | GGRSEvent::Synchronized { .. } => true,
+        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. } => true,
         _ => false,
     }));
 
@@ -229,7 +229,7 @@ fn test_desyncs_detected() -> Result<(), GGRSError> {
     assert_eq!(sess1_events.len(), 1);
     assert_eq!(sess2_events.len(), 1);
 
-    let GGRSEvent::DesyncDetected {
+    let GgrsEvent::DesyncDetected {
         frame: desync_frame1,
         local_checksum: desync_local_checksum1,
         remote_checksum: desync_remote_checksum1,
@@ -242,7 +242,7 @@ fn test_desyncs_detected() -> Result<(), GGRSError> {
     assert_eq!(desync_addr1, addr2);
     assert_ne!(desync_local_checksum1, desync_remote_checksum1);
 
-    let GGRSEvent::DesyncDetected {
+    let GgrsEvent::DesyncDetected {
         frame: desync_frame2,
         local_checksum: desync_local_checksum2,
         remote_checksum: desync_remote_checksum2,
@@ -264,7 +264,7 @@ fn test_desyncs_detected() -> Result<(), GGRSError> {
 
 #[test]
 #[serial]
-fn test_desyncs_and_input_delay_no_panic() -> Result<(), GGRSError> {
+fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
     let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
     let desync_mode = DesyncDetection::On { interval: 100 };
@@ -294,7 +294,7 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GGRSError> {
 
     // drain events
     assert!(sess1.events().chain(sess2.events()).all(|e| match e {
-        GGRSEvent::Synchronizing { .. } | GGRSEvent::Synchronized { .. } => true,
+        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. } => true,
         _ => false,
     }));
 

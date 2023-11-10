@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bytemuck::{Pod, Zeroable};
-use ggrs::{Config, Frame, GGRSRequest, GameStateCell, InputStatus, PlayerHandle, NULL_FRAME};
+use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus, PlayerHandle, NULL_FRAME};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +51,7 @@ fn fletcher16(data: &[u8]) -> u16 {
     (sum2 << 8) | sum1
 }
 
-// BoxGame will handle rendering, gamestate, inputs and GGRSRequests
+// BoxGame will handle rendering, gamestate, inputs and GgrsRequests
 pub struct Game {
     num_players: usize,
     game_state: State,
@@ -73,12 +73,12 @@ impl Game {
     }
 
     // for each request, call the appropriate function
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<GGRSConfig>>) {
+    pub fn handle_requests(&mut self, requests: Vec<GgrsRequest<GGRSConfig>>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
-                GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
-                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+                GgrsRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
+                GgrsRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GgrsRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
         }
     }

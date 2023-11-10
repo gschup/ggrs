@@ -7,7 +7,7 @@ use crate::{
         protocol::{Event, UdpProtocol},
     },
     sessions::builder::MAX_EVENT_QUEUE_SIZE,
-    Config, Frame, GGRSError, GGRSEvent, GGRSRequest, InputStatus, NetworkStats, NonBlockingSocket,
+    Config, Frame, GgrsError, GgrsEvent, GgrsRequest, InputStatus, NetworkStats, NonBlockingSocket,
     SessionState, NULL_FRAME,
 };
 
@@ -29,7 +29,7 @@ where
     host_connect_status: Vec<ConnectionStatus>,
     socket: Box<dyn NonBlockingSocket<T::Address>>,
     host: UdpProtocol<T>,
-    event_queue: VecDeque<GGRSEvent<T>>,
+    event_queue: VecDeque<GgrsEvent<T>>,
     current_frame: Frame,
     last_recv_frame: Frame,
     max_frames_behind: usize,
@@ -87,31 +87,31 @@ impl<T: Config> SpectatorSession<T> {
     /// # Errors
     /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
     ///
-    /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
+    /// [`NotSynchronized`]: GgrsError::NotSynchronized
+    pub fn network_stats(&self) -> Result<NetworkStats, GgrsError> {
         self.host.network_stats()
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GGRSEvent<T>> {
+    pub fn events(&mut self) -> Drain<GgrsEvent<T>> {
         self.event_queue.drain(..)
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
-    /// Returns an order-sensitive [`Vec<GGRSRequest>`]. You should fulfill all requests in the exact order they are provided.
+    /// Returns an order-sensitive [`Vec<GgrsRequest>`]. You should fulfill all requests in the exact order they are provided.
     /// Failure to do so will cause panics later.
     /// # Errors
     /// - Returns [`NotSynchronized`] if the session is not yet ready to accept input.
     /// In this case, you either need to start the session or wait for synchronization between clients.
     ///
-    /// [`Vec<GGRSRequest>`]: GGRSRequest
-    /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    /// [`Vec<GgrsRequest>`]: GgrsRequest
+    /// [`NotSynchronized`]: GgrsError::NotSynchronized
+    pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // receive info from host, trigger events and send messages
         self.poll_remote_clients();
 
         if self.state != SessionState::Running {
-            return Err(GGRSError::NotSynchronized);
+            return Err(GgrsError::NotSynchronized);
         }
 
         let mut requests = Vec::new();
@@ -127,7 +127,7 @@ impl<T: Config> SpectatorSession<T> {
             let frame_to_grab = self.current_frame + 1;
             let synced_inputs = self.inputs_at_frame(frame_to_grab)?;
 
-            requests.push(GGRSRequest::AdvanceFrame {
+            requests.push(GgrsRequest::AdvanceFrame {
                 inputs: synced_inputs,
             });
 
@@ -173,17 +173,17 @@ impl<T: Config> SpectatorSession<T> {
     fn inputs_at_frame(
         &self,
         frame_to_grab: Frame,
-    ) -> Result<Vec<(T::Input, InputStatus)>, GGRSError> {
+    ) -> Result<Vec<(T::Input, InputStatus)>, GgrsError> {
         let player_inputs = &self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 
         // We haven't received the input from the host yet. Wait.
         if player_inputs[0].frame < frame_to_grab {
-            return Err(GGRSError::PredictionThreshold);
+            return Err(GgrsError::PredictionThreshold);
         }
 
         // The host is more than [`SPECTATOR_BUFFER_SIZE`] frames ahead of the spectator. The input we need is gone forever.
         if player_inputs[0].frame > frame_to_grab {
-            return Err(GGRSError::SpectatorTooFarBehind);
+            return Err(GgrsError::SpectatorTooFarBehind);
         }
 
         Ok(player_inputs
@@ -206,11 +206,11 @@ impl<T: Config> SpectatorSession<T> {
             // forward to user
             Event::Synchronizing { total, count } => {
                 self.event_queue
-                    .push_back(GGRSEvent::Synchronizing { addr, total, count });
+                    .push_back(GgrsEvent::Synchronizing { addr, total, count });
             }
             // forward to user
             Event::NetworkInterrupted { disconnect_timeout } => {
-                self.event_queue.push_back(GGRSEvent::NetworkInterrupted {
+                self.event_queue.push_back(GgrsEvent::NetworkInterrupted {
                     addr,
                     disconnect_timeout,
                 });
@@ -218,16 +218,16 @@ impl<T: Config> SpectatorSession<T> {
             // forward to user
             Event::NetworkResumed => {
                 self.event_queue
-                    .push_back(GGRSEvent::NetworkResumed { addr });
+                    .push_back(GgrsEvent::NetworkResumed { addr });
             }
             // synced with the host, then forward to user
             Event::Synchronized => {
                 self.state = SessionState::Running;
-                self.event_queue.push_back(GGRSEvent::Synchronized { addr });
+                self.event_queue.push_back(GgrsEvent::Synchronized { addr });
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
-                self.event_queue.push_back(GGRSEvent::Disconnected { addr });
+                self.event_queue.push_back(GgrsEvent::Disconnected { addr });
             }
             // add the input and all associated information
             Event::Input { input, player } => {

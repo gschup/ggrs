@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::error::GGRSError;
+use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Config, Frame, GGRSRequest, PlayerHandle};
+use crate::{Config, Frame, GgrsRequest, PlayerHandle};
 
 /// During a [`SyncTestSession`], GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -57,14 +57,14 @@ impl<T: Config> SyncTestSession<T> {
     /// - Returns [`InvalidRequest`] when the given handle is not valid (i.e. not between 0 and num_players).
     ///
     /// [`advance_frame()`]: Self#method.advance_frame
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
         input: T::Input,
-    ) -> Result<(), GGRSError> {
+    ) -> Result<(), GgrsError> {
         if player_handle >= self.num_players {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "The player handle you provided is not valid.".to_owned(),
             });
         }
@@ -74,15 +74,15 @@ impl<T: Config> SyncTestSession<T> {
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
-    /// resimulate and compare checksums with the original states. Returns an order-sensitive [`Vec<GGRSRequest>`].
+    /// resimulate and compare checksums with the original states. Returns an order-sensitive [`Vec<GgrsRequest>`].
     /// You should fulfill all requests in the exact order they are provided. Failure to do so will cause panics later.
     ///
     /// # Errors
     /// - Returns [`MismatchedChecksum`] if checksums don't match after resimulation.
     ///
-    /// [`Vec<GGRSRequest>`]: GGRSRequest
-    /// [`MismatchedChecksum`]: GGRSError::MismatchedChecksum
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    /// [`Vec<GgrsRequest>`]: GgrsRequest
+    /// [`MismatchedChecksum`]: GgrsError::MismatchedChecksum
+    pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
@@ -91,7 +91,7 @@ impl<T: Config> SyncTestSession<T> {
             for i in 0..=self.check_distance as i32 {
                 let frame_to_check = self.sync_layer.current_frame() - i;
                 if !self.checksums_consistent(frame_to_check) {
-                    return Err(GGRSError::MismatchedChecksum {
+                    return Err(GgrsError::MismatchedChecksum {
                         frame: frame_to_check,
                     });
                 }
@@ -104,7 +104,7 @@ impl<T: Config> SyncTestSession<T> {
 
         // we require inputs for all players
         if self.num_players != self.local_inputs.len() {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Missing local input while calling advance_frame().".to_owned(),
             });
         }
@@ -128,7 +128,7 @@ impl<T: Config> SyncTestSession<T> {
             .synchronized_inputs(&self.dummy_connect_status);
 
         // advance the frame
-        requests.push(GGRSRequest::AdvanceFrame { inputs });
+        requests.push(GgrsRequest::AdvanceFrame { inputs });
         self.sync_layer.advance_frame();
 
         // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer won't complain about missing
@@ -180,7 +180,7 @@ impl<T: Config> SyncTestSession<T> {
         }
     }
 
-    fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GGRSRequest<T>>) {
+    fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GgrsRequest<T>>) {
         let start_frame = self.sync_layer.current_frame();
         let count = start_frame - frame_to;
 
@@ -202,7 +202,7 @@ impl<T: Config> SyncTestSession<T> {
             // then advance
             self.sync_layer.advance_frame();
 
-            requests.push(GGRSRequest::AdvanceFrame { inputs });
+            requests.push(GgrsRequest::AdvanceFrame { inputs });
         }
         assert_eq!(self.sync_layer.current_frame(), start_frame);
     }

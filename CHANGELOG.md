@@ -4,6 +4,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- Rename types with GGRS prefix to match rust naming conventions
+- Removed deprecated `GgrsError` variants
 - `GameStateCell` now implements debug.
 - fixed a bug where checksums of unconfirmed frames were compared during desync detection.
 - You can now trigger a desync manually in the example game by pressing SPACE.
@@ -92,7 +94,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## 0.4.2
 
-- users are now allowed to save `None` buffers for a `GGRSRequest::SaveRequest`. This allows users to keep their own state history and load/save more efficiently
+- users are now allowed to save `None` buffers for a `GgrsRequest::SaveRequest`. This allows users to keep their own state history and load/save more efficiently
 - added `num_players()`, `input_size()` getters to all sessions
 
 ## 0.4.1
@@ -115,8 +117,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## 0.3.0
 
-- `GGRSError::InvalidRequest` now has an added `info` field to explain the problem in more detail
-- removed unused `GGRSError::GeneralFailure`
+- `GgrsError::InvalidRequest` now has an added `info` field to explain the problem in more detail
+- removed unused `GgrsError::GeneralFailure`
 - removed multiple methods in `SyncTestSession`, as they didn't fulfill any meaningful purpose
 - removed unused sequence number from message header, fixing related issues
 - fixed an issue where out-of-order packets would cause a crash
@@ -150,4 +152,4 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## 0.2.0
 
-- Reworked API: Instead of the user passing a GGRSInterface trait object, GGRS now returns a list of GGRSRequests for the user to fulfill
+- Reworked API: Instead of the user passing a GGRSInterface trait object, GGRS now returns a list of GgrsRequests for the user to fulfill

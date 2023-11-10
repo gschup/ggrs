@@ -1,9 +1,9 @@
 mod stubs_enum;
 
-use ggrs::{GGRSError, SessionBuilder};
+use ggrs::{GgrsError, SessionBuilder};
 
 #[test]
-fn test_enum_advance_frames_with_delayed_input() -> Result<(), GGRSError> {
+fn test_enum_advance_frames_with_delayed_input() -> Result<(), GgrsError> {
     let check_distance = 7;
     let mut stub = stubs_enum::GameStubEnum::new();
     let mut sess = SessionBuilder::new()

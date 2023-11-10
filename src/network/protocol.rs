@@ -6,7 +6,7 @@ use crate::network::messages::{
 };
 use crate::time_sync::TimeSync;
 use crate::{
-    Config, DesyncDetection, Frame, GGRSError, NonBlockingSocket, PlayerHandle, NULL_FRAME,
+    Config, DesyncDetection, Frame, GgrsError, NonBlockingSocket, PlayerHandle, NULL_FRAME,
 };
 
 use instant::{Duration, Instant};
@@ -280,15 +280,15 @@ impl<T: Config> UdpProtocol<T> {
         self.local_frame_advantage = remote_frame - local_frame;
     }
 
-    pub(crate) fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
+    pub(crate) fn network_stats(&self) -> Result<NetworkStats, GgrsError> {
         if self.state != ProtocolState::Synchronizing && self.state != ProtocolState::Running {
-            return Err(GGRSError::NotSynchronized);
+            return Err(GgrsError::NotSynchronized);
         }
 
         let now = millis_since_epoch();
         let seconds = (now - self.stats_start_time) / 1000;
         if seconds == 0 {
-            return Err(GGRSError::NotSynchronized);
+            return Err(GgrsError::NotSynchronized);
         }
 
         let total_bytes_sent = self.bytes_sent + (self.packets_sent * UDP_HEADER_SIZE);

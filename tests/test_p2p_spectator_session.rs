@@ -1,6 +1,6 @@
 mod stubs;
 
-use ggrs::{GGRSError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
+use ggrs::{GgrsError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use serial_test::serial;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use stubs::StubConfig;
@@ -16,7 +16,7 @@ fn test_start_session() {
 
 #[test]
 #[serial]
-fn test_synchronize_with_host() -> Result<(), GGRSError> {
+fn test_synchronize_with_host() -> Result<(), GgrsError> {
     let host_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
     let spec_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
 

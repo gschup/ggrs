@@ -1,7 +1,7 @@
 mod stubs;
 mod stubs_enum;
 
-use ggrs::{GGRSError, GGRSRequest, SessionBuilder};
+use ggrs::{GgrsError, GgrsRequest, SessionBuilder};
 use stubs::{StubConfig, StubInput};
 
 #[test]
@@ -12,7 +12,7 @@ fn test_create_session() {
 }
 
 #[test]
-fn test_advance_frame_no_rollbacks() -> Result<(), GGRSError> {
+fn test_advance_frame_no_rollbacks() -> Result<(), GgrsError> {
     let check_distance = 0;
     let mut stub = stubs::GameStub::new();
     let mut sess = SessionBuilder::new()
@@ -32,7 +32,7 @@ fn test_advance_frame_no_rollbacks() -> Result<(), GGRSError> {
 }
 
 #[test]
-fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
+fn test_advance_frame_with_rollbacks() -> Result<(), GgrsError> {
     let check_distance = 2;
     let mut stub = stubs::GameStub::new();
     let mut sess = SessionBuilder::new()
@@ -45,16 +45,16 @@ fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
         let requests = sess.advance_frame()?;
         if i <= check_distance {
             assert_eq!(requests.len(), 2); // save, advance
-            assert!(matches!(requests[0], GGRSRequest::SaveGameState { .. }));
-            assert!(matches!(requests[1], GGRSRequest::AdvanceFrame { .. }));
+            assert!(matches!(requests[0], GgrsRequest::SaveGameState { .. }));
+            assert!(matches!(requests[1], GgrsRequest::AdvanceFrame { .. }));
         } else {
             assert_eq!(requests.len(), 6); // load, advance, save, advance, save, advance
-            assert!(matches!(requests[0], GGRSRequest::LoadGameState { .. })); // rollback
-            assert!(matches!(requests[1], GGRSRequest::AdvanceFrame { .. })); // rollback
-            assert!(matches!(requests[2], GGRSRequest::SaveGameState { .. })); // rollback
-            assert!(matches!(requests[3], GGRSRequest::AdvanceFrame { .. })); // rollback
-            assert!(matches!(requests[4], GGRSRequest::SaveGameState { .. }));
-            assert!(matches!(requests[5], GGRSRequest::AdvanceFrame { .. }));
+            assert!(matches!(requests[0], GgrsRequest::LoadGameState { .. })); // rollback
+            assert!(matches!(requests[1], GgrsRequest::AdvanceFrame { .. })); // rollback
+            assert!(matches!(requests[2], GgrsRequest::SaveGameState { .. })); // rollback
+            assert!(matches!(requests[3], GgrsRequest::AdvanceFrame { .. })); // rollback
+            assert!(matches!(requests[4], GgrsRequest::SaveGameState { .. }));
+            assert!(matches!(requests[5], GgrsRequest::AdvanceFrame { .. }));
         }
 
         stub.handle_requests(requests);
@@ -65,7 +65,7 @@ fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
 }
 
 #[test]
-fn test_advance_frames_with_delayed_input() -> Result<(), GGRSError> {
+fn test_advance_frames_with_delayed_input() -> Result<(), GgrsError> {
     let check_distance = 7;
     let mut stub = stubs::GameStub::new();
     let mut sess = SessionBuilder::new()

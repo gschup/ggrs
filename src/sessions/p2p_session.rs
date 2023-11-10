@@ -1,4 +1,4 @@
-use crate::error::GGRSError;
+use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
@@ -6,7 +6,7 @@ use crate::network::protocol::{UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
 use crate::sync_layer::SyncLayer;
 use crate::DesyncDetection;
 use crate::{
-    network::protocol::Event, Config, Frame, GGRSEvent, GGRSRequest, NonBlockingSocket,
+    network::protocol::Event, Config, Frame, GgrsEvent, GgrsRequest, NonBlockingSocket,
     PlayerHandle, PlayerType, SessionState, NULL_FRAME,
 };
 
@@ -141,13 +141,13 @@ where
 
     /// notes which inputs have already been sent to the spectators
     next_spectator_frame: Frame,
-    /// The soonest frame on which the session can send a [`GGRSEvent::WaitRecommendation`] again.
+    /// The soonest frame on which the session can send a [`GgrsEvent::WaitRecommendation`] again.
     next_recommended_sleep: Frame,
     /// How many frames we estimate we are ahead of every remote client
     frames_ahead: i32,
 
     /// Contains all events to be forwarded to the user.
-    event_queue: VecDeque<GGRSEvent<T>>,
+    event_queue: VecDeque<GgrsEvent<T>>,
     /// Contains all local inputs not yet sent into the system. This should have inputs for every local player before calling advance_frame
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 
@@ -220,19 +220,19 @@ impl<T: Config> P2PSession<T> {
     /// - Returns [`InvalidRequest`] when the given handle does not refer to a local player.
     ///
     /// [`advance_frame()`]: Self#method.advance_frame
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
         input: T::Input,
-    ) -> Result<(), GGRSError> {
+    ) -> Result<(), GgrsError> {
         // make sure the input is for a registered local player
         if !self
             .player_reg
             .local_player_handles()
             .contains(&player_handle)
         {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "The player handle you provided is not referring to a local player."
                     .to_owned(),
             });
@@ -243,23 +243,23 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
-    /// Returns an order-sensitive [`Vec<GGRSRequest>`]. You should fulfill all requests in the exact order they are provided.
+    /// Returns an order-sensitive [`Vec<GgrsRequest>`]. You should fulfill all requests in the exact order they are provided.
     /// Failure to do so will cause panics later.
     ///
     /// # Errors
     /// - Returns [`InvalidRequest`] if the provided player handle refers to a remote player.
     /// - Returns [`NotSynchronized`] if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
     ///
-    /// [`Vec<GGRSRequest>`]: GGRSRequest
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
-    /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    /// [`Vec<GgrsRequest>`]: GgrsRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    /// [`NotSynchronized`]: GgrsError::NotSynchronized
+    pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
 
         // session is not running and synchronized
         if self.state != SessionState::Running {
-            return Err(GGRSError::NotSynchronized);
+            return Err(GgrsError::NotSynchronized);
         }
 
         // This list of requests will be returned to the user
@@ -341,7 +341,7 @@ impl<T: Config> P2PSession<T> {
                     self.local_connect_status[handle].last_frame = actual_frame;
                 }
                 None => {
-                    return Err(GGRSError::InvalidRequest {
+                    return Err(GgrsError::InvalidRequest {
                         info: "Missing local input while calling advance_frame().".to_owned(),
                     });
                 }
@@ -368,7 +368,7 @@ impl<T: Config> P2PSession<T> {
             .synchronized_inputs(&self.local_connect_status);
         // advance the frame count
         self.sync_layer.advance_frame();
-        requests.push(GGRSRequest::AdvanceFrame { inputs });
+        requests.push(GgrsRequest::AdvanceFrame { inputs });
 
         Ok(requests)
     }
@@ -429,14 +429,14 @@ impl<T: Config> P2PSession<T> {
     /// # Errors
     /// - Returns [`InvalidRequest`] if you try to disconnect a local player or the provided handle is invalid.
     ///
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
-    pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             // the local player cannot be disconnected
-            None => Err(GGRSError::InvalidRequest {
+            None => Err(GgrsError::InvalidRequest {
                 info: "Invalid Player Handle.".to_owned(),
             }),
-            Some(PlayerType::Local) => Err(GGRSError::InvalidRequest {
+            Some(PlayerType::Local) => Err(GgrsError::InvalidRequest {
                 info: "Local Player cannot be disconnected.".to_owned(),
             }),
             // a remote player can only be disconnected if not already disconnected, since there is some additional logic attached
@@ -446,7 +446,7 @@ impl<T: Config> P2PSession<T> {
                     self.disconnect_player_at_frame(player_handle, last_frame);
                     return Ok(());
                 }
-                Err(GGRSError::InvalidRequest {
+                Err(GgrsError::InvalidRequest {
                     info: "Player already disconnected.".to_owned(),
                 })
             }
@@ -463,9 +463,9 @@ impl<T: Config> P2PSession<T> {
     /// - Returns [`InvalidRequest`] if the handle not referring to a remote player or spectator.
     /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
     ///
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
-    /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    /// [`NotSynchronized`]: GgrsError::NotSynchronized
+    pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             Some(PlayerType::Remote(addr)) => self
                 .player_reg
@@ -479,7 +479,7 @@ impl<T: Config> P2PSession<T> {
                 .get(addr)
                 .expect("Endpoint should exist for any registered player")
                 .network_stats(),
-            _ => Err(GGRSError::InvalidRequest {
+            _ => Err(GgrsError::InvalidRequest {
                 info: "Given player handle not referring to a remote player or spectator"
                     .to_owned(),
             }),
@@ -516,7 +516,7 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GGRSEvent<T>> {
+    pub fn events(&mut self) -> Drain<GgrsEvent<T>> {
         self.event_queue.drain(..)
     }
 
@@ -625,7 +625,7 @@ impl<T: Config> P2PSession<T> {
         &mut self,
         first_incorrect: Frame,
         min_confirmed: Frame,
-        requests: &mut Vec<GGRSRequest<T>>,
+        requests: &mut Vec<GgrsRequest<T>>,
     ) {
         let current_frame = self.sync_layer.current_frame();
         // determine the frame to load
@@ -669,7 +669,7 @@ impl<T: Config> P2PSession<T> {
 
             // advance the frame
             self.sync_layer.advance_frame();
-            requests.push(GGRSRequest::AdvanceFrame { inputs });
+            requests.push(GgrsRequest::AdvanceFrame { inputs });
         }
         // after all this, we should have arrived at the same frame where we started
         assert_eq!(self.sync_layer.current_frame(), current_frame);
@@ -769,7 +769,7 @@ impl<T: Config> P2PSession<T> {
             && self.frames_ahead >= MIN_RECOMMENDATION as i32
         {
             self.next_recommended_sleep = self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
-            self.event_queue.push_back(GGRSEvent::WaitRecommendation {
+            self.event_queue.push_back(GgrsEvent::WaitRecommendation {
                 skip_frames: self
                     .frames_ahead
                     .try_into()
@@ -782,7 +782,7 @@ impl<T: Config> P2PSession<T> {
         &mut self,
         last_saved: Frame,
         confirmed_frame: Frame,
-        requests: &mut Vec<GGRSRequest<T>>,
+        requests: &mut Vec<GgrsRequest<T>>,
     ) {
         // in sparse saving mode, we need to make sure not to lose the last saved frame
         if self.sync_layer.current_frame() - last_saved >= self.max_prediction as i32 {
@@ -815,11 +815,11 @@ impl<T: Config> P2PSession<T> {
             // forward to user
             Event::Synchronizing { total, count } => {
                 self.event_queue
-                    .push_back(GGRSEvent::Synchronizing { addr, total, count });
+                    .push_back(GgrsEvent::Synchronizing { addr, total, count });
             }
             // forward to user
             Event::NetworkInterrupted { disconnect_timeout } => {
-                self.event_queue.push_back(GGRSEvent::NetworkInterrupted {
+                self.event_queue.push_back(GgrsEvent::NetworkInterrupted {
                     addr,
                     disconnect_timeout,
                 });
@@ -827,12 +827,12 @@ impl<T: Config> P2PSession<T> {
             // forward to user
             Event::NetworkResumed => {
                 self.event_queue
-                    .push_back(GGRSEvent::NetworkResumed { addr });
+                    .push_back(GgrsEvent::NetworkResumed { addr });
             }
             // check if all remotes are synced, then forward to user
             Event::Synchronized => {
                 self.check_initial_sync();
-                self.event_queue.push_back(GGRSEvent::Synchronized { addr });
+                self.event_queue.push_back(GgrsEvent::Synchronized { addr });
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
@@ -846,7 +846,7 @@ impl<T: Config> P2PSession<T> {
                     self.disconnect_player_at_frame(handle, last_frame);
                 }
 
-                self.event_queue.push_back(GGRSEvent::Disconnected { addr });
+                self.event_queue.push_back(GgrsEvent::Disconnected { addr });
             }
             // add the input and all associated information
             Event::Input { input, player } => {
@@ -888,7 +888,7 @@ impl<T: Config> P2PSession<T> {
                             self.local_checksum_history.get(&remote_frame)
                         {
                             if local_checksum != remote_checksum {
-                                self.event_queue.push_back(GGRSEvent::DesyncDetected {
+                                self.event_queue.push_back(GgrsEvent::DesyncDetected {
                                     frame: remote_frame,
                                     local_checksum,
                                     remote_checksum,

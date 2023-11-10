@@ -9,7 +9,7 @@
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 use std::{fmt::Debug, hash::Hash};
 
-pub use error::GGRSError;
+pub use error::GgrsError;
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
@@ -113,7 +113,7 @@ pub enum InputStatus {
 
 /// Notifications that you can receive from the session. Handling them is up to the user.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum GGRSEvent<T>
+pub enum GgrsEvent<T>
 where
     T: Config,
 {
@@ -143,7 +143,7 @@ where
         /// The client will be disconnected in this amount of ms.
         disconnect_timeout: u128,
     },
-    /// Sent only after a [`GGRSEvent::NetworkInterrupted`] event, if communication with that player has resumed.
+    /// Sent only after a [`GgrsEvent::NetworkInterrupted`] event, if communication with that player has resumed.
     NetworkResumed {
         /// The address of the endpoint.
         addr: T::Address,
@@ -167,7 +167,7 @@ where
 }
 
 /// Requests that you can receive from the session. Handling them is mandatory.
-pub enum GGRSRequest<T>
+pub enum GgrsRequest<T>
 where
     T: Config,
 {
