@@ -7,7 +7,7 @@ use crate::{
         protocol::{Event, UdpProtocol},
     },
     sessions::builder::MAX_EVENT_QUEUE_SIZE,
-    Config, Frame, GgrsError, GGRSEvent, GGRSRequest, InputStatus, NetworkStats, NonBlockingSocket,
+    Config, Frame, GgrsError, GgrsEvent, GGRSRequest, InputStatus, NetworkStats, NonBlockingSocket,
     SessionState, NULL_FRAME,
 };
 
@@ -29,7 +29,7 @@ where
     host_connect_status: Vec<ConnectionStatus>,
     socket: Box<dyn NonBlockingSocket<T::Address>>,
     host: UdpProtocol<T>,
-    event_queue: VecDeque<GGRSEvent<T>>,
+    event_queue: VecDeque<GgrsEvent<T>>,
     current_frame: Frame,
     last_recv_frame: Frame,
     max_frames_behind: usize,
@@ -93,7 +93,7 @@ impl<T: Config> SpectatorSession<T> {
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GGRSEvent<T>> {
+    pub fn events(&mut self) -> Drain<GgrsEvent<T>> {
         self.event_queue.drain(..)
     }
 
@@ -206,11 +206,11 @@ impl<T: Config> SpectatorSession<T> {
             // forward to user
             Event::Synchronizing { total, count } => {
                 self.event_queue
-                    .push_back(GGRSEvent::Synchronizing { addr, total, count });
+                    .push_back(GgrsEvent::Synchronizing { addr, total, count });
             }
             // forward to user
             Event::NetworkInterrupted { disconnect_timeout } => {
-                self.event_queue.push_back(GGRSEvent::NetworkInterrupted {
+                self.event_queue.push_back(GgrsEvent::NetworkInterrupted {
                     addr,
                     disconnect_timeout,
                 });
@@ -218,16 +218,16 @@ impl<T: Config> SpectatorSession<T> {
             // forward to user
             Event::NetworkResumed => {
                 self.event_queue
-                    .push_back(GGRSEvent::NetworkResumed { addr });
+                    .push_back(GgrsEvent::NetworkResumed { addr });
             }
             // synced with the host, then forward to user
             Event::Synchronized => {
                 self.state = SessionState::Running;
-                self.event_queue.push_back(GGRSEvent::Synchronized { addr });
+                self.event_queue.push_back(GgrsEvent::Synchronized { addr });
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
-                self.event_queue.push_back(GGRSEvent::Disconnected { addr });
+                self.event_queue.push_back(GgrsEvent::Disconnected { addr });
             }
             // add the input and all associated information
             Event::Input { input, player } => {

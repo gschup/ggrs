@@ -1,7 +1,7 @@
 mod ex_game;
 
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GgrsError, GGRSEvent, SessionBuilder, SessionState, UdpNonBlockingSocket};
+use ggrs::{GgrsError, GgrsEvent, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // handle GGRS events
         for event in sess.events() {
             println!("Event: {:?}", event);
-            if let GGRSEvent::Disconnected { .. } = event {
+            if let GgrsEvent::Disconnected { .. } = event {
                 println!("Disconnected from host.");
                 return Ok(());
             }

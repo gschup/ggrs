@@ -6,7 +6,7 @@ use crate::network::protocol::{UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
 use crate::sync_layer::SyncLayer;
 use crate::DesyncDetection;
 use crate::{
-    network::protocol::Event, Config, Frame, GGRSEvent, GGRSRequest, NonBlockingSocket,
+    network::protocol::Event, Config, Frame, GgrsEvent, GGRSRequest, NonBlockingSocket,
     PlayerHandle, PlayerType, SessionState, NULL_FRAME,
 };
 
@@ -147,7 +147,7 @@ where
     frames_ahead: i32,
 
     /// Contains all events to be forwarded to the user.
-    event_queue: VecDeque<GGRSEvent<T>>,
+    event_queue: VecDeque<GgrsEvent<T>>,
     /// Contains all local inputs not yet sent into the system. This should have inputs for every local player before calling advance_frame
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 
@@ -516,7 +516,7 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GGRSEvent<T>> {
+    pub fn events(&mut self) -> Drain<GgrsEvent<T>> {
         self.event_queue.drain(..)
     }
 
@@ -769,7 +769,7 @@ impl<T: Config> P2PSession<T> {
             && self.frames_ahead >= MIN_RECOMMENDATION as i32
         {
             self.next_recommended_sleep = self.sync_layer.current_frame() + RECOMMENDATION_INTERVAL;
-            self.event_queue.push_back(GGRSEvent::WaitRecommendation {
+            self.event_queue.push_back(GgrsEvent::WaitRecommendation {
                 skip_frames: self
                     .frames_ahead
                     .try_into()
@@ -815,11 +815,11 @@ impl<T: Config> P2PSession<T> {
             // forward to user
             Event::Synchronizing { total, count } => {
                 self.event_queue
-                    .push_back(GGRSEvent::Synchronizing { addr, total, count });
+                    .push_back(GgrsEvent::Synchronizing { addr, total, count });
             }
             // forward to user
             Event::NetworkInterrupted { disconnect_timeout } => {
-                self.event_queue.push_back(GGRSEvent::NetworkInterrupted {
+                self.event_queue.push_back(GgrsEvent::NetworkInterrupted {
                     addr,
                     disconnect_timeout,
                 });
@@ -827,12 +827,12 @@ impl<T: Config> P2PSession<T> {
             // forward to user
             Event::NetworkResumed => {
                 self.event_queue
-                    .push_back(GGRSEvent::NetworkResumed { addr });
+                    .push_back(GgrsEvent::NetworkResumed { addr });
             }
             // check if all remotes are synced, then forward to user
             Event::Synchronized => {
                 self.check_initial_sync();
-                self.event_queue.push_back(GGRSEvent::Synchronized { addr });
+                self.event_queue.push_back(GgrsEvent::Synchronized { addr });
             }
             // disconnect the player, then forward to user
             Event::Disconnected => {
@@ -846,7 +846,7 @@ impl<T: Config> P2PSession<T> {
                     self.disconnect_player_at_frame(handle, last_frame);
                 }
 
-                self.event_queue.push_back(GGRSEvent::Disconnected { addr });
+                self.event_queue.push_back(GgrsEvent::Disconnected { addr });
             }
             // add the input and all associated information
             Event::Input { input, player } => {
@@ -888,7 +888,7 @@ impl<T: Config> P2PSession<T> {
                             self.local_checksum_history.get(&remote_frame)
                         {
                             if local_checksum != remote_checksum {
-                                self.event_queue.push_back(GGRSEvent::DesyncDetected {
+                                self.event_queue.push_back(GgrsEvent::DesyncDetected {
                                     frame: remote_frame,
                                     local_checksum,
                                     remote_checksum,

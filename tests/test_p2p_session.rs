@@ -1,7 +1,7 @@
 mod stubs;
 
 use ggrs::{
-    DesyncDetection, GgrsError, GGRSEvent, PlayerType, SessionBuilder, SessionState,
+    DesyncDetection, GgrsError, GgrsEvent, PlayerType, SessionBuilder, SessionState,
     UdpNonBlockingSocket,
 };
 use serial_test::serial;
@@ -178,7 +178,7 @@ fn test_desyncs_detected() -> Result<(), GgrsError> {
 
     // drain events
     assert!(sess1.events().chain(sess2.events()).all(|e| match e {
-        GGRSEvent::Synchronizing { .. } | GGRSEvent::Synchronized { .. } => true,
+        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. } => true,
         _ => false,
     }));
 
@@ -229,7 +229,7 @@ fn test_desyncs_detected() -> Result<(), GgrsError> {
     assert_eq!(sess1_events.len(), 1);
     assert_eq!(sess2_events.len(), 1);
 
-    let GGRSEvent::DesyncDetected {
+    let GgrsEvent::DesyncDetected {
         frame: desync_frame1,
         local_checksum: desync_local_checksum1,
         remote_checksum: desync_remote_checksum1,
@@ -242,7 +242,7 @@ fn test_desyncs_detected() -> Result<(), GgrsError> {
     assert_eq!(desync_addr1, addr2);
     assert_ne!(desync_local_checksum1, desync_remote_checksum1);
 
-    let GGRSEvent::DesyncDetected {
+    let GgrsEvent::DesyncDetected {
         frame: desync_frame2,
         local_checksum: desync_local_checksum2,
         remote_checksum: desync_remote_checksum2,
@@ -294,7 +294,7 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
 
     // drain events
     assert!(sess1.events().chain(sess2.events()).all(|e| match e {
-        GGRSEvent::Synchronizing { .. } | GGRSEvent::Synchronized { .. } => true,
+        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. } => true,
         _ => false,
     }));
 
