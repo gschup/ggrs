@@ -6,7 +6,7 @@ use crate::error::GgrsError;
 use crate::frame_info::{GameState, PlayerInput};
 use crate::input_queue::InputQueue;
 use crate::network::messages::ConnectionStatus;
-use crate::{Config, Frame, GGRSRequest, InputStatus, PlayerHandle, NULL_FRAME};
+use crate::{Config, Frame, GgrsRequest, InputStatus, PlayerHandle, NULL_FRAME};
 
 /// An [`Arc<Mutex>`] that you can [`save()`]/[`load()`] a `T` to/from. These will be handed to the user as part of a [`GGRSRequest`].
 ///
@@ -125,10 +125,10 @@ impl<T: Config> SyncLayer<T> {
         self.current_frame += 1;
     }
 
-    pub(crate) fn save_current_state(&mut self) -> GGRSRequest<T> {
+    pub(crate) fn save_current_state(&mut self) -> GgrsRequest<T> {
         self.last_saved_frame = self.current_frame;
         let cell = self.saved_states.get_cell(self.current_frame);
-        GGRSRequest::SaveGameState {
+        GgrsRequest::SaveGameState {
             cell,
             frame: self.current_frame,
         }
@@ -146,7 +146,7 @@ impl<T: Config> SyncLayer<T> {
     }
 
     /// Loads the gamestate indicated by `frame_to_load`.
-    pub(crate) fn load_frame(&mut self, frame_to_load: Frame) -> GGRSRequest<T> {
+    pub(crate) fn load_frame(&mut self, frame_to_load: Frame) -> GgrsRequest<T> {
         // The state should not be the current state or the state should not be in the future or too far away in the past
         assert!(
             frame_to_load != NULL_FRAME
@@ -158,7 +158,7 @@ impl<T: Config> SyncLayer<T> {
         assert_eq!(cell.0.lock().frame, frame_to_load);
         self.current_frame = frame_to_load;
 
-        GGRSRequest::LoadGameState {
+        GgrsRequest::LoadGameState {
             cell,
             frame: frame_to_load,
         }

@@ -167,7 +167,7 @@ where
 }
 
 /// Requests that you can receive from the session. Handling them is mandatory.
-pub enum GGRSRequest<T>
+pub enum GgrsRequest<T>
 where
     T: Config,
 {

@@ -4,7 +4,7 @@ use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Config, Frame, GGRSRequest, PlayerHandle};
+use crate::{Config, Frame, GgrsRequest, PlayerHandle};
 
 /// During a [`SyncTestSession`], GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
@@ -82,7 +82,7 @@ impl<T: Config> SyncTestSession<T> {
     ///
     /// [`Vec<GGRSRequest>`]: GGRSRequest
     /// [`MismatchedChecksum`]: GGRSError::MismatchedChecksum
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GgrsError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
@@ -128,7 +128,7 @@ impl<T: Config> SyncTestSession<T> {
             .synchronized_inputs(&self.dummy_connect_status);
 
         // advance the frame
-        requests.push(GGRSRequest::AdvanceFrame { inputs });
+        requests.push(GgrsRequest::AdvanceFrame { inputs });
         self.sync_layer.advance_frame();
 
         // since this is a sync test, we "cheat" by setting the last confirmed state to the (current state - check_distance), so the sync layer won't complain about missing
@@ -180,7 +180,7 @@ impl<T: Config> SyncTestSession<T> {
         }
     }
 
-    fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GGRSRequest<T>>) {
+    fn adjust_gamestate(&mut self, frame_to: Frame, requests: &mut Vec<GgrsRequest<T>>) {
         let start_frame = self.sync_layer.current_frame();
         let count = start_frame - frame_to;
 
@@ -202,7 +202,7 @@ impl<T: Config> SyncTestSession<T> {
             // then advance
             self.sync_layer.advance_frame();
 
-            requests.push(GGRSRequest::AdvanceFrame { inputs });
+            requests.push(GgrsRequest::AdvanceFrame { inputs });
         }
         assert_eq!(self.sync_layer.current_frame(), start_frame);
     }

@@ -7,7 +7,7 @@ use crate::{
         protocol::{Event, UdpProtocol},
     },
     sessions::builder::MAX_EVENT_QUEUE_SIZE,
-    Config, Frame, GgrsError, GgrsEvent, GGRSRequest, InputStatus, NetworkStats, NonBlockingSocket,
+    Config, Frame, GgrsError, GgrsEvent, GgrsRequest, InputStatus, NetworkStats, NonBlockingSocket,
     SessionState, NULL_FRAME,
 };
 
@@ -106,7 +106,7 @@ impl<T: Config> SpectatorSession<T> {
     ///
     /// [`Vec<GGRSRequest>`]: GGRSRequest
     /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GgrsError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // receive info from host, trigger events and send messages
         self.poll_remote_clients();
 
@@ -127,7 +127,7 @@ impl<T: Config> SpectatorSession<T> {
             let frame_to_grab = self.current_frame + 1;
             let synced_inputs = self.inputs_at_frame(frame_to_grab)?;
 
-            requests.push(GGRSRequest::AdvanceFrame {
+            requests.push(GgrsRequest::AdvanceFrame {
                 inputs: synced_inputs,
             });
 

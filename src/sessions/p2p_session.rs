@@ -6,7 +6,7 @@ use crate::network::protocol::{UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
 use crate::sync_layer::SyncLayer;
 use crate::DesyncDetection;
 use crate::{
-    network::protocol::Event, Config, Frame, GgrsEvent, GGRSRequest, NonBlockingSocket,
+    network::protocol::Event, Config, Frame, GgrsEvent, GgrsRequest, NonBlockingSocket,
     PlayerHandle, PlayerType, SessionState, NULL_FRAME,
 };
 
@@ -253,7 +253,7 @@ impl<T: Config> P2PSession<T> {
     /// [`Vec<GGRSRequest>`]: GGRSRequest
     /// [`InvalidRequest`]: GGRSError::InvalidRequest
     /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GgrsError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
 
@@ -368,7 +368,7 @@ impl<T: Config> P2PSession<T> {
             .synchronized_inputs(&self.local_connect_status);
         // advance the frame count
         self.sync_layer.advance_frame();
-        requests.push(GGRSRequest::AdvanceFrame { inputs });
+        requests.push(GgrsRequest::AdvanceFrame { inputs });
 
         Ok(requests)
     }
@@ -625,7 +625,7 @@ impl<T: Config> P2PSession<T> {
         &mut self,
         first_incorrect: Frame,
         min_confirmed: Frame,
-        requests: &mut Vec<GGRSRequest<T>>,
+        requests: &mut Vec<GgrsRequest<T>>,
     ) {
         let current_frame = self.sync_layer.current_frame();
         // determine the frame to load
@@ -669,7 +669,7 @@ impl<T: Config> P2PSession<T> {
 
             // advance the frame
             self.sync_layer.advance_frame();
-            requests.push(GGRSRequest::AdvanceFrame { inputs });
+            requests.push(GgrsRequest::AdvanceFrame { inputs });
         }
         // after all this, we should have arrived at the same frame where we started
         assert_eq!(self.sync_layer.current_frame(), current_frame);
@@ -782,7 +782,7 @@ impl<T: Config> P2PSession<T> {
         &mut self,
         last_saved: Frame,
         confirmed_frame: Frame,
-        requests: &mut Vec<GGRSRequest<T>>,
+        requests: &mut Vec<GgrsRequest<T>>,
     ) {
         // in sparse saving mode, we need to make sure not to lose the last saved frame
         if self.sync_layer.current_frame() - last_saved >= self.max_prediction as i32 {
