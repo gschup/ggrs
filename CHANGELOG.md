@@ -4,6 +4,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- Rename types with GGRS prefix to match rust naming conventions
+- Removed deprecated `GgrsError` variants
 - `GameStateCell` now implements debug.
 - fixed a bug where checksums of unconfirmed frames were compared during desync detection.
 - You can now trigger a desync manually in the example game by pressing SPACE.
