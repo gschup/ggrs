@@ -8,7 +8,7 @@ use crate::input_queue::InputQueue;
 use crate::network::messages::ConnectionStatus;
 use crate::{Config, Frame, GgrsRequest, InputStatus, PlayerHandle, NULL_FRAME};
 
-/// An [`Arc<Mutex>`] that you can [`save()`]/[`load()`] a `T` to/from. These will be handed to the user as part of a [`GGRSRequest`].
+/// An [`Arc<Mutex>`] that you can [`save()`]/[`load()`] a `T` to/from. These will be handed to the user as part of a [`GgrsRequest`].
 ///
 /// [`save()`]: GameStateCell#method.save
 /// [`load()`]: GameStateCell#method.load

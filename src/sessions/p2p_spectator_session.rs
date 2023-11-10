@@ -87,7 +87,7 @@ impl<T: Config> SpectatorSession<T> {
     /// # Errors
     /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
     ///
-    /// [`NotSynchronized`]: GGRSError::NotSynchronized
+    /// [`NotSynchronized`]: GgrsError::NotSynchronized
     pub fn network_stats(&self) -> Result<NetworkStats, GgrsError> {
         self.host.network_stats()
     }
@@ -98,14 +98,14 @@ impl<T: Config> SpectatorSession<T> {
     }
 
     /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
-    /// Returns an order-sensitive [`Vec<GGRSRequest>`]. You should fulfill all requests in the exact order they are provided.
+    /// Returns an order-sensitive [`Vec<GgrsRequest>`]. You should fulfill all requests in the exact order they are provided.
     /// Failure to do so will cause panics later.
     /// # Errors
     /// - Returns [`NotSynchronized`] if the session is not yet ready to accept input.
     /// In this case, you either need to start the session or wait for synchronization between clients.
     ///
-    /// [`Vec<GGRSRequest>`]: GGRSRequest
-    /// [`NotSynchronized`]: GGRSError::NotSynchronized
+    /// [`Vec<GgrsRequest>`]: GgrsRequest
+    /// [`NotSynchronized`]: GgrsError::NotSynchronized
     pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // receive info from host, trigger events and send messages
         self.poll_remote_clients();

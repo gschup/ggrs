@@ -51,7 +51,7 @@ fn fletcher16(data: &[u8]) -> u16 {
     (sum2 << 8) | sum1
 }
 
-// BoxGame will handle rendering, gamestate, inputs and GGRSRequests
+// BoxGame will handle rendering, gamestate, inputs and GgrsRequests
 pub struct Game {
     num_players: usize,
     game_state: State,

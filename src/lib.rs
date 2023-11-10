@@ -143,7 +143,7 @@ where
         /// The client will be disconnected in this amount of ms.
         disconnect_timeout: u128,
     },
-    /// Sent only after a [`GGRSEvent::NetworkInterrupted`] event, if communication with that player has resumed.
+    /// Sent only after a [`GgrsEvent::NetworkInterrupted`] event, if communication with that player has resumed.
     NetworkResumed {
         /// The address of the endpoint.
         addr: T::Address,

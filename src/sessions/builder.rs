@@ -85,7 +85,7 @@ impl<T: Config> SessionBuilder<T> {
     /// - Returns [`InvalidRequest`] if a player with that handle has been added before
     /// - Returns [`InvalidRequest`] if the handle is invalid for the given [`PlayerType`]
     ///
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     /// [`num_players`]: Self#structfield.num_players
     pub fn add_player(
         mut self,
@@ -132,7 +132,7 @@ impl<T: Config> SessionBuilder<T> {
     /// # Errors
     /// - Returns [`InvalidRequest`] if the prediction window is 0.
     ///
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn with_max_prediction_window(mut self, window: usize) -> Result<Self, GgrsError> {
         if window == 0 {
             return Err(GgrsError::InvalidRequest {
@@ -187,7 +187,7 @@ impl<T: Config> SessionBuilder<T> {
     /// # Errors
     /// - Returns [`InvalidRequest`] if the fps is 0
     ///
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn with_fps(mut self, fps: usize) -> Result<Self, GgrsError> {
         if fps == 0 {
             return Err(GgrsError::InvalidRequest {
@@ -247,7 +247,7 @@ impl<T: Config> SessionBuilder<T> {
     /// # Errors
     /// - Returns [`InvalidRequest`] if insufficient players have been registered.
     ///
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn start_p2p_session(
         mut self,
         socket: impl NonBlockingSocket<T::Address> + 'static,

@@ -4,9 +4,9 @@ use std::fmt::Display;
 
 use crate::Frame;
 
-/// This enum contains all error messages this library can return. Most API functions will generally return a [`Result<(),GGRSError>`].
+/// This enum contains all error messages this library can return. Most API functions will generally return a [`Result<(),GgrsError>`].
 ///
-/// [`Result<(),GGRSError>`]: std::result::Result
+/// [`Result<(),GgrsError>`]: std::result::Result
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum GgrsError {
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.

@@ -57,7 +57,7 @@ impl<T: Config> SyncTestSession<T> {
     /// - Returns [`InvalidRequest`] when the given handle is not valid (i.e. not between 0 and num_players).
     ///
     /// [`advance_frame()`]: Self#method.advance_frame
-    /// [`InvalidRequest`]: GGRSError::InvalidRequest
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn add_local_input(
         &mut self,
         player_handle: PlayerHandle,
@@ -74,14 +74,14 @@ impl<T: Config> SyncTestSession<T> {
     }
 
     /// In a sync test, this will advance the state by a single frame and afterwards rollback `check_distance` amount of frames,
-    /// resimulate and compare checksums with the original states. Returns an order-sensitive [`Vec<GGRSRequest>`].
+    /// resimulate and compare checksums with the original states. Returns an order-sensitive [`Vec<GgrsRequest>`].
     /// You should fulfill all requests in the exact order they are provided. Failure to do so will cause panics later.
     ///
     /// # Errors
     /// - Returns [`MismatchedChecksum`] if checksums don't match after resimulation.
     ///
-    /// [`Vec<GGRSRequest>`]: GGRSRequest
-    /// [`MismatchedChecksum`]: GGRSError::MismatchedChecksum
+    /// [`Vec<GgrsRequest>`]: GgrsRequest
+    /// [`MismatchedChecksum`]: GgrsError::MismatchedChecksum
     pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         let mut requests = Vec::new();
 
