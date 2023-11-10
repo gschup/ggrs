@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use crate::Frame;
 
-/// This enum contains all error messages this library can return. Most API functions will generally return a [`Result<(),GgrsError>`].
+/// This enum contains all error messages this library can return. Most API functions will generally return a [`Result<(), GgrsError>`].
 ///
 /// [`Result<(), GgrsError>`]: std::result::Result
 #[derive(Debug, Clone, PartialEq, Hash)]
