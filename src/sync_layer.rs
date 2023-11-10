@@ -2,7 +2,7 @@ use bytemuck::Zeroable;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-use crate::error::GGRSError;
+use crate::error::GgrsError;
 use crate::frame_info::{GameState, PlayerInput};
 use crate::input_queue::InputQueue;
 use crate::network::messages::ConnectionStatus;
@@ -170,12 +170,12 @@ impl<T: Config> SyncLayer<T> {
         &mut self,
         player_handle: PlayerHandle,
         input: PlayerInput<T::Input>,
-    ) -> Result<Frame, GGRSError> {
+    ) -> Result<Frame, GgrsError> {
         let frames_ahead = self.current_frame - self.last_confirmed_frame;
         if self.current_frame >= self.max_prediction as i32
             && frames_ahead >= self.max_prediction as i32
         {
-            return Err(GGRSError::PredictionThreshold);
+            return Err(GgrsError::PredictionThreshold);
         }
 
         // The input provided should match the current frame, we account for input delay later

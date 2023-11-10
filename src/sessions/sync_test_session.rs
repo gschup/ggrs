@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::error::GGRSError;
+use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
@@ -62,9 +62,9 @@ impl<T: Config> SyncTestSession<T> {
         &mut self,
         player_handle: PlayerHandle,
         input: T::Input,
-    ) -> Result<(), GGRSError> {
+    ) -> Result<(), GgrsError> {
         if player_handle >= self.num_players {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "The player handle you provided is not valid.".to_owned(),
             });
         }
@@ -82,7 +82,7 @@ impl<T: Config> SyncTestSession<T> {
     ///
     /// [`Vec<GGRSRequest>`]: GGRSRequest
     /// [`MismatchedChecksum`]: GGRSError::MismatchedChecksum
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GgrsError> {
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
@@ -91,7 +91,7 @@ impl<T: Config> SyncTestSession<T> {
             for i in 0..=self.check_distance as i32 {
                 let frame_to_check = self.sync_layer.current_frame() - i;
                 if !self.checksums_consistent(frame_to_check) {
-                    return Err(GGRSError::MismatchedChecksum {
+                    return Err(GgrsError::MismatchedChecksum {
                         frame: frame_to_check,
                     });
                 }
@@ -104,7 +104,7 @@ impl<T: Config> SyncTestSession<T> {
 
         // we require inputs for all players
         if self.num_players != self.local_inputs.len() {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Missing local input while calling advance_frame().".to_owned(),
             });
         }

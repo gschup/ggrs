@@ -1,7 +1,7 @@
 mod stubs;
 mod stubs_enum;
 
-use ggrs::{GGRSError, GGRSRequest, SessionBuilder};
+use ggrs::{GgrsError, GGRSRequest, SessionBuilder};
 use stubs::{StubConfig, StubInput};
 
 #[test]
@@ -12,7 +12,7 @@ fn test_create_session() {
 }
 
 #[test]
-fn test_advance_frame_no_rollbacks() -> Result<(), GGRSError> {
+fn test_advance_frame_no_rollbacks() -> Result<(), GgrsError> {
     let check_distance = 0;
     let mut stub = stubs::GameStub::new();
     let mut sess = SessionBuilder::new()
@@ -32,7 +32,7 @@ fn test_advance_frame_no_rollbacks() -> Result<(), GGRSError> {
 }
 
 #[test]
-fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
+fn test_advance_frame_with_rollbacks() -> Result<(), GgrsError> {
     let check_distance = 2;
     let mut stub = stubs::GameStub::new();
     let mut sess = SessionBuilder::new()
@@ -65,7 +65,7 @@ fn test_advance_frame_with_rollbacks() -> Result<(), GGRSError> {
 }
 
 #[test]
-fn test_advance_frames_with_delayed_input() -> Result<(), GGRSError> {
+fn test_advance_frames_with_delayed_input() -> Result<(), GgrsError> {
     let check_distance = 7;
     let mut stub = stubs::GameStub::new();
     let mut sess = SessionBuilder::new()

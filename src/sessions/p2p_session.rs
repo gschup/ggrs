@@ -1,4 +1,4 @@
-use crate::error::GGRSError;
+use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
@@ -225,14 +225,14 @@ impl<T: Config> P2PSession<T> {
         &mut self,
         player_handle: PlayerHandle,
         input: T::Input,
-    ) -> Result<(), GGRSError> {
+    ) -> Result<(), GgrsError> {
         // make sure the input is for a registered local player
         if !self
             .player_reg
             .local_player_handles()
             .contains(&player_handle)
         {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "The player handle you provided is not referring to a local player."
                     .to_owned(),
             });
@@ -253,13 +253,13 @@ impl<T: Config> P2PSession<T> {
     /// [`Vec<GGRSRequest>`]: GGRSRequest
     /// [`InvalidRequest`]: GGRSError::InvalidRequest
     /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GgrsError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
 
         // session is not running and synchronized
         if self.state != SessionState::Running {
-            return Err(GGRSError::NotSynchronized);
+            return Err(GgrsError::NotSynchronized);
         }
 
         // This list of requests will be returned to the user
@@ -341,7 +341,7 @@ impl<T: Config> P2PSession<T> {
                     self.local_connect_status[handle].last_frame = actual_frame;
                 }
                 None => {
-                    return Err(GGRSError::InvalidRequest {
+                    return Err(GgrsError::InvalidRequest {
                         info: "Missing local input while calling advance_frame().".to_owned(),
                     });
                 }
@@ -430,13 +430,13 @@ impl<T: Config> P2PSession<T> {
     /// - Returns [`InvalidRequest`] if you try to disconnect a local player or the provided handle is invalid.
     ///
     /// [`InvalidRequest`]: GGRSError::InvalidRequest
-    pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GGRSError> {
+    pub fn disconnect_player(&mut self, player_handle: PlayerHandle) -> Result<(), GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             // the local player cannot be disconnected
-            None => Err(GGRSError::InvalidRequest {
+            None => Err(GgrsError::InvalidRequest {
                 info: "Invalid Player Handle.".to_owned(),
             }),
-            Some(PlayerType::Local) => Err(GGRSError::InvalidRequest {
+            Some(PlayerType::Local) => Err(GgrsError::InvalidRequest {
                 info: "Local Player cannot be disconnected.".to_owned(),
             }),
             // a remote player can only be disconnected if not already disconnected, since there is some additional logic attached
@@ -446,7 +446,7 @@ impl<T: Config> P2PSession<T> {
                     self.disconnect_player_at_frame(player_handle, last_frame);
                     return Ok(());
                 }
-                Err(GGRSError::InvalidRequest {
+                Err(GgrsError::InvalidRequest {
                     info: "Player already disconnected.".to_owned(),
                 })
             }
@@ -465,7 +465,7 @@ impl<T: Config> P2PSession<T> {
     ///
     /// [`InvalidRequest`]: GGRSError::InvalidRequest
     /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GGRSError> {
+    pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             Some(PlayerType::Remote(addr)) => self
                 .player_reg
@@ -479,7 +479,7 @@ impl<T: Config> P2PSession<T> {
                 .get(addr)
                 .expect("Endpoint should exist for any registered player")
                 .network_stats(),
-            _ => Err(GGRSError::InvalidRequest {
+            _ => Err(GgrsError::InvalidRequest {
                 info: "Given player handle not referring to a remote player or spectator"
                     .to_owned(),
             }),

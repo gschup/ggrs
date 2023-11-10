@@ -7,7 +7,7 @@ use crate::{
         protocol::{Event, UdpProtocol},
     },
     sessions::builder::MAX_EVENT_QUEUE_SIZE,
-    Config, Frame, GGRSError, GGRSEvent, GGRSRequest, InputStatus, NetworkStats, NonBlockingSocket,
+    Config, Frame, GgrsError, GGRSEvent, GGRSRequest, InputStatus, NetworkStats, NonBlockingSocket,
     SessionState, NULL_FRAME,
 };
 
@@ -88,7 +88,7 @@ impl<T: Config> SpectatorSession<T> {
     /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
     ///
     /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn network_stats(&self) -> Result<NetworkStats, GGRSError> {
+    pub fn network_stats(&self) -> Result<NetworkStats, GgrsError> {
         self.host.network_stats()
     }
 
@@ -106,12 +106,12 @@ impl<T: Config> SpectatorSession<T> {
     ///
     /// [`Vec<GGRSRequest>`]: GGRSRequest
     /// [`NotSynchronized`]: GGRSError::NotSynchronized
-    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GGRSError> {
+    pub fn advance_frame(&mut self) -> Result<Vec<GGRSRequest<T>>, GgrsError> {
         // receive info from host, trigger events and send messages
         self.poll_remote_clients();
 
         if self.state != SessionState::Running {
-            return Err(GGRSError::NotSynchronized);
+            return Err(GgrsError::NotSynchronized);
         }
 
         let mut requests = Vec::new();
@@ -173,17 +173,17 @@ impl<T: Config> SpectatorSession<T> {
     fn inputs_at_frame(
         &self,
         frame_to_grab: Frame,
-    ) -> Result<Vec<(T::Input, InputStatus)>, GGRSError> {
+    ) -> Result<Vec<(T::Input, InputStatus)>, GgrsError> {
         let player_inputs = &self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
 
         // We haven't received the input from the host yet. Wait.
         if player_inputs[0].frame < frame_to_grab {
-            return Err(GGRSError::PredictionThreshold);
+            return Err(GgrsError::PredictionThreshold);
         }
 
         // The host is more than [`SPECTATOR_BUFFER_SIZE`] frames ahead of the spectator. The input we need is gone forever.
         if player_inputs[0].frame > frame_to_grab {
-            return Err(GGRSError::SpectatorTooFarBehind);
+            return Err(GgrsError::SpectatorTooFarBehind);
         }
 
         Ok(player_inputs

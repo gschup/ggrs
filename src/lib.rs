@@ -9,7 +9,7 @@
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 use std::{fmt::Debug, hash::Hash};
 
-pub use error::GGRSError;
+pub use error::GgrsError;
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;

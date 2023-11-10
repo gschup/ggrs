@@ -1,7 +1,7 @@
 mod ex_game;
 
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GGRSError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
+use ggrs::{GgrsError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
@@ -112,7 +112,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 match sess.advance_frame() {
                     Ok(requests) => game.handle_requests(requests),
-                    Err(GGRSError::PredictionThreshold) => {
+                    Err(GgrsError::PredictionThreshold) => {
                         println!("Frame {} skipped", sess.current_frame())
                     }
 

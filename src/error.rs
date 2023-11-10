@@ -8,7 +8,7 @@ use crate::Frame;
 ///
 /// [`Result<(),GGRSError>`]: std::result::Result
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum GGRSError {
+pub enum GgrsError {
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
     PredictionThreshold,
     /// You made an invalid request, usually by using wrong parameters for function calls.
@@ -27,56 +27,41 @@ pub enum GGRSError {
     NotSynchronized,
     /// The spectator got so far behind the host that catching up is impossible.
     SpectatorTooFarBehind,
-    /// Deprecated, will be removed in next major release
-    SocketCreationFailed,
-    /// Deprecated, will be removed in next major release
-    PlayerDisconnected,
-    /// Deprecated, will be removed in next major release
-    DecodingError,
 }
 
-impl Display for GGRSError {
+impl Display for GgrsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GGRSError::PredictionThreshold => {
+            GgrsError::PredictionThreshold => {
                 write!(
                     f,
                     "Prediction threshold is reached, cannot proceed without catching up."
                 )
             }
-            GGRSError::InvalidRequest { info } => {
+            GgrsError::InvalidRequest { info } => {
                 write!(f, "Invalid Request: {}", info)
             }
-            GGRSError::NotSynchronized => {
+            GgrsError::NotSynchronized => {
                 write!(
                     f,
                     "The session is not yet synchronized with all remote sessions."
                 )
             }
-            GGRSError::MismatchedChecksum { frame } => {
+            GgrsError::MismatchedChecksum { frame } => {
                 write!(
                     f,
                     "Detected checksum mismatch during rollback on frame {}.",
                     frame
                 )
             }
-            GGRSError::SpectatorTooFarBehind => {
+            GgrsError::SpectatorTooFarBehind => {
                 write!(
                     f,
                     "The spectator got so far behind the host that catching up is impossible."
                 )
             }
-            GGRSError::SocketCreationFailed => {
-                write!(f, "Deprecated, will be removed in next major release.")
-            }
-            GGRSError::PlayerDisconnected => {
-                write!(f, "Deprecated, will be removed in next major release.")
-            }
-            GGRSError::DecodingError => {
-                write!(f, "Deprecated, will be removed in next major release.")
-            }
         }
     }
 }
 
-impl Error for GGRSError {}
+impl Error for GgrsError {}

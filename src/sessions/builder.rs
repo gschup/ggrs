@@ -4,7 +4,7 @@ use instant::Duration;
 
 use crate::{
     network::protocol::UdpProtocol, sessions::p2p_session::PlayerRegistry, Config, DesyncDetection,
-    GGRSError, NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession,
+    GgrsError, NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession,
     SyncTestSession,
 };
 
@@ -91,10 +91,10 @@ impl<T: Config> SessionBuilder<T> {
         mut self,
         player_type: PlayerType<T::Address>,
         player_handle: PlayerHandle,
-    ) -> Result<Self, GGRSError> {
+    ) -> Result<Self, GgrsError> {
         // check if the player handle is already in use
         if self.player_reg.handles.contains_key(&player_handle) {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Player handle already in use.".to_owned(),
             });
         }
@@ -103,21 +103,21 @@ impl<T: Config> SessionBuilder<T> {
             PlayerType::Local => {
                 self.local_players += 1;
                 if player_handle >= self.num_players {
-                    return Err(GGRSError::InvalidRequest {
+                    return Err(GgrsError::InvalidRequest {
                         info: "The player handle you provided is invalid. For a local player, the handle should be between 0 and num_players".to_owned(),
                     });
                 }
             }
             PlayerType::Remote(_) => {
                 if player_handle >= self.num_players {
-                    return Err(GGRSError::InvalidRequest {
+                    return Err(GgrsError::InvalidRequest {
                         info: "The player handle you provided is invalid. For a remote player, the handle should be between 0 and num_players".to_owned(),
                     });
                 }
             }
             PlayerType::Spectator(_) => {
                 if player_handle < self.num_players {
-                    return Err(GGRSError::InvalidRequest {
+                    return Err(GgrsError::InvalidRequest {
                         info: "The player handle you provided is invalid. For a spectator, the handle should be num_players or higher".to_owned(),
                     });
                 }
@@ -133,9 +133,9 @@ impl<T: Config> SessionBuilder<T> {
     /// - Returns [`InvalidRequest`] if the prediction window is 0.
     ///
     /// [`InvalidRequest`]: GGRSError::InvalidRequest
-    pub fn with_max_prediction_window(mut self, window: usize) -> Result<Self, GGRSError> {
+    pub fn with_max_prediction_window(mut self, window: usize) -> Result<Self, GgrsError> {
         if window == 0 {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Currently, only prediction windows above 0 are supported".to_owned(),
             });
         }
@@ -188,9 +188,9 @@ impl<T: Config> SessionBuilder<T> {
     /// - Returns [`InvalidRequest`] if the fps is 0
     ///
     /// [`InvalidRequest`]: GGRSError::InvalidRequest
-    pub fn with_fps(mut self, fps: usize) -> Result<Self, GGRSError> {
+    pub fn with_fps(mut self, fps: usize) -> Result<Self, GgrsError> {
         if fps == 0 {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "FPS should be higher than 0.".to_owned(),
             });
         }
@@ -207,15 +207,15 @@ impl<T: Config> SessionBuilder<T> {
     /// Sets the maximum frames behind. If the spectator is more than this amount of frames behind the received inputs,
     /// it will catch up with `catchup_speed` amount of frames per step.
     ///
-    pub fn with_max_frames_behind(mut self, max_frames_behind: usize) -> Result<Self, GGRSError> {
+    pub fn with_max_frames_behind(mut self, max_frames_behind: usize) -> Result<Self, GgrsError> {
         if max_frames_behind < 1 {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Max frames behind cannot be smaller than 1.".to_owned(),
             });
         }
 
         if max_frames_behind >= SPECTATOR_BUFFER_SIZE {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Max frames behind cannot be larger or equal than the Spectator buffer size (60)"
                     .to_owned(),
             });
@@ -226,15 +226,15 @@ impl<T: Config> SessionBuilder<T> {
 
     /// Sets the catchup speed. Per default, this is set to 1, so the spectator never catches up.
     /// If you want the spectator to catch up to the host if `max_frames_behind` is surpassed, set this to a value higher than 1.
-    pub fn with_catchup_speed(mut self, catchup_speed: usize) -> Result<Self, GGRSError> {
+    pub fn with_catchup_speed(mut self, catchup_speed: usize) -> Result<Self, GgrsError> {
         if catchup_speed < 1 {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Catchup speed cannot be smaller than 1.".to_owned(),
             });
         }
 
         if catchup_speed >= self.max_frames_behind {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Catchup speed cannot be larger or equal than the allowed maximum frames behind host"
                     .to_owned(),
             });
@@ -251,11 +251,11 @@ impl<T: Config> SessionBuilder<T> {
     pub fn start_p2p_session(
         mut self,
         socket: impl NonBlockingSocket<T::Address> + 'static,
-    ) -> Result<P2PSession<T>, GGRSError> {
+    ) -> Result<P2PSession<T>, GgrsError> {
         // check if all players are added
         for player_handle in 0..self.num_players {
             if !self.player_reg.handles.contains_key(&player_handle) {
-                return Err(GGRSError::InvalidRequest{
+                return Err(GgrsError::InvalidRequest{
                     info: "Not enough players have been added. Keep registering players up to the defined player number.".to_owned(),
                 });
             }
@@ -340,9 +340,9 @@ impl<T: Config> SessionBuilder<T> {
     /// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
     /// This is a great way to test if your system runs deterministically.
     /// After creating the session, add a local player, set input delay for them and then start the session.
-    pub fn start_synctest_session(self) -> Result<SyncTestSession<T>, GGRSError> {
+    pub fn start_synctest_session(self) -> Result<SyncTestSession<T>, GgrsError> {
         if self.check_dist >= self.max_prediction {
-            return Err(GGRSError::InvalidRequest {
+            return Err(GgrsError::InvalidRequest {
                 info: "Check distance too big.".to_owned(),
             });
         }
