@@ -4,6 +4,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+## 0.10.0
+
 - Rename types with GGRS prefix to match rust naming conventions
 - Removed deprecated `GgrsError` variants
 - `GameStateCell` now implements debug.
