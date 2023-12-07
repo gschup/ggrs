@@ -90,12 +90,15 @@ impl<T: Config> SyncTestSession<T> {
         if self.check_distance > 0 && current_frame > self.check_distance as i32 {
             // compare checksums of older frames to our checksum history (where only the first version of any checksum is recorded)
             let oldest_frame_to_check = current_frame - self.check_distance as Frame;
-            for frame_to_check in oldest_frame_to_check..=current_frame {
-                if !self.checksums_consistent(frame_to_check) {
-                    return Err(GgrsError::MismatchedChecksum {
-                        frame: frame_to_check,
-                    });
-                }
+            let mismatched_frames: Vec<_> = (oldest_frame_to_check..=current_frame)
+                .filter(|frame_to_check| !self.checksums_consistent(*frame_to_check))
+                .collect();
+
+            if !mismatched_frames.is_empty() {
+                return Err(GgrsError::MismatchedChecksum {
+                    current_frame,
+                    mismatched_frames,
+                });
             }
 
             // simulate rollbacks according to the check_distance
