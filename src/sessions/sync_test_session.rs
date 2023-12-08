@@ -86,15 +86,19 @@ impl<T: Config> SyncTestSession<T> {
         let mut requests = Vec::new();
 
         // if we advanced far enough into the game do comparisons and rollbacks
-        if self.check_distance > 0 && self.sync_layer.current_frame() > self.check_distance as i32 {
+        let current_frame = self.sync_layer.current_frame();
+        if self.check_distance > 0 && current_frame > self.check_distance as i32 {
             // compare checksums of older frames to our checksum history (where only the first version of any checksum is recorded)
-            for i in 0..=self.check_distance as i32 {
-                let frame_to_check = self.sync_layer.current_frame() - i;
-                if !self.checksums_consistent(frame_to_check) {
-                    return Err(GgrsError::MismatchedChecksum {
-                        frame: frame_to_check,
-                    });
-                }
+            let oldest_frame_to_check = current_frame - self.check_distance as Frame;
+            let mismatched_frames: Vec<_> = (oldest_frame_to_check..=current_frame)
+                .filter(|frame_to_check| !self.checksums_consistent(*frame_to_check))
+                .collect();
+
+            if !mismatched_frames.is_empty() {
+                return Err(GgrsError::MismatchedChecksum {
+                    current_frame,
+                    mismatched_frames,
+                });
             }
 
             // simulate rollbacks according to the check_distance

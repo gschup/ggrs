@@ -21,7 +21,9 @@ pub enum GgrsError {
     /// [`SyncTestSession`]: crate::SyncTestSession
     MismatchedChecksum {
         /// The frame at which the mismatch occurred.
-        frame: Frame,
+        current_frame: Frame,
+        /// The frames with mismatched checksums (one or more)
+        mismatched_frames: Vec<Frame>,
     },
     /// The Session is not synchronized yet. Please start the session and wait a few ms to let the clients synchronize.
     NotSynchronized,
@@ -47,11 +49,14 @@ impl Display for GgrsError {
                     "The session is not yet synchronized with all remote sessions."
                 )
             }
-            GgrsError::MismatchedChecksum { frame } => {
+            GgrsError::MismatchedChecksum {
+                current_frame,
+                mismatched_frames,
+            } => {
                 write!(
                     f,
-                    "Detected checksum mismatch during rollback on frame {}.",
-                    frame
+                    "Detected checksum mismatch during rollback on frame {}, mismatched frames: {:?}",
+                    current_frame, mismatched_frames
                 )
             }
             GgrsError::SpectatorTooFarBehind => {
