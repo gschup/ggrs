@@ -162,7 +162,7 @@ impl<T: Config> SpectatorSession<T> {
         }
 
         // send out all pending UDP messages
-        self.host.send_all_messages(&mut self.socket);
+        self.host.send_all_messages(self.socket.as_mut());
     }
 
     /// Returns the number of players this session was constructed with.
