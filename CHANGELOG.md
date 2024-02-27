@@ -4,6 +4,10 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+## 0.10.1
+
+- SyncTest now checks frames in chronological order
+
 ## 0.10.0
 
 - Rename types with GGRS prefix to match rust naming conventions
