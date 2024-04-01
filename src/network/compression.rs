@@ -32,7 +32,7 @@ pub(crate) fn delta_encode<'a>(
 pub(crate) fn decode(
     reference: &[u8],
     data: &[u8],
-) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
     // decode the RLE encoding first
     let buf = bitfield_rle::decode(data)?;
 
