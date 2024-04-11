@@ -60,9 +60,12 @@ impl<T: Config> InputQueue<T> {
         self.frame_delay = delay;
     }
 
+    pub(crate) fn reset_first_incorrect_frame(&mut self) {
+        self.first_incorrect_frame = NULL_FRAME;
+    }
+
     pub(crate) fn reset_prediction(&mut self) {
         self.prediction.frame = NULL_FRAME;
-        self.first_incorrect_frame = NULL_FRAME;
         self.last_requested_frame = NULL_FRAME;
     }
 
@@ -104,7 +107,9 @@ impl<T: Config> InputQueue<T> {
     pub(crate) fn input(&mut self, requested_frame: Frame) -> (T::Input, InputStatus) {
         // No one should ever try to grab any input when we have a prediction error.
         // Doing so means that we're just going further down the wrong path. Assert this to verify that it's true.
-        assert!(self.first_incorrect_frame == NULL_FRAME);
+        //
+        // TODO: We no longer reset this until certain rollback will be performed. Figure out what to do with assert?
+        // assert!(self.first_incorrect_frame == NULL_FRAME);
 
         // Remember the last requested frame number for later. We'll need this in add_input() to drop out of prediction mode.
         self.last_requested_frame = requested_frame;

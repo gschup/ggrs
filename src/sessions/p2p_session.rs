@@ -285,9 +285,14 @@ impl<T: Config> P2PSession<T> {
         let first_incorrect = self
             .sync_layer
             .check_simulation_consistency(self.disconnect_frame);
+        let mut adjusted_gamestate = false;
         if first_incorrect != NULL_FRAME {
             self.adjust_gamestate(first_incorrect, confirmed_frame, &mut requests);
+
+            // TODO: This seems to assume we will successfully rollback to disconnected frame (or other first incorrect)
+            // probably should verify requests return without error before clearing.
             self.disconnect_frame = NULL_FRAME;
+            adjusted_gamestate = true;
         }
 
         let last_saved = self.sync_layer.last_saved_frame();
@@ -305,9 +310,33 @@ impl<T: Config> P2PSession<T> {
         // send confirmed inputs to spectators before throwing them away
         self.send_confirmed_inputs_to_spectators(confirmed_frame);
 
-        // set the last confirmed frame and discard all saved inputs before that frame
-        self.sync_layer
-            .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
+        let mut input_error: Option<GgrsError> = None;
+        {
+            // Determine if we hit prediction window, using speculative new confirmed_frame.
+            // (We only commit new confirmed_frame to sync layer if we are certain we do not error here,
+            // and that requests are returned for potential rollback to be processed.)
+            let frames_ahead = self.sync_layer.current_frame() - confirmed_frame;
+            if self.sync_layer.current_frame() >= self.max_prediction as i32
+                && frames_ahead >= self.max_prediction as i32
+            {
+                input_error = Some(GgrsError::PredictionThreshold);
+            }
+        }
+
+        if input_error.is_none() {
+            // If we requested a rollback: Reset first incorrect frame, as it will be corrected by requests.
+            // ( This must not be reset on input error, as this would cause requests to be dropped, meaning we reset
+            //   incorrect frame without actually rolling back ).
+            if adjusted_gamestate {
+                self.sync_layer.reset_first_incorrect_frame();
+            }
+
+            // set the last confirmed frame and discard all saved inputs before that frame. We only do this
+            // if we are certain requests will actually be processed (no error).
+            //
+            self.sync_layer
+                .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
+        }
 
         /*
          *  DESYNC DETECTION
@@ -341,6 +370,8 @@ impl<T: Config> P2PSession<T> {
                     self.local_connect_status[handle].last_frame = actual_frame;
                 }
                 None => {
+                    // TODO: This error may drop requests and miss a correction causing desync, handle like PredictionThreshold?
+                    // Or be ok with desync due to mis-use of api?
                     return Err(GgrsError::InvalidRequest {
                         info: "Missing local input while calling advance_frame().".to_owned(),
                     });
