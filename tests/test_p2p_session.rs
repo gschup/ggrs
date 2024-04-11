@@ -1,12 +1,15 @@
+mod debug_socket;
 mod stubs;
 
 use ggrs::{
-    DesyncDetection, GgrsError, GgrsEvent, PlayerType, SessionBuilder, SessionState,
+    Config, DesyncDetection, GgrsError, GgrsEvent, PlayerType, SessionBuilder, SessionState,
     UdpNonBlockingSocket,
 };
 use serial_test::serial;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use stubs::{StubConfig, StubInput};
+
+use crate::debug_socket::DebugSocket;
 
 #[test]
 #[serial]
@@ -315,6 +318,210 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
         stub1.handle_requests(requests1);
         stub2.handle_requests(requests2);
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_correction_on_prediction_error() -> Result<(), GgrsError> {
+    // No sockets actually created at this addr, just using socket type to re-use code from StubConfig.
+    let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
+    let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+    let addr3 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9999);
+    let sockets = DebugSocket::build_sockets(vec![addr1, addr2, addr3]);
+    let mut socket1 = sockets.get(0).unwrap().clone();
+    let mut socket2 = sockets.get(1).unwrap().clone();
+    let mut socket3 = sockets.get(2).unwrap().clone();
+
+    let mut sess1 = SessionBuilder::<StubConfig>::new()
+        .with_num_players(3)
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Remote(addr2), 1)?
+        .add_player(PlayerType::Remote(addr3), 2)?
+        .with_input_delay(0)
+        .with_desync_detection_mode(DesyncDetection::On { interval: 1 })
+        .with_max_prediction_window(3)
+        .unwrap()
+        .start_p2p_session(socket1.clone())?;
+
+    let mut sess2 = SessionBuilder::<StubConfig>::new()
+        .with_num_players(3)
+        .add_player(PlayerType::Remote(addr1), 0)?
+        .add_player(PlayerType::Local, 1)?
+        .add_player(PlayerType::Remote(addr3), 2)?
+        .with_input_delay(0)
+        .with_desync_detection_mode(DesyncDetection::On { interval: 1 })
+        .with_max_prediction_window(3)
+        .unwrap()
+        // .with_input_delay(5)
+        .start_p2p_session(socket2.clone())?;
+
+    let mut sess3 = SessionBuilder::<StubConfig>::new()
+        .with_num_players(3)
+        .add_player(PlayerType::Remote(addr1), 0)?
+        .add_player(PlayerType::Remote(addr2), 1)?
+        .add_player(PlayerType::Local, 2)?
+        .with_input_delay(0)
+        .with_desync_detection_mode(DesyncDetection::On { interval: 1 })
+        .with_max_prediction_window(3)
+        .unwrap()
+        // .with_input_delay(5)
+        .start_p2p_session(socket3.clone())?;
+
+    while sess1.current_state() != SessionState::Running
+        && sess2.current_state() != SessionState::Running
+        && sess3.current_state() != SessionState::Running
+    {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess3.poll_remote_clients();
+        socket1.flush_message();
+        socket2.flush_message();
+        socket3.flush_message();
+    }
+
+    // drain events
+    assert!(sess1
+        .events()
+        .chain(sess2.events().chain(sess3.events()))
+        .all(|e| matches!(
+            e,
+            GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. }
+        )));
+
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
+    let mut stub3 = stubs::GameStub::new();
+
+    // Advance all clients with no input + flush messages
+    {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess3.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: 0 }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: 0 }).unwrap();
+        sess3.add_local_input(2, StubInput { inp: 0 }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+        let requests3 = sess3.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+        stub3.handle_requests(requests3);
+
+        socket1.flush_message();
+        socket2.flush_message();
+        socket3.flush_message();
+    }
+
+    // client 1 changes input to 1
+    // - No messages flushed this step so 2/3 predict 1's old input
+    {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess3.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: 1 }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: 0 }).unwrap();
+        sess3.add_local_input(2, StubInput { inp: 0 }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+        let requests3 = sess3.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+        stub3.handle_requests(requests3);
+
+        // socket1.flush_message();
+        // socket2.flush_message();
+        // socket3.flush_message();
+    }
+
+    // Same inputs, deliver messages sent from 1 and 3, but not 2.
+    // - Next frame 3 will see it needs to rollback due to change in 1's input.
+    // - 3 will hit PredictionThreshold error, due to not having 2's inputs for last couple frames.
+    {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess3.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: 1 }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: 0 }).unwrap();
+        sess3.add_local_input(2, StubInput { inp: 0 }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+        let requests3 = sess3.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+        stub3.handle_requests(requests3);
+
+        socket1.flush_message();
+        // socket2.flush_message();
+        socket3.flush_message();
+    }
+
+    // 3 should determine it must rollback due to receiving change in 1's input.
+    // - 3 hits prediction threshold due to missing 2's inputs.
+    {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess3.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: 1 }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: 0 }).unwrap();
+        sess3.add_local_input(2, StubInput { inp: 0 }).unwrap();
+
+        let requests2 = sess2.advance_frame().unwrap();
+        stub2.handle_requests(requests2);
+
+        //
+        let result1 = sess1.advance_frame();
+        assert!(matches!(result1, Err(GgrsError::PredictionThreshold)));
+        let result3 = sess3.advance_frame();
+        assert!(matches!(result3, Err(GgrsError::PredictionThreshold)));
+
+        socket1.flush_message();
+        socket2.flush_message();
+        socket3.flush_message();
+    }
+
+    // In failure case, 3 should've rolled back last frame, but due to PredictionThreshold,
+    // the rollback requests were not delivered. If not handled correctly, this may cause desync.
+
+    // Perform couple more steps to let clients catch up on desync detection so we may validate
+    // - No change in inputs, all messages delivered
+    for _ in 0..2 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess3.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: 1 }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: 0 }).unwrap();
+        sess3.add_local_input(2, StubInput { inp: 0 }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+        let requests3 = sess3.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+        stub3.handle_requests(requests3);
+
+        socket1.flush_message();
+        socket2.flush_message();
+        socket3.flush_message();
+    }
+
+    // Verify all clients are in sync, even after 3 hit PredictionThreshold on same frame it had to rollback.
+    assert!(sess1
+        .events()
+        .chain(sess2.events().chain(sess3.events()))
+        .all(|e| !matches!(e, GgrsEvent::DesyncDetected { .. })));
 
     Ok(())
 }
