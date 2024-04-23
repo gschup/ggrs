@@ -4,6 +4,12 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- Nothing here yet...
+
+## 0.10.2
+
+- fix dependency versions
+
 ## 0.10.1
 
 - SyncTest now checks frames in chronological order
