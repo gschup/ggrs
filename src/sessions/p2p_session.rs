@@ -335,10 +335,11 @@ impl<T: Config> P2PSession<T> {
                 Some(player_input) => {
                     // send the input into the sync layer
                     let actual_frame = self.sync_layer.add_local_input(handle, *player_input)?;
-                    assert!(actual_frame != NULL_FRAME);
-                    // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
-                    player_input.frame = actual_frame;
-                    self.local_connect_status[handle].last_frame = actual_frame;
+                    if actual_frame != NULL_FRAME {
+                        // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
+                        player_input.frame = actual_frame;
+                        self.local_connect_status[handle].last_frame = actual_frame;
+                    }
                 }
                 None => {
                     return Err(GgrsError::InvalidRequest {
