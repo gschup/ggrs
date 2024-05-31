@@ -330,6 +330,7 @@ impl<T: Config> P2PSession<T> {
          */
 
         // register local inputs in the system and send them
+        let mut inputs_dropped = false;
         for handle in self.player_reg.local_player_handles() {
             match self.local_inputs.get_mut(&handle) {
                 Some(player_input) => {
@@ -339,6 +340,8 @@ impl<T: Config> P2PSession<T> {
                         // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
                         player_input.frame = actual_frame;
                         self.local_connect_status[handle].last_frame = actual_frame;
+                    } else {
+                        inputs_dropped = true;
                     }
                 }
                 None => {
@@ -349,11 +352,13 @@ impl<T: Config> P2PSession<T> {
             }
         }
 
-        // send the inputs to all clients
-        for endpoint in self.player_reg.remotes.values_mut() {
-            // send the input directly
-            endpoint.send_input(&self.local_inputs, &self.local_connect_status);
-            endpoint.send_all_messages(&mut self.socket);
+        if !inputs_dropped {
+            // send the inputs to all clients
+            for endpoint in self.player_reg.remotes.values_mut() {
+                // send the input directly
+                endpoint.send_input(&self.local_inputs, &self.local_connect_status);
+                endpoint.send_all_messages(&mut self.socket);
+            }
         }
 
         // clear the local inputs after sending them
