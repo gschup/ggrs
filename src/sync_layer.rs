@@ -68,10 +68,13 @@ pub(crate) struct SavedStates<T: Clone> {
 
 impl<T: Clone> SavedStates<T> {
     fn new(max_pred: usize) -> Self {
-        // the states are two cells bigger than the max prediction frames in order to account for
-        // the next frame needing a space and still being able to rollback the max distance
-        let mut states = Vec::with_capacity(max_pred + 2);
+        let mut states = Vec::with_capacity(max_pred);
         for _ in 0..max_pred {
+            states.push(GameStateCell::default());
+        }
+
+        //TODO: if lockstep, we still provide a single cell for saving. this should be replaced
+        if max_pred == 0 {
             states.push(GameStateCell::default());
         }
 
@@ -79,6 +82,10 @@ impl<T: Clone> SavedStates<T> {
     }
 
     fn get_cell(&self, frame: Frame) -> GameStateCell<T> {
+        //TODO: if lockstep, we still provide a single cell for saving. this should be replaced
+        if self.states.len() == 0 {
+            return self.states[0].clone();
+        }
         assert!(frame >= 0);
         let pos = frame as usize % self.states.len();
         self.states[pos].clone()

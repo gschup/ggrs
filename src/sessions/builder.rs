@@ -128,20 +128,9 @@ impl<T: Config> SessionBuilder<T> {
     }
 
     /// Change the maximum prediction window. Default is 8.
-    ///
-    /// # Errors
-    /// - Returns [`InvalidRequest`] if the prediction window is 0.
-    ///
-    /// [`InvalidRequest`]: GgrsError::InvalidRequest
-    pub fn with_max_prediction_window(mut self, window: usize) -> Result<Self, GgrsError> {
-        if window == 0 {
-            return Err(GgrsError::InvalidRequest {
-                info: "Currently, only prediction windows above 0 are supported".to_owned(),
-            });
-        }
-
+    pub fn with_max_prediction_window(mut self, window: usize) -> Self {
         self.max_prediction = window;
-        Ok(self)
+        self
     }
 
     /// Change the amount of frames GGRS will delay the inputs for local players.
