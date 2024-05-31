@@ -180,7 +180,7 @@ impl<T: Config> SyncLayer<T> {
     ) -> Result<Frame, GgrsError> {
         let frames_ahead = self.current_frame - self.last_confirmed_frame;
         if self.current_frame >= self.max_prediction as i32
-            && frames_ahead >= self.max_prediction as i32
+            && frames_ahead > self.max_prediction as i32
         {
             return Err(GgrsError::PredictionThreshold);
         }
