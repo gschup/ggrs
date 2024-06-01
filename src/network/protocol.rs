@@ -490,7 +490,7 @@ impl<T: Config> UdpProtocol<T> {
 
             body.ack_frame = self.last_recv_frame();
             body.disconnect_requested = self.state == ProtocolState::Disconnected;
-            body.peer_connect_status = connect_status.to_owned();
+            connect_status.clone_into(&mut body.peer_connect_status);
 
             self.queue_message(MessageBody::Input(body));
         }
