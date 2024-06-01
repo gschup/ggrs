@@ -115,7 +115,7 @@ impl<T: Config> SyncTestSession<T> {
         // pass all inputs into the sync layer
         for (&handle, &input) in self.local_inputs.iter() {
             // send the input into the sync layer
-            self.sync_layer.add_local_input(handle, input)?;
+            self.sync_layer.add_local_input(handle, input);
         }
         // clear local inputs after using them
         self.local_inputs.clear();

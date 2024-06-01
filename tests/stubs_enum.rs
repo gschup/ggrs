@@ -15,6 +15,7 @@ pub struct GameStubEnum {
 }
 use bytemuck::{CheckedBitPattern, NoUninit, Zeroable};
 
+#[allow(dead_code)]
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, CheckedBitPattern, NoUninit)]
 pub enum EnumInput {
