@@ -63,6 +63,7 @@ impl<T: Clone> std::fmt::Debug for GameStateCell<T> {
 #[derive(Clone)]
 pub(crate) struct SavedStates<T: Clone> {
     pub states: Vec<GameStateCell<T>>,
+    max_pred: usize,
 }
 
 impl<T: Clone> SavedStates<T> {
@@ -72,17 +73,17 @@ impl<T: Clone> SavedStates<T> {
             states.push(GameStateCell::default());
         }
 
-        //TODO: if lockstep, we still provide a single cell for saving. this should be replaced
+        // if lockstep, we still provide a single cell for saving.
         if max_pred == 0 {
             states.push(GameStateCell::default());
         }
 
-        Self { states }
+        Self { states, max_pred }
     }
 
     fn get_cell(&self, frame: Frame) -> GameStateCell<T> {
-        //TODO: if lockstep, we still provide a single cell for saving. this should be replaced
-        if self.states.len() == 0 {
+        // if lockstep, we still provide a single cell for saving.
+        if self.max_pred == 0 {
             return self.states[0].clone();
         }
         assert!(frame >= 0);
