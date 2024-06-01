@@ -262,6 +262,15 @@ impl<T: Config> P2PSession<T> {
             return Err(GgrsError::NotSynchronized);
         }
 
+        // check if input for all local players is queued
+        for handle in self.player_reg.local_player_handles() {
+            if !self.local_inputs.contains_key(&handle) {
+                return Err(GgrsError::InvalidRequest {
+                    info: "Missing local input while calling advance_frame().".to_owned(),
+                });
+            }
+        }
+
         // This list of requests will be returned to the user
         let mut requests = Vec::new();
 
@@ -330,51 +339,46 @@ impl<T: Config> P2PSession<T> {
          */
 
         // register local inputs in the system and send them
-        let mut inputs_dropped = false;
         for handle in self.player_reg.local_player_handles() {
-            match self.local_inputs.get_mut(&handle) {
-                Some(player_input) => {
-                    // send the input into the sync layer
-                    let actual_frame = self.sync_layer.add_local_input(handle, *player_input)?;
-                    if actual_frame != NULL_FRAME {
-                        // if not dropped, send the input to all other clients, but with the correct frame (influenced by input delay)
-                        player_input.frame = actual_frame;
-                        self.local_connect_status[handle].last_frame = actual_frame;
-                    } else {
-                        inputs_dropped = true;
-                    }
-                }
-                None => {
-                    return Err(GgrsError::InvalidRequest {
-                        info: "Missing local input while calling advance_frame().".to_owned(),
-                    });
-                }
+            // we have checked that these all exist
+            let player_input =  self.local_inputs.get_mut(&handle).expect("Missing local input while calling advance_frame().");
+            // send the input into the sync layer
+            let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
+            player_input.frame = actual_frame;
+            // if the input has not been dropped
+            if actual_frame != NULL_FRAME {
+                self.local_connect_status[handle].last_frame = actual_frame;
             }
         }
 
-        if !inputs_dropped {
-            // send the inputs to all clients
+        // if the local inputs have not been dropped by the sync layer, send to all remote clients
+        if !self.local_inputs.values().any(|&i| i.frame == NULL_FRAME) {
             for endpoint in self.player_reg.remotes.values_mut() {
-                // send the input directly
                 endpoint.send_input(&self.local_inputs, &self.local_connect_status);
                 endpoint.send_all_messages(&mut self.socket);
             }
         }
 
-        // clear the local inputs after sending them
-        self.local_inputs.clear();
-
         /*
          * ADVANCE THE STATE
          */
 
-        // get correct inputs for the current frame
-        let inputs = self
-            .sync_layer
-            .synchronized_inputs(&self.local_connect_status);
-        // advance the frame count
-        self.sync_layer.advance_frame();
-        requests.push(GgrsRequest::AdvanceFrame { inputs });
+        let frames_ahead = self.sync_layer.current_frame() - self.sync_layer.last_confirmed_frame();
+        if self.sync_layer.current_frame() < self.max_prediction as i32
+            || frames_ahead <= self.max_prediction as i32
+        {
+            // get correct inputs for the current frame
+            let inputs = self
+                .sync_layer
+                .synchronized_inputs(&self.local_connect_status);
+            // advance the frame count
+            self.sync_layer.advance_frame();
+            // clear the local inputs after advancing the frame to allow new inputs to be ingested
+            self.local_inputs.clear();
+            requests.push(GgrsRequest::AdvanceFrame { inputs });
+        } else {
+            println!("Prediction Threshold reached. Skipping on frame {}", self.sync_layer.current_frame());
+        }
 
         Ok(requests)
     }

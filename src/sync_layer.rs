@@ -2,7 +2,6 @@ use bytemuck::Zeroable;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-use crate::error::GgrsError;
 use crate::frame_info::{GameState, PlayerInput};
 use crate::input_queue::InputQueue;
 use crate::network::messages::ConnectionStatus;
@@ -177,17 +176,10 @@ impl<T: Config> SyncLayer<T> {
         &mut self,
         player_handle: PlayerHandle,
         input: PlayerInput<T::Input>,
-    ) -> Result<Frame, GgrsError> {
-        let frames_ahead = self.current_frame - self.last_confirmed_frame;
-        if self.current_frame >= self.max_prediction as i32
-            && frames_ahead > self.max_prediction as i32
-        {
-            return Err(GgrsError::PredictionThreshold);
-        }
-
+    ) -> Frame {
         // The input provided should match the current frame, we account for input delay later
         assert_eq!(input.frame, self.current_frame);
-        Ok(self.input_queues[player_handle].add_input(input))
+        self.input_queues[player_handle].add_input(input)
     }
 
     /// Adds remote input to the corresponding input queue.
@@ -248,6 +240,9 @@ impl<T: Config> SyncLayer<T> {
         if sparse_saving {
             frame = std::cmp::min(frame, self.last_saved_frame);
         }
+
+        // never delete stuff ahead of the current frame
+        frame = std::cmp::min(frame, self.current_frame());
 
         // if we set the last confirmed frame beyond the first incorrect frame, we discard inputs that we need later for adjusting the gamestate.
         assert!(first_incorrect == NULL_FRAME || first_incorrect >= frame);
@@ -318,17 +313,6 @@ mod sync_layer_tests {
         type Input = TestInput;
         type State = u8;
         type Address = SocketAddr;
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_reach_prediction_threshold() {
-        let mut sync_layer = SyncLayer::<TestConfig>::new(2, 8);
-        for i in 0..20 {
-            let game_input = PlayerInput::new(i, TestInput { inp: i as u8 });
-            sync_layer.add_local_input(0, game_input).unwrap(); // should crash at frame 7
-            sync_layer.advance_frame();
-        }
     }
 
     #[test]

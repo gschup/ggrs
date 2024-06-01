@@ -148,10 +148,12 @@ impl<T: Config> InputQueue<T> {
     /// Adds an input frame to the queue. Will consider the set frame delay.
     pub(crate) fn add_input(&mut self, input: PlayerInput<T::Input>) -> Frame {
         // Verify that inputs are passed in sequentially by the user, regardless of frame delay.
-        assert!(
-            self.last_added_frame == NULL_FRAME
-                || input.frame + self.frame_delay as i32 == self.last_added_frame + 1
-        );
+        if self.last_added_frame != NULL_FRAME
+            && input.frame + self.frame_delay as i32 != self.last_added_frame + 1
+        {
+            // drop the input if not given sequentially
+            return NULL_FRAME;
+        }
 
         // Move the queue head to the correct point in preparation to input the frame into the queue.
         let new_frame = self.advance_queue_head(input.frame);
@@ -267,22 +269,20 @@ mod input_queue_tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_add_input_wrong_frame() {
         let mut queue = InputQueue::<TestConfig>::new();
         let input = PlayerInput::new(0, TestInput { inp: 0 });
-        queue.add_input(input); // fine
+        assert_eq!(queue.add_input(input), 0); // fine
         let input_wrong_frame = PlayerInput::new(3, TestInput { inp: 0 });
-        queue.add_input(input_wrong_frame); // not fine
+        assert_eq!(queue.add_input(input_wrong_frame), NULL_FRAME); // input dropped
     }
 
     #[test]
-    #[should_panic]
     fn test_add_input_twice() {
         let mut queue = InputQueue::<TestConfig>::new();
         let input = PlayerInput::new(0, TestInput { inp: 0 });
-        queue.add_input(input); // fine
-        queue.add_input(input); // not fine
+        assert_eq!(queue.add_input(input), 0); // fine
+        assert_eq!(queue.add_input(input), NULL_FRAME); // input dropped
     }
 
     #[test]
