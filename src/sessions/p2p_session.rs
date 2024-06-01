@@ -341,7 +341,10 @@ impl<T: Config> P2PSession<T> {
         // register local inputs in the system and send them
         for handle in self.player_reg.local_player_handles() {
             // we have checked that these all exist
-            let player_input =  self.local_inputs.get_mut(&handle).expect("Missing local input while calling advance_frame().");
+            let player_input = self
+                .local_inputs
+                .get_mut(&handle)
+                .expect("Missing local input while calling advance_frame().");
             // send the input into the sync layer
             let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
             player_input.frame = actual_frame;
@@ -377,7 +380,10 @@ impl<T: Config> P2PSession<T> {
             self.local_inputs.clear();
             requests.push(GgrsRequest::AdvanceFrame { inputs });
         } else {
-            println!("Prediction Threshold reached. Skipping on frame {}", self.sync_layer.current_frame());
+            println!(
+                "Prediction Threshold reached. Skipping on frame {}",
+                self.sync_layer.current_frame()
+            );
         }
 
         Ok(requests)
