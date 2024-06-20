@@ -83,6 +83,11 @@ pub(crate) struct MessageHeader {
     pub magic: u16,
 }
 
+impl MessageHeader {
+    pub(crate) const UNINITIALIZED: Self = Self { magic: 0 };
+    pub(crate) const BROADCAST: Self = Self { magic: u16::MAX };
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum MessageBody {
     SyncRequest(SyncRequest),
@@ -103,4 +108,35 @@ pub(crate) enum MessageBody {
 pub struct Message {
     pub(crate) header: MessageHeader,
     pub(crate) body: MessageBody,
+}
+
+/// Trait describing how to react to the receipt of the message `M`.
+pub(crate) trait HandleMessage<M> {
+    fn handle(&mut self, body: &M, message: &Message);
+}
+
+// For types implementing `HandleMessage` for all `MessageBody` variants, we can
+// automatically implement this behavior.
+impl<T> HandleMessage<MessageBody> for T
+where
+    T: HandleMessage<SyncRequest>,
+    T: HandleMessage<SyncReply>,
+    T: HandleMessage<Input>,
+    T: HandleMessage<InputAck>,
+    T: HandleMessage<QualityReport>,
+    T: HandleMessage<QualityReply>,
+    T: HandleMessage<ChecksumReport>,
+{
+    fn handle(&mut self, body: &MessageBody, message: &Message) {
+        match &body {
+            MessageBody::SyncRequest(body) => self.handle(body, message),
+            MessageBody::SyncReply(body) => self.handle(body, message),
+            MessageBody::Input(body) => self.handle(body, message),
+            MessageBody::InputAck(body) => self.handle(body, message),
+            MessageBody::QualityReport(body) => self.handle(body, message),
+            MessageBody::QualityReply(body) => self.handle(body, message),
+            MessageBody::ChecksumReport(body) => self.handle(body, message),
+            MessageBody::KeepAlive => (),
+        }
+    }
 }

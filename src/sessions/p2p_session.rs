@@ -349,11 +349,16 @@ impl<T: Config> P2PSession<T> {
         }
 
         // send the inputs to all clients
-        for endpoint in self.player_reg.remotes.values_mut() {
-            // send the input directly
-            endpoint.send_input(&self.local_inputs, &self.local_connect_status);
-            endpoint.send_all_messages(&mut self.socket);
-        }
+        UdpProtocol::<T>::send_input_to_many(
+            self.player_reg
+                .remotes
+                .values_mut()
+                .collect::<Vec<_>>()
+                .as_mut_slice(),
+            self.socket.as_mut(),
+            &self.local_inputs,
+            &self.local_connect_status,
+        );
 
         // clear the local inputs after sending them
         self.local_inputs.clear();
@@ -418,10 +423,10 @@ impl<T: Config> P2PSession<T> {
 
         // send all queued packets
         for endpoint in self.player_reg.remotes.values_mut() {
-            endpoint.send_all_messages(&mut self.socket);
+            endpoint.send_all_messages(self.socket.as_mut());
         }
         for endpoint in self.player_reg.spectators.values_mut() {
-            endpoint.send_all_messages(&mut self.socket);
+            endpoint.send_all_messages(self.socket.as_mut());
         }
     }
 
@@ -694,11 +699,17 @@ impl<T: Config> P2PSession<T> {
             }
 
             // send it to all spectators
-            for endpoint in self.player_reg.spectators.values_mut() {
-                if endpoint.is_running() {
-                    endpoint.send_input(&input_map, &self.local_connect_status);
-                }
-            }
+            UdpProtocol::<T>::send_input_to_many(
+                self.player_reg
+                    .spectators
+                    .values_mut()
+                    .filter(|endpoint| endpoint.is_running())
+                    .collect::<Vec<_>>()
+                    .as_mut_slice(),
+                self.socket.as_mut(),
+                &input_map,
+                &self.local_connect_status,
+            );
 
             // onto the next frame
             self.next_spectator_frame += 1;
@@ -926,9 +937,17 @@ impl<T: Config> P2PSession<T> {
                         .unwrap_or_else(|| panic!("cell not found!: frame {frame_to_send}"));
 
                     if let Some(checksum) = cell.checksum() {
-                        for remote in self.player_reg.remotes.values_mut() {
-                            remote.send_checksum_report(frame_to_send, checksum);
-                        }
+                        UdpProtocol::<T>::send_checksum_report_to_many(
+                            self.player_reg
+                                .remotes
+                                .values_mut()
+                                .collect::<Vec<_>>()
+                                .as_mut_slice(),
+                            self.socket.as_mut(),
+                            frame_to_send,
+                            checksum,
+                        );
+
                         self.last_sent_checksum_frame = frame_to_send;
                         // collect locally for later comparison
                         self.local_checksum_history.insert(frame_to_send, checksum);

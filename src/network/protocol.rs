@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
 use std::ops::Add;
 
+use super::messages::HandleMessage;
 use super::network_stats::NetworkStats;
 
 const UDP_HEADER_SIZE: usize = 28; // Size of IP + UDP headers
@@ -133,7 +134,7 @@ where
 {
     num_players: usize,
     handles: Vec<PlayerHandle>,
-    send_queue: VecDeque<Message>,
+    send_queue: Vec<Message>,
     event_queue: VecDeque<Event<T>>,
 
     // state
@@ -220,7 +221,7 @@ impl<T: Config> UdpProtocol<T> {
         Self {
             num_players,
             handles,
-            send_queue: VecDeque::new(),
+            send_queue: Vec::new(),
             event_queue: VecDeque::new(),
 
             // state
@@ -241,7 +242,7 @@ impl<T: Config> UdpProtocol<T> {
 
             // the other client
             peer_addr,
-            remote_magic: 0,
+            remote_magic: MessageHeader::UNINITIALIZED.magic,
             peer_connect_status,
 
             // input compression
@@ -341,7 +342,7 @@ impl<T: Config> UdpProtocol<T> {
         self.state = ProtocolState::Synchronizing;
         self.sync_remaining_roundtrips = NUM_SYNC_PACKETS;
         self.stats_start_time = millis_since_epoch();
-        self.send_sync_request();
+        self.queue_sync_request();
     }
 
     pub(crate) fn average_frame_advantage(&self) -> i32 {
@@ -358,24 +359,24 @@ impl<T: Config> UdpProtocol<T> {
             ProtocolState::Synchronizing => {
                 // some time has passed, let us send another sync request
                 if self.last_send_time + SYNC_RETRY_INTERVAL < now {
-                    self.send_sync_request();
+                    self.queue_sync_request();
                 }
             }
             ProtocolState::Running => {
                 // resend pending inputs, if some time has passed without sending or receiving inputs
                 if self.running_last_input_recv + RUNNING_RETRY_INTERVAL < now {
-                    self.send_pending_output(connect_status);
+                    self.queue_pending_output(connect_status);
                     self.running_last_input_recv = Instant::now();
                 }
 
                 // periodically send a quality report
                 if self.running_last_quality_report + QUALITY_REPORT_INTERVAL < now {
-                    self.send_quality_report();
+                    self.queue_quality_report();
                 }
 
                 // send keep alive packet if we didn't send a packet for some time
                 if self.last_send_time + KEEP_ALIVE_INTERVAL < now {
-                    self.send_keep_alive();
+                    self.queue_keep_alive();
                 }
 
                 // trigger a NetworkInterrupted event if we didn't receive a packet for some time
@@ -422,25 +423,130 @@ impl<T: Config> UdpProtocol<T> {
         }
     }
 
+    /// Returns the frame of the last received input
+    fn last_recv_frame(&self) -> Frame {
+        match self.recv_inputs.iter().max_by_key(|&(k, _)| k) {
+            Some((k, _)) => *k,
+            None => NULL_FRAME,
+        }
+    }
+
     /*
      *  SENDING MESSAGES
      */
 
     pub(crate) fn send_all_messages(
         &mut self,
-        socket: &mut Box<dyn NonBlockingSocket<T::Address>>,
+        socket: &mut (impl NonBlockingSocket<T::Address> + ?Sized),
     ) {
-        if self.state == ProtocolState::Shutdown {
-            self.send_queue.drain(..);
+        if self.send_queue.is_empty() {
             return;
         }
 
-        for msg in self.send_queue.drain(..) {
-            socket.send_to(&msg, &self.peer_addr);
+        if self.state != ProtocolState::Shutdown {
+            socket.send_many_to(&self.send_queue, &self.peer_addr);
+        }
+
+        self.send_queue.clear();
+    }
+
+    fn send_to_many(
+        selves: &mut [&mut Self],
+        mut body: MessageBody,
+        socket: &mut (impl NonBlockingSocket<T::Address> + ?Sized),
+    ) {
+        for this in selves.iter_mut() {
+            this.send_all_messages(socket);
+
+            if this.state == ProtocolState::Shutdown {
+                continue;
+            }
+
+            this.queue_message(body);
+            body = this.send_queue.pop().unwrap().body;
+        }
+
+        let message = Message {
+            header: MessageHeader::BROADCAST,
+            body,
+        };
+
+        let addresses = selves
+            .iter()
+            .filter(|this| this.state != ProtocolState::Shutdown)
+            .map(|this| &this.peer_addr)
+            .collect::<Vec<_>>();
+
+        socket.send_to_many(&message, &addresses);
+    }
+
+    pub(crate) fn send_checksum_report_to_many(
+        selves: &mut [&mut Self],
+        socket: &mut (impl NonBlockingSocket<T::Address> + ?Sized),
+        frame_to_send: Frame,
+        checksum: u128,
+    ) {
+        let body = ChecksumReport {
+            frame: frame_to_send,
+            checksum,
+        };
+
+        let body = MessageBody::ChecksumReport(body);
+
+        Self::send_to_many(selves, body, socket);
+    }
+
+    pub(crate) fn send_input_to_many(
+        selves: &mut [&mut Self],
+        socket: &mut (impl NonBlockingSocket<T::Address> + ?Sized),
+        inputs: &HashMap<PlayerHandle, PlayerInput<T::Input>>,
+        connect_status: &[ConnectionStatus],
+    ) {
+        let mut messages = Vec::new();
+
+        for this in selves.iter_mut() {
+            this.send_all_messages(socket);
+
+            if this.state == ProtocolState::Shutdown {
+                continue;
+            }
+
+            this.queue_input(inputs, connect_status);
+
+            if let Some(message) = this.send_queue.pop() {
+                messages.push((&this.peer_addr, message));
+            }
+        }
+
+        if messages.is_empty() {
+            // No messages to send
+            return;
+        }
+
+        if messages.iter().all(|(_, m)| m.body == messages[0].1.body) {
+            // Can send identical messages in bulk
+            let mut addresses = Vec::new();
+            let mut message = None;
+
+            for (address, msg) in messages {
+                addresses.push(address);
+                message = Some(msg);
+            }
+
+            let mut message = message.unwrap();
+
+            message.header.magic = MessageHeader::BROADCAST.magic;
+
+            socket.send_to_many(&message, &addresses)
+        } else {
+            // Can't send in bulk, fall-back to individual messaging
+            for (address, message) in messages {
+                socket.send_to(&message, &address);
+            }
         }
     }
 
-    pub(crate) fn send_input(
+    fn queue_input(
         &mut self,
         inputs: &HashMap<PlayerHandle, PlayerInput<T::Input>>,
         connect_status: &[ConnectionStatus],
@@ -466,37 +572,40 @@ impl<T: Config> UdpProtocol<T> {
             self.event_queue.push_back(Event::Disconnected);
         }
 
-        self.send_pending_output(connect_status);
+        self.queue_pending_output(connect_status);
     }
 
-    fn send_pending_output(&mut self, connect_status: &[ConnectionStatus]) {
-        let mut body = Input::default();
+    fn queue_pending_output(&mut self, connect_status: &[ConnectionStatus]) {
+        let Some(input) = self.pending_output.front() else {
+            return;
+        };
 
-        if let Some(input) = self.pending_output.front() {
-            assert!(
-                self.last_acked_input.frame == NULL_FRAME
-                    || self.last_acked_input.frame + 1 == input.frame
-            );
-            body.start_frame = input.frame;
+        assert!(
+            self.last_acked_input.frame == NULL_FRAME
+                || self.last_acked_input.frame + 1 == input.frame
+        );
 
-            // encode all pending inputs to a byte buffer
-            body.bytes = encode(
-                &self.last_acked_input.bytes,
-                self.pending_output.iter().map(|gi| &gi.bytes),
-            );
+        // encode all pending inputs to a byte buffer
+        let payload = encode(
+            &self.last_acked_input.bytes,
+            self.pending_output.iter().map(|gi| &gi.bytes),
+        );
 
-            // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
-            assert!(body.bytes.len() <= MAX_PAYLOAD);
+        // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
+        assert!(payload.len() <= MAX_PAYLOAD);
 
-            body.ack_frame = self.last_recv_frame();
-            body.disconnect_requested = self.state == ProtocolState::Disconnected;
-            body.peer_connect_status = connect_status.to_owned();
+        let body = Input {
+            start_frame: input.frame,
+            bytes: payload,
+            ack_frame: self.last_recv_frame(),
+            disconnect_requested: self.state == ProtocolState::Disconnected,
+            peer_connect_status: connect_status.to_owned(),
+        };
 
-            self.queue_message(MessageBody::Input(body));
-        }
+        self.queue_message(MessageBody::Input(body));
     }
 
-    fn send_input_ack(&mut self) {
+    fn queue_input_ack(&mut self) {
         let body = InputAck {
             ack_frame: self.last_recv_frame(),
         };
@@ -504,11 +613,11 @@ impl<T: Config> UdpProtocol<T> {
         self.queue_message(MessageBody::InputAck(body));
     }
 
-    fn send_keep_alive(&mut self) {
+    fn queue_keep_alive(&mut self) {
         self.queue_message(MessageBody::KeepAlive);
     }
 
-    fn send_sync_request(&mut self) {
+    fn queue_sync_request(&mut self) {
         let random_number = rand::random::<u32>();
         self.sync_random_requests.insert(random_number);
         let body = SyncRequest {
@@ -517,7 +626,7 @@ impl<T: Config> UdpProtocol<T> {
         self.queue_message(MessageBody::SyncRequest(body));
     }
 
-    fn send_quality_report(&mut self) {
+    fn queue_quality_report(&mut self) {
         self.running_last_quality_report = Instant::now();
         let body = QualityReport {
             frame_advantage: i8::try_from(self.local_frame_advantage)
@@ -538,7 +647,7 @@ impl<T: Config> UdpProtocol<T> {
         self.bytes_sent += std::mem::size_of_val(&msg);
 
         // add the packet to the back of the send queue
-        self.send_queue.push_back(msg);
+        self.send_queue.push(msg);
     }
 
     /*
@@ -551,8 +660,15 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
 
-        // filter packets that don't match the magic if we have set it already
-        if self.remote_magic != 0 && msg.header.magic != self.remote_magic {
+        // Filter packets that don't have an acceptable magic value
+        if self.remote_magic == MessageHeader::UNINITIALIZED.magic {
+            // We don't know what the magic value should be yet, accept any
+        } else if self.remote_magic == msg.header.magic {
+            // We have a magic value, and it matches this packet
+        } else if msg.header.magic == MessageHeader::BROADCAST.magic {
+            // This message was broadcast, ignore magic value
+        } else {
+            // Can't approve this magic value
             return;
         }
 
@@ -565,29 +681,27 @@ impl<T: Config> UdpProtocol<T> {
             self.event_queue.push_back(Event::NetworkResumed);
         }
 
-        // handle the message
-        match &msg.body {
-            MessageBody::SyncRequest(body) => self.on_sync_request(*body),
-            MessageBody::SyncReply(body) => self.on_sync_reply(msg.header, *body),
-            MessageBody::Input(body) => self.on_input(body),
-            MessageBody::InputAck(body) => self.on_input_ack(*body),
-            MessageBody::QualityReport(body) => self.on_quality_report(body),
-            MessageBody::QualityReply(body) => self.on_quality_reply(body),
-            MessageBody::ChecksumReport(body) => self.on_checksum_report(body),
-            MessageBody::KeepAlive => (),
-        }
+        self.handle(&msg.body, msg);
     }
+}
 
-    /// Upon receiving a `SyncRequest`, answer with a `SyncReply` with the proper data
-    fn on_sync_request(&mut self, body: SyncRequest) {
+impl<T> HandleMessage<SyncRequest> for UdpProtocol<T>
+where
+    T: Config,
+{
+    fn handle(&mut self, body: &SyncRequest, _message: &Message) {
         let reply_body = SyncReply {
             random_reply: body.random_request,
         };
         self.queue_message(MessageBody::SyncReply(reply_body));
     }
+}
 
-    /// Upon receiving a `SyncReply`, check validity and either continue the synchronization process or conclude synchronization.
-    fn on_sync_reply(&mut self, header: MessageHeader, body: SyncReply) {
+impl<T> HandleMessage<SyncReply> for UdpProtocol<T>
+where
+    T: Config,
+{
+    fn handle(&mut self, body: &SyncReply, message: &Message) {
         // ignore sync replies when not syncing
         if self.state != ProtocolState::Synchronizing {
             return;
@@ -606,18 +720,23 @@ impl<T: Config> UdpProtocol<T> {
             };
             self.event_queue.push_back(evt);
             // send another sync request
-            self.send_sync_request();
+            self.queue_sync_request();
         } else {
             // switch to running state
             self.state = ProtocolState::Running;
             // register an event
             self.event_queue.push_back(Event::Synchronized);
             // the remote endpoint is now "authorized"
-            self.remote_magic = header.magic;
+            self.remote_magic = message.header.magic;
         }
     }
+}
 
-    fn on_input(&mut self, body: &Input) {
+impl<T> HandleMessage<Input> for UdpProtocol<T>
+where
+    T: Config,
+{
+    fn handle(&mut self, body: &Input, _message: &Message) {
         // drop pending outputs until the ack frame
         self.pop_pending_output(body.ack_frame);
 
@@ -683,7 +802,7 @@ impl<T: Config> UdpProtocol<T> {
             }
 
             // send an input ack
-            self.send_input_ack();
+            self.queue_input_ack();
 
             // delete received inputs that are too old
             let last_recv_frame = self.last_recv_frame();
@@ -691,28 +810,44 @@ impl<T: Config> UdpProtocol<T> {
                 .retain(|&k, _| k >= last_recv_frame - 2 * self.max_prediction as i32);
         }
     }
+}
 
-    /// Upon receiving a `InputAck`, discard the oldest buffered input including the acked input.
-    fn on_input_ack(&mut self, body: InputAck) {
+impl<T> HandleMessage<InputAck> for UdpProtocol<T>
+where
+    T: Config,
+{
+    fn handle(&mut self, body: &InputAck, _message: &Message) {
         self.pop_pending_output(body.ack_frame);
     }
+}
 
-    /// Upon receiving a `QualityReport`, update network stats and reply with a `QualityReply`.
-    fn on_quality_report(&mut self, body: &QualityReport) {
+impl<T> HandleMessage<QualityReport> for UdpProtocol<T>
+where
+    T: Config,
+{
+    fn handle(&mut self, body: &QualityReport, _message: &Message) {
         self.remote_frame_advantage = body.frame_advantage as i32;
         let reply_body = QualityReply { pong: body.ping };
         self.queue_message(MessageBody::QualityReply(reply_body));
     }
+}
 
-    /// Upon receiving a `QualityReply`, update network stats.
-    fn on_quality_reply(&mut self, body: &QualityReply) {
+impl<T> HandleMessage<QualityReply> for UdpProtocol<T>
+where
+    T: Config,
+{
+    fn handle(&mut self, body: &QualityReply, _message: &Message) {
         let millis = millis_since_epoch();
         assert!(millis >= body.pong);
         self.round_trip_time = millis - body.pong;
     }
+}
 
-    /// Upon receiving a `ChecksumReport`, add it to the checksum history
-    fn on_checksum_report(&mut self, body: &ChecksumReport) {
+impl<T> HandleMessage<ChecksumReport> for UdpProtocol<T>
+where
+    T: Config,
+{
+    fn handle(&mut self, body: &ChecksumReport, _message: &Message) {
         let interval = if let DesyncDetection::On { interval } = self.desync_detection {
             interval
         } else {
@@ -731,21 +866,5 @@ impl<T: Config> UdpProtocol<T> {
                 .retain(|&frame, _| frame >= oldest_frame_to_keep);
         }
         self.pending_checksums.insert(body.frame, body.checksum);
-    }
-
-    /// Returns the frame of the last received input
-    fn last_recv_frame(&self) -> Frame {
-        match self.recv_inputs.iter().max_by_key(|&(k, _)| k) {
-            Some((k, _)) => *k,
-            None => NULL_FRAME,
-        }
-    }
-
-    pub(crate) fn send_checksum_report(&mut self, frame_to_send: Frame, checksum: u128) {
-        let body = ChecksumReport {
-            frame: frame_to_send,
-            checksum,
-        };
-        self.queue_message(MessageBody::ChecksumReport(body));
     }
 }
