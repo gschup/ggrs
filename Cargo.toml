@@ -30,7 +30,7 @@ js-sys = "0.3"
 [dev-dependencies]
 serial_test = "0.5"
 structopt = "0.3"
-macroquad = "0.3.10"
+macroquad = "0.4"
 
 # Examples
 [[example]]
@@ -44,4 +44,3 @@ path = "examples/ex_game/ex_game_spectator.rs"
 [[example]]
 name = "ex_game_synctest"
 path = "examples/ex_game/ex_game_synctest.rs"
-
