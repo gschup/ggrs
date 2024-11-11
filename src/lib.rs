@@ -255,7 +255,7 @@ pub trait Config: 'static {
         + bytemuck::Zeroable;
 
     /// The save state type for the session.
-    type State: Clone;
+    type State;
 
     /// The address type which identifies the remote clients
     type Address: Clone + PartialEq + Eq + Hash + Debug;

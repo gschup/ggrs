@@ -12,9 +12,9 @@ use crate::{Config, Frame, GgrsRequest, InputStatus, PlayerHandle, NULL_FRAME};
 ///
 /// [`save()`]: GameStateCell#method.save
 /// [`load()`]: GameStateCell#method.load
-pub struct GameStateCell<T: Clone>(Arc<Mutex<GameState<T>>>);
+pub struct GameStateCell<T>(Arc<Mutex<GameState<T>>>);
 
-impl<T: Clone> GameStateCell<T> {
+impl<T> GameStateCell<T> {
     /// Saves a `T` the user creates into the cell.
     pub fn save(&self, frame: Frame, data: Option<T>, checksum: Option<u128>) {
         let mut state = self.0.lock();
@@ -24,10 +24,17 @@ impl<T: Clone> GameStateCell<T> {
         state.checksum = checksum;
     }
 
-    /// Loads a `T` that the user previously saved into.
-    pub fn load(&self) -> Option<T> {
+    /// Provides direct (mutable) access to the `T` that the user previously saved into the cell.
+    ///
+    /// You probably want to use [Self::load()] instead; this function is useful only in niche use
+    /// cases.
+    ///
+    /// **Important**: the returned `T` must _not_ be modified in any way that affects (or may ever
+    /// in future affect) game logic. If this invariant is violated, you will almost certainly get
+    /// desyncs.
+    pub fn data_mut(&self) -> parking_lot::MappedMutexGuard<'_, Option<T>> {
         let state = self.0.lock();
-        state.data.clone()
+        parking_lot::MutexGuard::map(state, |state| &mut state.data)
     }
 
     pub(crate) fn frame(&self) -> Frame {
@@ -39,19 +46,28 @@ impl<T: Clone> GameStateCell<T> {
     }
 }
 
-impl<T: Clone> Default for GameStateCell<T> {
+impl<T: Clone> GameStateCell<T> {
+    /// Loads a `T` that the user previously saved into, by cloning the `T`.
+    ///
+    /// See also [Self::data_mut()] if you want a reference to the T.
+    pub fn load(&self) -> Option<T> {
+        self.data_mut().clone()
+    }
+}
+
+impl<T> Default for GameStateCell<T> {
     fn default() -> Self {
         Self(Arc::new(Mutex::new(GameState::default())))
     }
 }
 
-impl<T: Clone> Clone for GameStateCell<T> {
+impl<T> Clone for GameStateCell<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<T: Clone> std::fmt::Debug for GameStateCell<T> {
+impl<T> std::fmt::Debug for GameStateCell<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let inner = self.0.lock();
         f.debug_struct("GameStateCell")
@@ -61,12 +77,11 @@ impl<T: Clone> std::fmt::Debug for GameStateCell<T> {
     }
 }
 
-#[derive(Clone)]
-pub(crate) struct SavedStates<T: Clone> {
+pub(crate) struct SavedStates<T> {
     pub states: Vec<GameStateCell<T>>,
 }
 
-impl<T: Clone> SavedStates<T> {
+impl<T> SavedStates<T> {
     fn new(max_pred: usize) -> Self {
         // the states are two cells bigger than the max prediction frames in order to account for
         // the next frame needing a space and still being able to rollback the max distance

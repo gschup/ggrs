@@ -4,7 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
-- Nothing here yet...
+- allow non-`Clone` types to be stored in `GameStateCell`.
 
 ## 0.10.2
 
