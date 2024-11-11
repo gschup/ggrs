@@ -1,7 +1,7 @@
 mod ex_game;
 
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GgrsError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
+use ggrs::{PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use std::net::SocketAddr;
@@ -45,6 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 100 })
         // (optional) set expected update frequency
         .with_fps(FPS as usize)?
+        // secret trick: set the prediction to 0 to fall back to lockstep netcode
+        //.with_max_prediction_window(0)
         // (optional) set input delay for the local player
         .with_input_delay(2);
 
@@ -112,10 +114,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 match sess.advance_frame() {
                     Ok(requests) => game.handle_requests(requests),
-                    Err(GgrsError::PredictionThreshold) => {
-                        println!("Frame {} skipped", sess.current_frame())
-                    }
-
                     Err(e) => return Err(Box::new(e)),
                 }
             }

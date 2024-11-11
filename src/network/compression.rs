@@ -64,14 +64,6 @@ pub(crate) fn delta_decode(ref_bytes: &[u8], data: &[u8]) -> Vec<Vec<u8>> {
 mod compression_tests {
     use super::*;
 
-    use bytemuck::{Pod, Zeroable};
-
-    #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
-    struct TestInput {
-        inp: u8,
-    }
-
     #[test]
     fn test_encode_decode() {
         let ref_input = vec![0, 0, 0, 1];
