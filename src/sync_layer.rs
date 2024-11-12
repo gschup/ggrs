@@ -1,5 +1,6 @@
 use bytemuck::Zeroable;
-use parking_lot::Mutex;
+use parking_lot::{MappedMutexGuard, Mutex};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::error::GgrsError;
@@ -24,17 +25,50 @@ impl<T> GameStateCell<T> {
         state.checksum = checksum;
     }
 
-    /// Provides direct (mutable) access to the `T` that the user previously saved into the cell.
+    /// Provides direct access to the `T` that the user previously saved into the cell (if there was
+    /// one previously saved), without cloning it.
     ///
-    /// You probably want to use [Self::load()] instead; this function is useful only in niche use
-    /// cases.
+    /// You probably want to use [load()](Self::load) instead to clone the data; this function is
+    /// useful only in niche use cases.
     ///
-    /// **Important**: the returned `T` must _not_ be modified in any way that affects (or may ever
-    /// in future affect) game logic. If this invariant is violated, you will almost certainly get
-    /// desyncs.
-    pub fn data_mut(&self) -> parking_lot::MappedMutexGuard<'_, Option<T>> {
-        let state = self.0.lock();
-        parking_lot::MutexGuard::map(state, |state| &mut state.data)
+    /// # Example usage
+    ///
+    /// ```
+    /// # use ggrs::{Frame, GameStateCell};
+    /// // Setup normally performed by GGRS behind the scenes
+    /// let mut cell = GameStateCell::<MyGameState>::default();
+    /// let frame_num: Frame = 0;
+    ///
+    /// // The state of our example game will be just a String, and our game state isn't Clone
+    /// struct MyGameState { player_name: String };
+    ///
+    /// // Setup you do when GGRS requests you to save game state
+    /// {
+    ///     let game_state = MyGameState { player_name: "alex".to_owned() };
+    ///     let checksum = None;
+    ///     // (in real usage, save a checksum! We omit it here because it's not
+    ///     // relevant to this example)
+    ///     cell.save(frame_num, Some(game_state), checksum);
+    /// }
+    ///
+    /// // We can't use load() to access the game state, because it's not Clone
+    /// // println!("{}", cell.load().player_name); // compile error: Clone bound not satisfied
+    ///
+    /// // But we can still read the game state without cloning:
+    /// let game_state_accessor = cell.data().expect("should have a gamestate stored");
+    /// assert_eq!(game_state_accessor.player_name, "alex");
+    /// ```
+    ///
+    /// If you really, really need mutable access to the `T`, then consider using the aptly named
+    /// [GameStateAccessor::as_mut_dangerous()].
+    pub fn data(&self) -> Option<GameStateAccessor<'_, T>> {
+        if let Ok(mapped_data) =
+            parking_lot::MutexGuard::try_map(self.0.lock(), |state| state.data.as_mut())
+        {
+            return Some(GameStateAccessor(mapped_data));
+        } else {
+            None
+        }
     }
 
     pub(crate) fn frame(&self) -> Frame {
@@ -47,11 +81,12 @@ impl<T> GameStateCell<T> {
 }
 
 impl<T: Clone> GameStateCell<T> {
-    /// Loads a `T` that the user previously saved into, by cloning the `T`.
+    /// Loads a `T` that the user previously saved into this cell, by cloning the `T`.
     ///
-    /// See also [Self::data_mut()] if you want a reference to the T.
+    /// See also [data()](Self::data) if you want a reference to the `T` without cloning it.
     pub fn load(&self) -> Option<T> {
-        self.data_mut().clone()
+        let data = self.data()?;
+        Some(data.clone())
     }
 }
 
@@ -74,6 +109,37 @@ impl<T> std::fmt::Debug for GameStateCell<T> {
             .field("frame", &inner.frame)
             .field("checksum", &inner.checksum)
             .finish_non_exhaustive()
+    }
+}
+
+/// A read-only accessor for the `T` that the user previously saved into a [GameStateCell].
+///
+/// You can use [deref()](Deref::deref) to access the `T` without cloning it; see
+/// [GameStateCell::data()](GameStateCell::data) for a usage example.
+///
+/// This type exists to A) hide the type of the lock guard that allows thread-safe access to the
+///  saved `T` so that it does not form part of GGRS API and B) make dangerous mutable access to the
+///  `T` very explicit (see [as_mut_dangerous()](Self::as_mut_dangerous)).
+pub struct GameStateAccessor<'c, T>(MappedMutexGuard<'c, T>);
+
+impl<'c, T> Deref for GameStateAccessor<'c, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'c, T> GameStateAccessor<'c, T> {
+    /// Get mutable access to the `T` that the user previously saved into a [GameStateCell].
+    ///
+    /// You probably do not need this! It's safer to use [Self::deref()](Deref::deref) instead;
+    /// see [GameStateCell::data()](GameStateCell::data) for a usage example.
+    ///
+    /// **Danger**: the underlying `T` must _not_ be modified in any way that affects (or may ever
+    /// in future affect) game logic. If this invariant is violated, you will almost certainly get
+    /// desyncs.
+    pub fn as_mut_dangerous(&mut self) -> &mut T {
+        &mut self.0
     }
 }
 

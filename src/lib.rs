@@ -17,7 +17,7 @@ pub use sessions::builder::SessionBuilder;
 pub use sessions::p2p_session::P2PSession;
 pub use sessions::p2p_spectator_session::SpectatorSession;
 pub use sessions::sync_test_session::SyncTestSession;
-pub use sync_layer::GameStateCell;
+pub use sync_layer::{GameStateAccessor, GameStateCell};
 
 pub(crate) mod error;
 pub(crate) mod frame_info;
