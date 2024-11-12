@@ -3,7 +3,7 @@ use crate::{Frame, NULL_FRAME};
 /// Represents the game state of your game for a single frame. The `data` holds the game state, `frame` indicates the associated frame number
 /// and `checksum` can additionally be provided for use during a `SyncTestSession`.
 #[derive(Debug, Clone)]
-pub(crate) struct GameState<S: Clone> {
+pub(crate) struct GameState<S> {
     /// The frame to which this info belongs to.
     pub frame: Frame,
     /// The game state
@@ -12,7 +12,7 @@ pub(crate) struct GameState<S: Clone> {
     pub checksum: Option<u128>,
 }
 
-impl<S: Clone> Default for GameState<S> {
+impl<S> Default for GameState<S> {
     fn default() -> Self {
         Self {
             frame: NULL_FRAME,
