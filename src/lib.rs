@@ -13,6 +13,7 @@ pub use error::GgrsError;
 pub use network::messages::Message;
 pub use network::network_stats::NetworkStats;
 pub use network::udp_socket::UdpNonBlockingSocket;
+use serde::{de::DeserializeOwned, Serialize};
 pub use sessions::builder::SessionBuilder;
 pub use sessions::p2p_session::P2PSession;
 pub use sessions::p2p_spectator_session::SpectatorSession;
@@ -205,12 +206,9 @@ pub trait Config: 'static + Send + Sync {
     /// The input type for a session. This is the only game-related data
     /// transmitted over the network.
     ///
-    /// Reminder: Types implementing [Pod] may not have the same byte representation
-    /// on platforms with different endianness. GGRS assumes that all players are
-    /// running with the same endianness when encoding and decoding inputs.
-    ///
-    /// [Pod]: bytemuck::Pod
-    type Input: Copy + Clone + PartialEq + bytemuck::Pod + bytemuck::Zeroable + Send + Sync;
+    /// The implementation of [Default] is used for representing "no input" for
+    /// a player, including when a player is disconnected.
+    type Input: Copy + Clone + PartialEq + Default + Serialize + DeserializeOwned + Send + Sync;
 
     /// The save state type for the session.
     type State: Clone + Send + Sync;
@@ -242,17 +240,9 @@ pub trait Config: 'static {
     /// The input type for a session. This is the only game-related data
     /// transmitted over the network.
     ///
-    /// Reminder: Types implementing [Pod] may not have the same byte representation
-    /// on platforms with different endianness. GGRS assumes that all players are
-    /// running with the same endianness when encoding and decoding inputs.
-    ///
-    /// [Pod]: bytemuck::Pod
-    type Input: Copy
-        + Clone
-        + PartialEq
-        + bytemuck::NoUninit
-        + bytemuck::CheckedBitPattern
-        + bytemuck::Zeroable;
+    /// The implementation of [Default] is used for representing "no input" for
+    /// a player, including when a player is disconnected.
+    type Input: Copy + Clone + PartialEq + Default + Serialize + DeserializeOwned;
 
     /// The save state type for the session.
     type State;
