@@ -6,7 +6,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use ggrs::{
     Config, Frame, GameStateCell, GgrsError, GgrsRequest, InputStatus, P2PSession, PlayerType,
-    SessionBuilder, SessionState, SpectatorSession, UdpNonBlockingSocket,
+    PredictRepeatLast, SessionBuilder, SessionState, SpectatorSession, UdpNonBlockingSocket,
 };
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
@@ -29,6 +29,7 @@ pub struct StubConfig;
 
 impl Config for StubConfig {
     type Input = StubInput;
+    type InputPredictor = PredictRepeatLast;
     type State = StateStub;
     type Address = SocketAddr;
 }
