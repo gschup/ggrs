@@ -1,5 +1,5 @@
 use crate::frame_info::PlayerInput;
-use crate::{Config, Frame, InputStatus, NULL_FRAME};
+use crate::{Config, Frame, InputPredictor, InputStatus, NULL_FRAME};
 use std::cmp;
 
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
@@ -123,18 +123,36 @@ impl<T: Config> InputQueue<T> {
                 return (self.inputs[offset].input, InputStatus::Confirmed);
             }
 
-            // The requested frame isn't in the queue. This means we need to return a prediction frame. Predict that the user will do the same thing they did last time.
-            if requested_frame == 0 || self.last_added_frame == NULL_FRAME {
-                // basing new prediction frame from nothing, since we are on frame 0 or we have no frames yet
-                self.prediction = PlayerInput::blank_input(self.prediction.frame);
-            } else {
-                // basing new prediction frame from previously added frame
-                let previous_position = match self.head {
-                    0 => INPUT_QUEUE_LENGTH - 1,
-                    _ => self.head - 1,
+            // The requested frame isn't in the queue. This means we need to return a prediction frame.
+            // Fetch the previous input if we have one, so we can use it to predict the next frame.
+            let previous_player_input =
+                if requested_frame == 0 || self.last_added_frame == NULL_FRAME {
+                    None
+                } else {
+                    // basing new prediction frame from previously added frame
+                    let previous_position = match self.head {
+                        0 => INPUT_QUEUE_LENGTH - 1,
+                        _ => self.head - 1,
+                    };
+                    Some(self.inputs[previous_position])
                 };
-                self.prediction = self.inputs[previous_position];
-            }
+
+            // Ask the user to predict the input based on the previous input (if any); if we don't
+            // get a prediction from the user, default to the default input.
+            let input_prediction = previous_player_input
+                .map(|pi| T::InputPredictor::predict(pi.input))
+                .unwrap_or_default();
+
+            // Set the frame number of the predicted input to what it was based on
+            self.prediction = {
+                let frame_num = if let Some(previous_player_input) = previous_player_input {
+                    previous_player_input.frame
+                } else {
+                    self.prediction.frame
+                };
+                PlayerInput::new(frame_num, input_prediction)
+            };
+
             // update the prediction's frame
             self.prediction.frame += 1;
         }
@@ -252,6 +270,8 @@ mod input_queue_tests {
 
     use serde::{Deserialize, Serialize};
 
+    use crate::PredictRepeatLast;
+
     use super::*;
 
     #[repr(C)]
@@ -264,6 +284,7 @@ mod input_queue_tests {
 
     impl Config for TestConfig {
         type Input = TestInput;
+        type InputPredictor = PredictRepeatLast;
         type State = Vec<u8>;
         type Address = SocketAddr;
     }
