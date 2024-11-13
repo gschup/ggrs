@@ -299,6 +299,7 @@ impl<T: Config> SyncLayer<T> {
 mod sync_layer_tests {
 
     use super::*;
+    use crate::RepeatLastInputPredictor;
     use bytemuck::{Pod, Zeroable};
     use std::net::SocketAddr;
 
@@ -312,6 +313,7 @@ mod sync_layer_tests {
 
     impl Config for TestConfig {
         type Input = TestInput;
+        type InputPredictor = RepeatLastInputPredictor;
         type State = u8;
         type Address = SocketAddr;
     }

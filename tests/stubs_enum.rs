@@ -2,7 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
-use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus};
+use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus, RepeatLastInputPredictor};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -33,6 +33,7 @@ pub struct StubEnumConfig;
 
 impl Config for StubEnumConfig {
     type Input = EnumInput;
+    type InputPredictor = RepeatLastInputPredictor;
     type State = StateStubEnum;
     type Address = SocketAddr;
 }

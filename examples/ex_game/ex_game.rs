@@ -1,7 +1,10 @@
 use std::net::SocketAddr;
 
 use bytemuck::{Pod, Zeroable};
-use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus, PlayerHandle, NULL_FRAME};
+use ggrs::{
+    Config, Frame, GameStateCell, GgrsRequest, InputPredictor, InputStatus, PlayerHandle,
+    RepeatLastInputPredictor, NULL_FRAME,
+};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +37,7 @@ pub struct Input {
 pub struct GGRSConfig;
 impl Config for GGRSConfig {
     type Input = Input;
+    type InputPredictor = RepeatLastInputPredictor;
     type State = State;
     type Address = SocketAddr;
 }
