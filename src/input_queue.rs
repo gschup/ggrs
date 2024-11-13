@@ -11,7 +11,7 @@ pub(crate) struct InputQueue<T>
 where
     T: Config,
 {
-    /// The head of the queue. The newest `PlayerInput` is saved here      
+    /// The head of the queue. The newest `PlayerInput` is saved here
     head: usize,
     /// The tail of the queue. The oldest `PlayerInput` still valid is saved here.
     tail: usize,
@@ -250,12 +250,12 @@ mod input_queue_tests {
 
     use std::net::SocketAddr;
 
-    use bytemuck::{Pod, Zeroable};
+    use serde::{Deserialize, Serialize};
 
     use super::*;
 
     #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+    #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
     struct TestInput {
         inp: u8,
     }
