@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus, PlayerHandle, NULL_FRAME};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -24,7 +23,7 @@ const MAX_SPEED: f32 = 7.0;
 const FRICTION: f32 = 0.98;
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Input {
     pub inp: u8,
 }

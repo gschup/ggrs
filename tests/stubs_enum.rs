@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
 use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus};
+use serde::{Deserialize, Serialize};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -13,20 +14,14 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 pub struct GameStubEnum {
     pub gs: StateStubEnum,
 }
-use bytemuck::{CheckedBitPattern, NoUninit, Zeroable};
 
 #[allow(dead_code)]
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, CheckedBitPattern, NoUninit)]
+#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum EnumInput {
+    #[default]
     Val1,
     Val2,
-}
-
-unsafe impl Zeroable for EnumInput {
-    fn zeroed() -> Self {
-        unsafe { core::mem::zeroed() }
-    }
 }
 
 pub struct StubEnumConfig;
