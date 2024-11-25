@@ -571,6 +571,11 @@ impl<T: Config> P2PSession<T> {
         self.frames_ahead
     }
 
+    /// Returns the [`DesyncDetection`] mode set for this session at creation time.
+    pub fn desync_detection(&self) -> DesyncDetection {
+        self.desync_detection
+    }
+
     fn disconnect_player_at_frame(&mut self, player_handle: PlayerHandle, last_frame: Frame) {
         // disconnect the remote player
         match self
