@@ -165,6 +165,11 @@ impl<T: Config> SpectatorSession<T> {
         self.host.send_all_messages(&mut self.socket);
     }
 
+    /// Returns the current frame of a session.
+    pub fn current_frame(&self) -> Frame {
+        self.current_frame
+    }
+
     /// Returns the number of players this session was constructed with.
     pub fn num_players(&self) -> usize {
         self.num_players

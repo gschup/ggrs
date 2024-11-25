@@ -149,6 +149,11 @@ impl<T: Config> SyncTestSession<T> {
         Ok(requests)
     }
 
+    /// Returns the current frame of a session.
+    pub fn current_frame(&self) -> Frame {
+        self.sync_layer.current_frame()
+    }
+
     /// Returns the number of players this session was constructed with.
     pub fn num_players(&self) -> usize {
         self.num_players
