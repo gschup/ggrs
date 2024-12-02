@@ -9,6 +9,7 @@ use crate::{
     network::protocol::Event, Config, Frame, GgrsEvent, GgrsRequest, NonBlockingSocket,
     PlayerHandle, PlayerType, SessionState, NULL_FRAME,
 };
+use tracing::{debug, trace, warn};
 
 use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
@@ -192,10 +193,14 @@ impl<T: Config> P2PSession<T> {
             SessionState::Synchronizing
         };
 
-        let sparse_saving = if max_prediction == 0 {
+        let sparse_saving = if max_prediction == 0 && sparse_saving {
             // in lockstep mode, saving will never happen, but we use the last saved frame to mark
             // control marking frames confirmed, so we need to turn off sparse saving to ensure that
             // frames are marked as confirmed - otherwise we will never advance the game state.
+            warn!(
+                "Sparse saving setting is ignored because lockstep mode is on \
+                (max_prediction set to 0), so no saving will take place"
+            );
             false
         } else {
             sparse_saving
@@ -268,6 +273,7 @@ impl<T: Config> P2PSession<T> {
 
         // session is not running and synchronized
         if self.state != SessionState::Running {
+            trace!("Session not synchronized; returning error");
             return Err(GgrsError::NotSynchronized);
         }
 
@@ -275,7 +281,9 @@ impl<T: Config> P2PSession<T> {
         for handle in self.player_reg.local_player_handles() {
             if !self.local_inputs.contains_key(&handle) {
                 return Err(GgrsError::InvalidRequest {
-                    info: "Missing local input while calling advance_frame().".to_owned(),
+                    info: format!(
+                        "Missing local input for handle {handle} while calling advance_frame()."
+                    ),
                 });
             }
         }
@@ -308,6 +316,7 @@ impl<T: Config> P2PSession<T> {
 
         // if we are in the first frame, we have to save the state
         if self.sync_layer.current_frame() == 0 && !lockstep {
+            trace!("Saving state of first frame");
             requests.push(self.sync_layer.save_current_state());
         }
 
@@ -416,7 +425,7 @@ impl<T: Config> P2PSession<T> {
             self.local_inputs.clear();
             requests.push(GgrsRequest::AdvanceFrame { inputs });
         } else {
-            println!(
+            debug!(
                 "Prediction Threshold reached. Skipping on frame {}",
                 self.sync_layer.current_frame()
             );
@@ -707,6 +716,10 @@ impl<T: Config> P2PSession<T> {
         let count = current_frame - frame_to_load;
 
         // request to load that frame
+        debug!(
+            "Pushing request to load frame {} (current frame {})",
+            frame_to_load, current_frame
+        );
         requests.push(self.sync_layer.load_frame(frame_to_load));
 
         // we are now at the desired frame
