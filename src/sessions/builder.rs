@@ -128,6 +128,19 @@ impl<T: Config> SessionBuilder<T> {
     }
 
     /// Change the maximum prediction window. Default is 8.
+    ///
+    /// ## Lockstep mode
+    ///
+    /// As a special case, if you set this to 0, GGRS will run in lockstep mode:
+    /// * ggrs will only request that you advance the gamestate if the current frame has inputs
+    ///   confirmed from all other clients.
+    /// * ggrs will never request you to save or roll back the gamestate.
+    ///
+    /// Lockstep mode can significantly reduce the (GGRS) framerate of your game, but may be
+    /// appropriate for games where a GGRS frame does not correspond to a rendered frame, such as a
+    /// game where GGRS frames are only advanced once a second; with input delay set to zero, the
+    /// framerate impact is approximately equivalent to taking the highest latency client and adding
+    /// its latency to the current time to tick a frame.
     pub fn with_max_prediction_window(mut self, window: usize) -> Self {
         self.max_prediction = window;
         self
@@ -145,9 +158,11 @@ impl<T: Config> SessionBuilder<T> {
         self
     }
 
-    /// Sets the sparse saving mode. With sparse saving turned on, only the minimum confirmed frame (for which all inputs from all players are confirmed correct) will be saved.
-    /// This leads to much less save requests at the cost of potentially longer rollbacks and thus more advance frame requests. Recommended, if saving your gamestate
-    /// takes much more time than advancing the game state.
+    /// Sets the sparse saving mode. With sparse saving turned on, only the minimum confirmed frame
+    /// (for which all inputs from all players are confirmed correct) will be saved. This leads to
+    /// much less save requests at the cost of potentially longer rollbacks and thus more advance
+    /// frame requests. Recommended, if saving your gamestate takes much more time than advancing
+    /// the game state.
     pub fn with_sparse_saving_mode(mut self, sparse_saving: bool) -> Self {
         self.sparse_saving = sparse_saving;
         self
