@@ -271,6 +271,20 @@ impl<T: Config> P2PSession<T> {
             }
         }
 
+        /*
+         *  DESYNC DETECTION
+         */
+        // Collect, send, compare and check the last checksums against the other peers. The timing
+        // of this is important: since the checksum comparison looks at the current confirmed frame,
+        // (and the sync layer will happily mark a frame as confirmed after requesting rollback and
+        // resimulation of it, at which point that frame's new checksum will not be stored yet), we
+        // must examine our checksum state *before* the sync layer is able to mark any frames as
+        // confirmed.
+        if self.desync_detection != DesyncDetection::Off {
+            self.check_checksum_send_interval();
+            self.compare_local_checksums_against_peers();
+        }
+
         // This list of requests will be returned to the user
         let mut requests = Vec::new();
 
@@ -317,15 +331,6 @@ impl<T: Config> P2PSession<T> {
         // set the last confirmed frame and discard all saved inputs before that frame
         self.sync_layer
             .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
-
-        /*
-         *  DESYNC DETECTION
-         */
-        // collect, send, compare and check the last checksums against the other peers
-        if self.desync_detection != DesyncDetection::Off {
-            self.check_checksum_send_interval();
-            self.compare_local_checksums_against_peers();
-        }
 
         /*
          *  WAIT RECOMMENDATION
@@ -939,7 +944,7 @@ impl<T: Config> P2PSession<T> {
                 };
 
                 if frame_to_send <= self.sync_layer.last_confirmed_frame()
-                    && frame_to_send < self.sync_layer.last_saved_frame()
+                    && frame_to_send <= self.sync_layer.last_saved_frame()
                 {
                     let cell = self
                         .sync_layer
