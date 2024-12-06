@@ -7,6 +7,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 - allow non-`Clone` types to be stored in `GameStateCell`.
 - added `SyncTestSession::current_frame()` and `SpectatorSession::current_frame()` to match the existing `P2PSession::current_frame()`.
 - added `P2PSession::desync_detection()` to read the session's desync detection mode.
+- fix a false positive in `P2PSession`'s desync detection; it was possible for a desync to incorrectly be detected when `P2PSession::advance_frame()` would 1. enqueue a checksum-changing rollback, 2. mark a to-be-rolled-back frame as confirmed, and 3. send that newly-confirmed frame's still-incorrect checksum to peers.
 
 ## 0.10.2
 
