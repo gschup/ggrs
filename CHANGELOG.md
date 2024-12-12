@@ -9,6 +9,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 - added `P2PSession::desync_detection()` to read the session's desync detection mode.
 - ggrs no longer panics when trying to send an overly large UDP packet, unless debug assertions are on.
 - fixed: ggrs would panic when trying to send a message over a custom socket implementation if that message exceeded the maximum safe UDP packet size, even though the underlying socket might have totally different applicable thresholds for what messages can be safely delivered.
+- fix a false positive in `P2PSession`'s desync detection; it was possible for a desync to incorrectly be detected when `P2PSession::advance_frame()` would 1. enqueue a checksum-changing rollback, 2. mark a to-be-rolled-back frame as confirmed, and 3. send that newly-confirmed frame's still-incorrect checksum to peers.
 
 ## 0.10.2
 
