@@ -7,6 +7,8 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 - allow non-`Clone` types to be stored in `GameStateCell`.
 - added `SyncTestSession::current_frame()` and `SpectatorSession::current_frame()` to match the existing `P2PSession::current_frame()`.
 - added `P2PSession::desync_detection()` to read the session's desync detection mode.
+- ggrs no longer panics when trying to send an overly large UDP packet, unless debug assertions are on.
+- fixed: ggrs would panic when trying to send a message over a custom socket implementation if that message exceeded the maximum safe UDP packet size, even though the underlying socket might have totally different applicable thresholds for what messages can be safely delivered.
 
 ## 0.10.2
 

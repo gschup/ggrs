@@ -6,6 +6,10 @@ use std::{
 use crate::{network::messages::Message, NonBlockingSocket};
 
 const RECV_BUFFER_SIZE: usize = 4096;
+/// A packet larger than this may be fragmented, so ideally we wouldn't send packets larger than
+/// this.
+/// Source: https://stackoverflow.com/a/35697810/775982
+const IDEAL_MAX_UDP_PACKET_SIZE: usize = 508;
 
 /// A simple non-blocking UDP socket tu use with GGRS Sessions. Listens to 0.0.0.0 on a given port.
 #[derive(Debug)]
@@ -30,6 +34,31 @@ impl UdpNonBlockingSocket {
 impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
     fn send_to(&mut self, msg: &Message, addr: &SocketAddr) {
         let buf = bincode::serialize(&msg).unwrap();
+
+        // Overly large packets risk being fragmented, which can increase packet loss (any fragment
+        // of a packet getting lost will cause the whole fragment to be lost), or increase latency
+        // to be delayed (have to wait for all fragments to arrive).
+        //
+        // And if there's a large packet that's being sent, it's basically guaranteed that it's
+        // because consuming code has submitted an input struct that is too large (and/or too large
+        // a prediction window on too poor a connection, and/or the input struct did not delta
+        // encode well). So we should let the user of ggrs know about that, so they can fix it by
+        // reducing the size of their input struct.
+        //
+        // On the other hand, the occaisional large packet is kind of harmless - whether it gets
+        // fragmented or not, the odds are that it will get through unless the connection is truly
+        // horrible.
+        //
+        // So ideally we'd inform the user by logging a warning, but we don't have any logging set
+        // up - so as a compromise, we ignore this in release mode but panic in debug mode.
+        if buf.len() > IDEAL_MAX_UDP_PACKET_SIZE && cfg!(debug_assertions) {
+            panic!(
+                "Sending UDP packet of size {} bytes, which is \
+                larger than ideal ({IDEAL_MAX_UDP_PACKET_SIZE})",
+                buf.len()
+            );
+        }
+
         self.socket.send_to(&buf, addr).unwrap();
     }
 

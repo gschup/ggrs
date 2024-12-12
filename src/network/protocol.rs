@@ -25,7 +25,6 @@ const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
-const MAX_PAYLOAD: usize = 467; // 512 is max safe UDP payload, minus 45 bytes for the rest of the packet
 /// Number of old checksums to keep in memory
 pub const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
 
@@ -484,9 +483,6 @@ impl<T: Config> UdpProtocol<T> {
                 &self.last_acked_input.bytes,
                 self.pending_output.iter().map(|gi| &gi.bytes),
             );
-
-            // the byte buffer should not exceed a certain size to guarantee a maximum UDP packet size
-            assert!(body.bytes.len() <= MAX_PAYLOAD);
 
             body.ack_frame = self.last_recv_frame();
             body.disconnect_requested = self.state == ProtocolState::Disconnected;
