@@ -63,7 +63,19 @@ impl Default for InputAck {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub(crate) struct QualityReport {
-    pub frame_advantage: i8, // frame advantage of other player
+    /// Frame advantage of other player.
+    ///
+    /// While on the one hand 2 bytes is overkill for a value that is typically in the range of say
+    /// -8 to 8 (for the default prediction window size of 8), on the other hand if we don't get a
+    /// chance to read quality reports for a time (due to being paused in a background tab, or
+    /// someone stepping through code in a debugger) then it is easy to exceed the range of a signed
+    /// 1 byte integer at common FPS values.
+    ///
+    /// So by using an i16 instead of an i8, we can avoid clamping the value for +/- ~32k frames, or
+    /// about +/- 524 seconds of frame advantage - and after 500+ seconds it's a pretty reasonable
+    /// assumption that the other player will have been disconnected, or at least that they're so
+    /// far ahead/behind that clamping the value to an i16 won't matter for any practical purpose.
+    pub frame_advantage: i16,
     pub ping: u128,
 }
 

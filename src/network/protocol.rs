@@ -516,8 +516,11 @@ impl<T: Config> UdpProtocol<T> {
     fn send_quality_report(&mut self) {
         self.running_last_quality_report = Instant::now();
         let body = QualityReport {
-            frame_advantage: i8::try_from(self.local_frame_advantage)
-                .expect("local_frame_advantage bigger than i8::MAX"),
+            frame_advantage: i16::try_from(
+                self.local_frame_advantage
+                    .clamp(i16::MIN as i32, i16::MAX as i32),
+            )
+            .expect("local_frame_advantage should have been clamped into the range of an i16"),
             ping: millis_since_epoch(),
         };
 
