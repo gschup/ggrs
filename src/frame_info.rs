@@ -27,12 +27,7 @@ impl<S> Default for GameState<S> {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct PlayerInput<I>
 where
-    I: Copy
-        + Clone
-        + PartialEq
-        + bytemuck::NoUninit
-        + bytemuck::CheckedBitPattern
-        + bytemuck::Zeroable,
+    I: Copy + Clone + PartialEq,
 {
     /// The frame to which this info belongs to. -1/[`NULL_FRAME`] represents an invalid frame
     pub frame: Frame,
@@ -40,15 +35,7 @@ where
     pub input: I,
 }
 
-impl<
-        I: Copy
-            + Clone
-            + PartialEq
-            + bytemuck::NoUninit
-            + bytemuck::Zeroable
-            + bytemuck::CheckedBitPattern,
-    > PlayerInput<I>
-{
+impl<I: Copy + Clone + PartialEq + Default> PlayerInput<I> {
     pub(crate) fn new(frame: Frame, input: I) -> Self {
         Self { frame, input }
     }
@@ -56,7 +43,7 @@ impl<
     pub(crate) fn blank_input(frame: Frame) -> Self {
         Self {
             frame,
-            input: I::zeroed(),
+            input: I::default(),
         }
     }
 
@@ -72,10 +59,9 @@ impl<
 #[cfg(test)]
 mod game_input_tests {
     use super::*;
-    use bytemuck::{Pod, Zeroable};
 
     #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+    #[derive(Copy, Clone, PartialEq, Default)]
     struct TestInput {
         inp: u8,
     }

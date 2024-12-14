@@ -1,4 +1,5 @@
 use rand::{prelude::ThreadRng, thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
@@ -14,10 +15,9 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 pub struct GameStub {
     pub gs: StateStub,
 }
-use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct StubInput {
     pub inp: u32,
 }

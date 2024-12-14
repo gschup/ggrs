@@ -73,8 +73,9 @@ impl InputBytes {
                 if input.frame != NULL_FRAME {
                     frame = input.frame;
                 }
-                let byte_vec = bytemuck::bytes_of(&input.input);
-                bytes.extend_from_slice(byte_vec);
+
+                bincode::serialize_into(&mut bytes, &input.input)
+                    .expect("input serialization failed");
             }
         }
         Self { frame, bytes }
@@ -87,8 +88,9 @@ impl InputBytes {
         for p in 0..num_players {
             let start = p * size;
             let end = start + size;
-            let input = *bytemuck::checked::try_from_bytes::<T::Input>(&self.bytes[start..end])
-                .expect("Expected received data to be valid.");
+            let player_byte_slice = &self.bytes[start..end];
+            let input: T::Input =
+                bincode::deserialize(player_byte_slice).expect("input deserialization failed");
             player_inputs.push(PlayerInput::new(self.frame, input));
         }
         player_inputs

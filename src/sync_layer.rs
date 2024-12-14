@@ -1,4 +1,3 @@
-use bytemuck::Zeroable;
 use parking_lot::{MappedMutexGuard, Mutex};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -282,7 +281,7 @@ impl<T: Config> SyncLayer<T> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
             if con_stat.disconnected && con_stat.last_frame < self.current_frame {
-                inputs.push((T::Input::zeroed(), InputStatus::Disconnected));
+                inputs.push((T::Input::default(), InputStatus::Disconnected));
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
             }
@@ -380,11 +379,11 @@ impl<T: Config> SyncLayer<T> {
 mod sync_layer_tests {
 
     use super::*;
-    use bytemuck::{Pod, Zeroable};
+    use serde::{Deserialize, Serialize};
     use std::net::SocketAddr;
 
     #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+    #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
     struct TestInput {
         inp: u8,
     }
