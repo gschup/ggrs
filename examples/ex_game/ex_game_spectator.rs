@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // execute a frame
             if sess.current_state() == SessionState::Running {
                 match sess.advance_frame() {
-                    Ok(requests) => game.handle_requests(requests),
+                    Ok(requests) => game.handle_requests(requests, false),
                     Err(GgrsError::PredictionThreshold) => {
                         println!(
                             "Frame {} skipped: Waiting for input from host.",

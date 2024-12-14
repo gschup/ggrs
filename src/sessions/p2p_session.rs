@@ -566,7 +566,7 @@ impl<T: Config> P2PSession<T> {
     ///
     /// In lockstep mode, a session will only advance if the current frame has inputs confirmed from
     /// all other players.
-    fn in_lockstep_mode(&mut self) -> bool {
+    pub fn in_lockstep_mode(&mut self) -> bool {
         self.max_prediction == 0
     }
 

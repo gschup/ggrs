@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // (optional) set expected update frequency
         .with_fps(FPS as usize)?
         // (optional) customize prediction window, which is how many frames ahead GGRS predicts.
-        // Or set the prediction window to 0 to fall back to lockstep netcode (with no rollbacks).
+        // Or set the prediction window to 0 to use lockstep netcode instead (i.e. no rollbacks).
         .with_max_prediction_window(8)
         // (optional) set input delay for the local player
         .with_input_delay(2)
@@ -119,7 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 match sess.advance_frame() {
-                    Ok(requests) => game.handle_requests(requests),
+                    Ok(requests) => game.handle_requests(requests, sess.in_lockstep_mode()),
                     Err(e) => return Err(Box::new(e)),
                 }
             }

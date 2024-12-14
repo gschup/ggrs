@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             match sess.advance_frame() {
-                Ok(requests) => game.handle_requests(requests),
+                Ok(requests) => game.handle_requests(requests, false),
                 Err(e) => return Err(Box::new(e)),
             }
         }
