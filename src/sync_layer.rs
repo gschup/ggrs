@@ -143,29 +143,22 @@ impl<'c, T> GameStateAccessor<'c, T> {
 
 pub(crate) struct SavedStates<T> {
     pub states: Vec<GameStateCell<T>>,
-    max_pred: usize,
 }
 
 impl<T> SavedStates<T> {
     fn new(max_pred: usize) -> Self {
-        let mut states = Vec::with_capacity(max_pred);
-        for _ in 0..max_pred {
+        // we need to store the current frame plus the number of max predictions, so that we can
+        // roll back to the very first frame even when we have predicted as far ahead as we can.
+        let num_cells = max_pred + 1;
+        let mut states = Vec::with_capacity(num_cells);
+        for _ in 0..num_cells {
             states.push(GameStateCell::default());
         }
 
-        // if lockstep, we still provide a single cell for saving.
-        if max_pred == 0 {
-            states.push(GameStateCell::default());
-        }
-
-        Self { states, max_pred }
+        Self { states }
     }
 
     fn get_cell(&self, frame: Frame) -> GameStateCell<T> {
-        // if lockstep, we still provide a single cell for saving.
-        if self.max_pred == 0 {
-            return self.states[0].clone();
-        }
         assert!(frame >= 0);
         let pos = frame as usize % self.states.len();
         self.states[pos].clone()
@@ -235,10 +228,20 @@ impl<T: Config> SyncLayer<T> {
     /// Loads the gamestate indicated by `frame_to_load`.
     pub(crate) fn load_frame(&mut self, frame_to_load: Frame) -> GgrsRequest<T> {
         // The state should not be the current state or the state should not be in the future or too far away in the past
+        assert!(frame_to_load != NULL_FRAME, "cannot load null frame");
         assert!(
-            frame_to_load != NULL_FRAME
-                && frame_to_load < self.current_frame
-                && frame_to_load >= self.current_frame - self.max_prediction as i32
+            frame_to_load < self.current_frame,
+            "must load frame in the past (frame to load is {}, current frame is {})",
+            frame_to_load,
+            self.current_frame
+        );
+        assert!(
+            frame_to_load >= self.current_frame - self.max_prediction as i32,
+            "cannot load frame outside of prediction window; \
+            (frame to load is {}, current frame is {}, max prediction is {})",
+            frame_to_load,
+            self.current_frame,
+            self.max_prediction
         );
 
         let cell = self.saved_states.get_cell(frame_to_load);

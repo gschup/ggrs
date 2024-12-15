@@ -4,6 +4,7 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- lockstep determinism is now possible by setting max predictions to 0
 - allow non-`Clone` types to be stored in `GameStateCell`.
 - added `SyncTestSession::current_frame()` and `SpectatorSession::current_frame()` to match the existing `P2PSession::current_frame()`.
 - added `P2PSession::desync_detection()` to read the session's desync detection mode.

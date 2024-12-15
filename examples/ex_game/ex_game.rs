@@ -72,11 +72,23 @@ impl Game {
     }
 
     // for each request, call the appropriate function
-    pub fn handle_requests(&mut self, requests: Vec<GgrsRequest<GGRSConfig>>) {
+    pub fn handle_requests(&mut self, requests: Vec<GgrsRequest<GGRSConfig>>, in_lockstep: bool) {
         for request in requests {
             match request {
-                GgrsRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
-                GgrsRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GgrsRequest::LoadGameState { cell, .. } => {
+                    if in_lockstep {
+                        unreachable!("Should never get a load request if running in lockstep")
+                    } else {
+                        self.load_game_state(cell)
+                    }
+                }
+                GgrsRequest::SaveGameState { cell, frame } => {
+                    if in_lockstep {
+                        unreachable!("Should never get a save request if running in lockstep")
+                    } else {
+                        self.save_game_state(cell, frame)
+                    }
+                }
                 GgrsRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
         }

@@ -192,6 +192,15 @@ impl<T: Config> P2PSession<T> {
             SessionState::Synchronizing
         };
 
+        let sparse_saving = if max_prediction == 0 {
+            // in lockstep mode, saving will never happen, but we use the last saved frame to mark
+            // control marking frames confirmed, so we need to turn off sparse saving to ensure that
+            // frames are marked as confirmed - otherwise we will never advance the game state.
+            false
+        } else {
+            sparse_saving
+        };
+
         Self {
             state,
             num_players,
@@ -292,8 +301,13 @@ impl<T: Config> P2PSession<T> {
          * ROLLBACKS AND GAME STATE MANAGEMENT
          */
 
+        // if in lockstep mode, we will only ever request to advance the frame when all inputs for
+        // the current frame have been confirmed; therefore there's no need to roll back, and hence
+        // no need to ever save the game state either.
+        let lockstep = self.in_lockstep_mode();
+
         // if we are in the first frame, we have to save the state
-        if self.sync_layer.current_frame() == 0 {
+        if self.sync_layer.current_frame() == 0 && !lockstep {
             requests.push(self.sync_layer.save_current_state());
         }
 
@@ -303,22 +317,27 @@ impl<T: Config> P2PSession<T> {
         // find the confirmed frame for which we received all inputs
         let confirmed_frame = self.confirmed_frame();
 
-        // check game consistency and rollback, if necessary.
-        // The disconnect frame indicates if a rollback is necessary due to a previously disconnected player
-        let first_incorrect = self
-            .sync_layer
-            .check_simulation_consistency(self.disconnect_frame);
-        if first_incorrect != NULL_FRAME {
-            self.adjust_gamestate(first_incorrect, confirmed_frame, &mut requests);
-            self.disconnect_frame = NULL_FRAME;
-        }
+        // check game consistency and roll back, if necessary
+        if !lockstep {
+            // the disconnect frame indicates if a rollback is necessary due to a previously
+            // disconnected player (whose input would have been incorrectly predicted).
+            let first_incorrect = self
+                .sync_layer
+                .check_simulation_consistency(self.disconnect_frame);
+            // if we have an incorrect frame, then we need to rollback
+            if first_incorrect != NULL_FRAME {
+                self.adjust_gamestate(first_incorrect, confirmed_frame, &mut requests);
+                self.disconnect_frame = NULL_FRAME;
+            }
 
-        let last_saved = self.sync_layer.last_saved_frame();
-        if self.sparse_saving {
-            self.check_last_saved_state(last_saved, confirmed_frame, &mut requests);
-        } else {
-            // without sparse saving, always save the current frame after correcting and rollbacking
-            requests.push(self.sync_layer.save_current_state());
+            // request gamestate save of current frame
+            let last_saved = self.sync_layer.last_saved_frame();
+            if self.sparse_saving {
+                self.check_last_saved_state(last_saved, confirmed_frame, &mut requests);
+            } else {
+                // without sparse saving, always save the current frame after correcting and rollbacking
+                requests.push(self.sync_layer.save_current_state());
+            }
         }
 
         /*
@@ -371,10 +390,22 @@ impl<T: Config> P2PSession<T> {
          * ADVANCE THE STATE
          */
 
-        let frames_ahead = self.sync_layer.current_frame() - self.sync_layer.last_confirmed_frame();
-        if self.sync_layer.current_frame() < self.max_prediction as i32
-            || frames_ahead <= self.max_prediction as i32
-        {
+        let can_advance = if lockstep {
+            // lockstep mode: only advance if the current frame has inputs confirmed from all other
+            // players.
+            self.sync_layer.last_confirmed_frame() == self.sync_layer.current_frame()
+        } else {
+            // rollback mode: advance as long as we aren't past our prediction window
+            let frames_ahead = if self.sync_layer.last_confirmed_frame() == NULL_FRAME {
+                // we haven't had any frames confirmed, so all frames we've advanced are "ahead"
+                self.sync_layer.current_frame()
+            } else {
+                // we're not at the first frame, so we have to subtract the last confirmed frame
+                self.sync_layer.current_frame() - self.sync_layer.last_confirmed_frame()
+            };
+            frames_ahead < self.max_prediction as i32
+        };
+        if can_advance {
             // get correct inputs for the current frame
             let inputs = self
                 .sync_layer
@@ -529,6 +560,14 @@ impl<T: Config> P2PSession<T> {
     /// Returns the maximum prediction window of a session.
     pub fn max_prediction(&self) -> usize {
         self.max_prediction
+    }
+
+    /// Returns true if the session is running in lockstep mode.
+    ///
+    /// In lockstep mode, a session will only advance if the current frame has inputs confirmed from
+    /// all other players.
+    pub fn in_lockstep_mode(&mut self) -> bool {
+        self.max_prediction == 0
     }
 
     /// Returns the current [`SessionState`] of a session.

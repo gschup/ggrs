@@ -45,10 +45,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 100 })
         // (optional) set expected update frequency
         .with_fps(FPS as usize)?
-        // secret trick: set the prediction to 0 to fall back to lockstep netcode
-        //.with_max_prediction_window(0)
+        // (optional) customize prediction window, which is how many frames ahead GGRS predicts.
+        // Or set the prediction window to 0 to use lockstep netcode instead (i.e. no rollbacks).
+        .with_max_prediction_window(8)
         // (optional) set input delay for the local player
-        .with_input_delay(2);
+        .with_input_delay(2)
+        // (optional) by default, GGRS will ask you to save the game state every frame. If your
+        // saving of game state takes much longer than advancing the game state N times, you can
+        // improve performance by turning sparse saving mode on (N == average number of predictions
+        // GGRS must make, which is determined by prediction window, FPS and latency to clients).
+        .with_sparse_saving_mode(false);
 
     // add players
     for (i, player_addr) in opt.players.iter().enumerate() {
@@ -113,7 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 match sess.advance_frame() {
-                    Ok(requests) => game.handle_requests(requests),
+                    Ok(requests) => game.handle_requests(requests, sess.in_lockstep_mode()),
                     Err(e) => return Err(Box::new(e)),
                 }
             }
