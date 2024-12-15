@@ -4,6 +4,11 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- breaking change: `Config::Input` must now satisfy `Default` + serde's `Serialize` & `DeserializeOwned` traits, rather than bytemuck's `Pod` and `Zeroable`.
+  - This allows enums with fields as well as variable-sized types (such as `Vec`) to be directly used as the GGRS input type, and should generally be more flexible than the old bounds.
+  - To migrate old code, it's recommended to simply derive `Default` and `Serialize` & `Deserialize` on your `Input` type.
+  - Or, to migrate old code strictly without changing behavior, implement `Default` in terms of `bytemuck::Zeroable::zeroed()` and implement `Serialize` and `DeserializedOwned` in terms of `bytemuck::bytes_of()` and (probably) `bytemuck::pod_read_unaligned()`.
+  - Fixes [#40](https://github.com/gschup/ggrs/issues/40) and [#74](https://github.com/gschup/ggrs/issues/74).
 - lockstep determinism is now possible by setting max predictions to 0
 - allow non-`Clone` types to be stored in `GameStateCell`.
 - added `SyncTestSession::current_frame()` and `SpectatorSession::current_frame()` to match the existing `P2PSession::current_frame()`.
