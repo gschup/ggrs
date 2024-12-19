@@ -4,6 +4,11 @@ In this document, all remarkable changes are listed. Not mentioned are smaller c
 
 ## Unreleased
 
+- Nothing here yet...
+
+## 0.11.0
+
+- add `tracing` crate for logging support
 - breaking change: `Config::Input` must now satisfy `Default` + serde's `Serialize` & `DeserializeOwned` traits, rather than bytemuck's `Pod` and `Zeroable`.
   - This allows enums with fields as well as variable-sized types (such as `Vec`) to be directly used as the GGRS input type, and should generally be more flexible than the old bounds.
   - To migrate old code, it's recommended to simply derive `Default` and `Serialize` & `Deserialize` on your `Input` type.
