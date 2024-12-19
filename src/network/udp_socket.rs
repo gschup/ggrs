@@ -3,6 +3,8 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
 };
 
+use tracing::warn;
+
 use crate::{network::messages::Message, NonBlockingSocket};
 
 const RECV_BUFFER_SIZE: usize = 4096;
@@ -47,12 +49,9 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
         //
         // On the other hand, the occaisional large packet is kind of harmless - whether it gets
         // fragmented or not, the odds are that it will get through unless the connection is truly
-        // horrible.
-        //
-        // So ideally we'd inform the user by logging a warning, but we don't have any logging set
-        // up - so as a compromise, we ignore this in release mode but panic in debug mode.
-        if buf.len() > IDEAL_MAX_UDP_PACKET_SIZE && cfg!(debug_assertions) {
-            panic!(
+        // horrible. So, we'll just log a warning.
+        if buf.len() > IDEAL_MAX_UDP_PACKET_SIZE {
+            warn!(
                 "Sending UDP packet of size {} bytes, which is \
                 larger than ideal ({IDEAL_MAX_UDP_PACKET_SIZE})",
                 buf.len()

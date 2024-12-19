@@ -30,6 +30,16 @@ struct Opt {
 
 #[macroquad::main(window_conf)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // configure logging: output ggrs and example game logs to standard out
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(tracing::Level::DEBUG)
+            .finish(),
+    )
+    .expect("setting up tracing subscriber failed");
+    // forward logs from log crate to the tracing subscriber (allows seeing macroquad logs)
+    tracing_log::LogTracer::init()?;
+
     // read cmd line arguments
     let opt = Opt::from_args();
 

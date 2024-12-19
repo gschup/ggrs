@@ -8,6 +8,7 @@ use crate::time_sync::TimeSync;
 use crate::{
     Config, DesyncDetection, Frame, GgrsError, NonBlockingSocket, PlayerHandle, NULL_FRAME,
 };
+use tracing::trace;
 
 use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
@@ -432,10 +433,20 @@ impl<T: Config> UdpProtocol<T> {
         socket: &mut Box<dyn NonBlockingSocket<T::Address>>,
     ) {
         if self.state == ProtocolState::Shutdown {
+            trace!(
+                "Protocol is shutting down; dropping {} messages",
+                self.send_queue.len()
+            );
             self.send_queue.drain(..);
             return;
         }
 
+        if self.send_queue.is_empty() {
+            // avoid log spam if there's nothing to send
+            return;
+        }
+
+        trace!("Sending {} messages over socket", self.send_queue.len());
         for msg in self.send_queue.drain(..) {
             socket.send_to(&msg, &self.peer_addr);
         }
@@ -485,6 +496,18 @@ impl<T: Config> UdpProtocol<T> {
                 &self.last_acked_input.bytes,
                 self.pending_output.iter().map(|gi| &gi.bytes),
             );
+            trace!(
+                "Encoded {} bytes from {} pending output(s) into {} bytes",
+                {
+                    let mut sum = 0;
+                    for gi in self.pending_output.iter() {
+                        sum += gi.bytes.len();
+                    }
+                    sum
+                },
+                self.pending_output.len(),
+                body.bytes.len()
+            );
 
             body.ack_frame = self.last_recv_frame();
             body.disconnect_requested = self.state == ProtocolState::Disconnected;
@@ -530,6 +553,8 @@ impl<T: Config> UdpProtocol<T> {
     }
 
     fn queue_message(&mut self, body: MessageBody) {
+        trace!("Queuing message to {:?}: {:?}", self.peer_addr, body);
+
         // set the header
         let header = MessageHeader { magic: self.magic };
         let msg = Message { header, body };
@@ -547,13 +572,17 @@ impl<T: Config> UdpProtocol<T> {
      */
 
     pub(crate) fn handle_message(&mut self, msg: &Message) {
+        trace!("Handling message from {:?}: {:?}", self.peer_addr, msg);
+
         // don't handle messages if shutdown
         if self.state == ProtocolState::Shutdown {
+            trace!("Protocol is shutting down; ignoring message");
             return;
         }
 
         // filter packets that don't match the magic if we have set it already
         if self.remote_magic != 0 && msg.header.magic != self.remote_magic {
+            trace!("Received message with wrong magic; ignoring");
             return;
         }
 
@@ -562,6 +591,7 @@ impl<T: Config> UdpProtocol<T> {
 
         // if the connection has been marked as interrupted, send an event to signal we are receiving again
         if self.disconnect_notify_sent && self.state == ProtocolState::Running {
+            trace!("Received message on interrupted protocol; sending NetworkResumed event");
             self.disconnect_notify_sent = false;
             self.event_queue.push_back(Event::NetworkResumed);
         }

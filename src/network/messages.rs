@@ -27,7 +27,7 @@ pub(crate) struct SyncReply {
     pub random_reply: u32, // here's your random data back
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Input {
     pub peer_connect_status: Vec<ConnectionStatus>,
     pub disconnect_requested: bool,
@@ -45,6 +45,29 @@ impl Default for Input {
             ack_frame: NULL_FRAME,
             bytes: Vec::new(),
         }
+    }
+}
+
+impl std::fmt::Debug for Input {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Input")
+            .field("peer_connect_status", &self.peer_connect_status)
+            .field("disconnect_requested", &self.disconnect_requested)
+            .field("start_frame", &self.start_frame)
+            .field("ack_frame", &self.ack_frame)
+            .field("bytes", &BytesDebug(&self.bytes))
+            .finish()
+    }
+}
+struct BytesDebug<'a>(&'a [u8]);
+
+impl<'a> std::fmt::Debug for BytesDebug<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("0x")?;
+        for byte in self.0 {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
     }
 }
 

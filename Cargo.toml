@@ -21,7 +21,8 @@ rand = "0.8"
 bitfield-rle = "0.2.1"
 parking_lot = "0.12"
 instant = "0.1"
-getrandom = {version = "0.2", optional = true}
+getrandom = { version = "0.2", optional = true }
+tracing = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"
@@ -29,7 +30,9 @@ js-sys = "0.3"
 [dev-dependencies]
 serial_test = "0.5"
 structopt = "0.3"
-macroquad = "0.4"
+macroquad = { version = "0.4", features = ["log-rs"] }
+tracing-subscriber = "0.3"
+tracing-log = "0.2"
 
 # Examples
 [[example]]
