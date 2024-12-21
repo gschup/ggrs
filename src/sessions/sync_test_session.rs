@@ -10,7 +10,7 @@ const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 /// During a [`SyncTestSession`], GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
-/// Optionally use [`events`] to detect events such as [`GgrsEvent::MismatchedChecksum`].
+/// Optionally use [`SyncTestSession::events`] to detect events such as [`GgrsEvent::MismatchedChecksum`].
 pub struct SyncTestSession<T>
 where
     T: Config,
