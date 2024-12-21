@@ -1,13 +1,16 @@
-use std::collections::HashMap;
-
 use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
-use crate::{Config, Frame, GgrsRequest, PlayerHandle};
+use crate::{Config, Frame, GgrsEvent, GgrsRequest, PlayerHandle};
+use std::collections::vec_deque::Drain;
+use std::collections::{HashMap, VecDeque};
+
+const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 /// During a [`SyncTestSession`], GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
 /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
+/// Optionally use [`events`] to detect events such as [`GgrsEvent::MismatchedChecksum`].
 pub struct SyncTestSession<T>
 where
     T: Config,
@@ -18,6 +21,8 @@ where
     sync_layer: SyncLayer<T>,
     dummy_connect_status: Vec<ConnectionStatus>,
     checksum_history: HashMap<Frame, Option<u128>>,
+    /// Contains all events to be forwarded to the user.
+    event_queue: VecDeque<GgrsEvent<T>>,
     local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
 }
 
@@ -45,6 +50,7 @@ impl<T: Config> SyncTestSession<T> {
             sync_layer,
             dummy_connect_status,
             checksum_history: HashMap::new(),
+            event_queue: VecDeque::new(),
             local_inputs: HashMap::new(),
         }
     }
@@ -95,6 +101,11 @@ impl<T: Config> SyncTestSession<T> {
                 .collect();
 
             if !mismatched_frames.is_empty() {
+                self.push_event(GgrsEvent::MismatchedChecksum {
+                    current_frame,
+                    mismatched_frame: mismatched_frames[0],
+                });
+
                 return Err(GgrsError::MismatchedChecksum {
                     current_frame,
                     mismatched_frames,
@@ -169,6 +180,11 @@ impl<T: Config> SyncTestSession<T> {
         self.check_distance
     }
 
+    /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
+    pub fn events(&mut self) -> Drain<GgrsEvent<T>> {
+        self.event_queue.drain(..)
+    }
+
     /// Updates the `checksum_history` and checks if the checksum is identical if it already has been recorded once
     fn checksums_consistent(&mut self, frame_to_check: Frame) -> bool {
         // remove entries older than the `check_distance`
@@ -214,5 +230,13 @@ impl<T: Config> SyncTestSession<T> {
             requests.push(GgrsRequest::AdvanceFrame { inputs });
         }
         assert_eq!(self.sync_layer.current_frame(), start_frame);
+    }
+
+    fn push_event(&mut self, event: GgrsEvent<T>) {
+        while self.event_queue.len() >= MAX_EVENT_QUEUE_SIZE {
+            self.event_queue.pop_front();
+        }
+
+        self.event_queue.push_back(event);
     }
 }

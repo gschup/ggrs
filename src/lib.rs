@@ -165,6 +165,15 @@ where
         /// remote address of the endpoint.
         addr: T::Address,
     },
+    /// In a [`SyncTestSession`], sent whenever the checksums of resimulated frames do not match up with the original checksum.
+    ///
+    /// [`SyncTestSession`]: crate::SyncTestSession
+    MismatchedChecksum {
+        /// The frame at which the mismatch occurred.
+        current_frame: Frame,
+        /// The oldest frame with mismatched checksum
+        mismatched_frame: Frame,
+    },
 }
 
 /// Requests that you can receive from the session. Handling them is mandatory.
