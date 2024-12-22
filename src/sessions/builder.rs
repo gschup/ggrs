@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use instant::Duration;
 
-#[allow(unused_imports, reason = "used only in doc comment")]
-use crate::GgrsEvent;
 use crate::{
     network::protocol::UdpProtocol, sessions::p2p_session::PlayerRegistry, Config, DesyncDetection,
     GgrsError, NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession,
@@ -346,7 +344,7 @@ impl<T: Config> SessionBuilder<T> {
     /// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
     /// This is a great way to test if your system runs deterministically.
     /// After creating the session, add a local player, set input delay for them and then start the session.
-    /// Optionally, inspect [`SyncTestSession::events`] to detect events such as [`GgrsEvent::MismatchedChecksum`].
+    /// Optionally, inspect [`SyncTestSession::events`] to detect events such as [`crate::GgrsEvent::MismatchedChecksum`].
     pub fn start_synctest_session(self) -> Result<SyncTestSession<T>, GgrsError> {
         if self.check_dist >= self.max_prediction {
             return Err(GgrsError::InvalidRequest {
