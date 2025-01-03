@@ -54,7 +54,8 @@ struct InputBytes {
 
 impl InputBytes {
     fn zeroed<T: Config>(num_players: usize) -> Self {
-        let size = core::mem::size_of::<T::Input>() * num_players;
+        let input_size = bincode::serialized_size(&T::Input::default()).expect("input serialization failed");
+        let size = (input_size as usize) * num_players;
         Self {
             frame: NULL_FRAME,
             bytes: vec![0; size],
