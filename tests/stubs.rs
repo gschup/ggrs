@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 
-use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus};
+use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus, PredictRepeatLast};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -26,6 +26,7 @@ pub struct StubConfig;
 
 impl Config for StubConfig {
     type Input = StubInput;
+    type InputPredictor = PredictRepeatLast;
     type State = StateStub;
     type Address = SocketAddr;
 }

@@ -382,6 +382,7 @@ impl<T: Config> SyncLayer<T> {
 mod sync_layer_tests {
 
     use super::*;
+    use crate::PredictRepeatLast;
     use serde::{Deserialize, Serialize};
     use std::net::SocketAddr;
 
@@ -395,6 +396,7 @@ mod sync_layer_tests {
 
     impl Config for TestConfig {
         type Input = TestInput;
+        type InputPredictor = PredictRepeatLast;
         type State = u8;
         type Address = SocketAddr;
     }
