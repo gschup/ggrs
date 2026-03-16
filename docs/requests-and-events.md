@@ -1,0 +1,89 @@
+# Requests and Events
+
+## Requests
+
+`advance_frame()` returns `Ok(Vec<GgrsRequest<T>>)` on success. You **must** handle all requests in the order they are provided. Handling them out of order or skipping any will cause incorrect behavior or panics.
+
+```rust
+for request in session.advance_frame()? {
+    match request {
+        GgrsRequest::SaveGameState { cell, frame } => { /* ... */ }
+        GgrsRequest::LoadGameState { cell, frame } => { /* ... */ }
+        GgrsRequest::AdvanceFrame { inputs } => { /* ... */ }
+    }
+}
+```
+
+### `SaveGameState`
+
+GGRS asks you to save the current game state so it can be restored during a rollback. Use `cell.save()` to store the state:
+
+```rust
+GgrsRequest::SaveGameState { cell, frame } => {
+    assert_eq!(cell.frame(), frame); // sanity check
+    let state = game.serialize_state();
+    let checksum = game.compute_checksum(); // optional, used for desync detection
+    cell.save(frame, Some(state), Some(checksum));
+}
+```
+
+The `frame` argument is a sanity check — the state you save should correspond to that frame. Providing a checksum enables desync detection; if you skip it, GGRS computes a basic Fletcher-16 checksum automatically.
+
+### `LoadGameState`
+
+GGRS asks you to restore a previously saved state to roll back the game:
+
+```rust
+GgrsRequest::LoadGameState { cell, frame } => {
+    let state = cell.load().expect("no game state found");
+    game.restore_state(state);
+}
+```
+
+`cell.load()` clones the stored state, which requires `T::State: Clone`. If your state is not `Clone`, use `cell.data()` to get a read-only reference via [`GameStateAccessor`](https://docs.rs/ggrs/latest/ggrs/struct.GameStateAccessor.html).
+
+### `AdvanceFrame`
+
+GGRS asks you to advance the game by one frame using the provided inputs:
+
+```rust
+GgrsRequest::AdvanceFrame { inputs } => {
+    // inputs is Vec<(T::Input, InputStatus)>
+    // one entry per player, in handle order (0, 1, 2, ...)
+    for (player_handle, (input, status)) in inputs.iter().enumerate() {
+        match status {
+            InputStatus::Confirmed => { /* actual received input */ }
+            InputStatus::Predicted => { /* predicted — may be rolled back */ }
+            InputStatus::Disconnected => { /* player disconnected; input is T::Input::default() */ }
+        }
+        game.apply_input(player_handle, input);
+    }
+    game.step();
+}
+```
+
+`Disconnected` inputs have `T::Input::default()` as the input value. A sensible convention is for `Default` to represent "no buttons pressed" so disconnected players simply stop moving.
+
+---
+
+## Events
+
+Call `session.events()` after `poll_remote_clients()` each tick. The queue is bounded; if you don't drain it, older events will be dropped.
+
+```rust
+for event in session.events() {
+    match event { /* ... */ }
+}
+```
+
+### Event Reference
+
+| Event | Meaning |
+|---|---|
+| `Synchronizing { addr, total, count }` | Sync in progress. `count` of `total` roundtrips completed. |
+| `Synchronized { addr }` | A remote peer is fully synchronized and ready. |
+| `Disconnected { addr }` | A remote peer was disconnected (timeout or explicit). |
+| `NetworkInterrupted { addr, disconnect_timeout }` | No packets received for a while; disconnect pending in `disconnect_timeout` ms. |
+| `NetworkResumed { addr }` | Communication resumed after a `NetworkInterrupted` event. |
+| `WaitRecommendation { skip_frames }` | Your client is ahead; skip this many frames to let peers catch up. See [Time Synchronization](time-synchronization.md). |
+| `DesyncDetected { frame, local_checksum, remote_checksum, addr }` | Checksums diverged between you and `addr` at `frame`. This indicates a determinism bug. |

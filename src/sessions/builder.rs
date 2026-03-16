@@ -146,7 +146,12 @@ impl<T: Config> SessionBuilder<T> {
         self
     }
 
-    /// Change the amount of frames GGRS will delay the inputs for local players.
+    /// Change the amount of frames GGRS will delay the inputs for local players. Default is 0.
+    ///
+    /// Adding a small amount of input delay (typically 2–4 frames) reduces the number of rollbacks
+    /// by giving remote inputs time to arrive before they are needed. The trade-off is a small
+    /// but constant increase in perceived input latency. This is usually preferable to frequent
+    /// rollbacks at higher network latencies.
     pub fn with_input_delay(mut self, delay: usize) -> Self {
         self.input_delay = delay;
         self
@@ -202,7 +207,12 @@ impl<T: Config> SessionBuilder<T> {
         Ok(self)
     }
 
-    /// Change the check distance. Default is 2.
+    /// Change the check distance for [`SyncTestSession`]. Default is 2.
+    ///
+    /// The check distance is the number of frames that will be rolled back and re-simulated each
+    /// update. After re-simulation, the resulting checksums are compared against the originals. A
+    /// mismatch indicates a non-determinism bug. Higher values catch more bugs but increase CPU
+    /// cost. Must be less than the max prediction window.
     pub fn with_check_distance(mut self, check_distance: usize) -> Self {
         self.check_dist = check_distance;
         self
@@ -338,12 +348,18 @@ impl<T: Config> SessionBuilder<T> {
         )
     }
 
-    /// Consumes the builder to construct a new [`SyncTestSession`]. During a [`SyncTestSession`], GGRS will simulate a rollback every frame
-    /// and resimulate the last n states, where n is the given `check_distance`.
-    /// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
-    /// Due to the decentralized nature of saving and loading gamestates, checksum comparisons can only be made if `check_distance` is 2 or higher.
-    /// This is a great way to test if your system runs deterministically.
-    /// After creating the session, add a local player, set input delay for them and then start the session.
+    /// Consumes the builder to construct a new [`SyncTestSession`].
+    ///
+    /// During a [`SyncTestSession`], GGRS simulates a rollback every frame and re-simulates the
+    /// last `check_distance` frames, then compares checksums against the originals. A mismatch
+    /// indicates a non-determinism bug in your save/load/advance logic. No network is involved.
+    ///
+    /// Checksum comparisons require a `check_distance` of 2 or higher (the default).
+    ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if `check_distance` is greater than or equal to `max_prediction_window`.
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn start_synctest_session(self) -> Result<SyncTestSession<T>, GgrsError> {
         if self.check_dist >= self.max_prediction {
             return Err(GgrsError::InvalidRequest {
