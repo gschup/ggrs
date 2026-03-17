@@ -2,9 +2,12 @@ use rand::{prelude::ThreadRng, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus};
+use ggrs::{
+    Config, Frame, GameStateCell, GgrsError, GgrsRequest, InputStatus, P2PSession, PlayerType,
+    SessionBuilder, SessionState, SpectatorSession, UdpNonBlockingSocket,
+};
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
@@ -164,4 +167,76 @@ impl StateStub {
         }
         self.frame += 1;
     }
+}
+
+// ── Shared session helpers ────────────────────────────────────────────────────
+
+/// Shorthand for a loopback `SocketAddr` on the given port.
+#[allow(dead_code)]
+pub fn localhost(port: u16) -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port)
+}
+
+/// Build two connected `P2PSession`s (player 0 on `port1`, player 1 on `port2`).
+#[allow(dead_code)]
+pub fn make_p2p_sessions(
+    port1: u16,
+    port2: u16,
+) -> (P2PSession<StubConfig>, P2PSession<StubConfig>) {
+    let s1 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Local, 0)
+        .unwrap()
+        .add_player(PlayerType::Remote(localhost(port2)), 1)
+        .unwrap()
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(port1).unwrap())
+        .unwrap();
+    let s2 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Remote(localhost(port1)), 0)
+        .unwrap()
+        .add_player(PlayerType::Local, 1)
+        .unwrap()
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(port2).unwrap())
+        .unwrap();
+    (s1, s2)
+}
+
+/// Poll both sessions until they reach `Running` state (up to 50 rounds).
+#[allow(dead_code)]
+pub fn sync_p2p_sessions(s1: &mut P2PSession<StubConfig>, s2: &mut P2PSession<StubConfig>) {
+    for _ in 0..50 {
+        s1.poll_remote_clients();
+        s2.poll_remote_clients();
+    }
+    assert_eq!(s1.current_state(), SessionState::Running);
+    assert_eq!(s2.current_state(), SessionState::Running);
+}
+
+/// Build a synced host (1 local player + 1 spectator) and spectator session.
+#[allow(dead_code)]
+pub fn make_host_and_spectator(
+    host_port: u16,
+    spec_port: u16,
+) -> Result<(P2PSession<StubConfig>, SpectatorSession<StubConfig>), GgrsError> {
+    let mut host_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Spectator(localhost(spec_port)), 1)?
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(host_port).unwrap())?;
+
+    let mut spec_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)
+        .start_spectator_session(
+            localhost(host_port),
+            UdpNonBlockingSocket::bind_to_port(spec_port).unwrap(),
+        );
+
+    for _ in 0..50 {
+        host_sess.poll_remote_clients();
+        spec_sess.poll_remote_clients();
+    }
+
+    assert_eq!(host_sess.current_state(), SessionState::Running);
+    assert_eq!(spec_sess.current_state(), SessionState::Running);
+
+    Ok((host_sess, spec_sess))
 }

@@ -2,14 +2,13 @@ mod stubs_enum;
 
 use ggrs::{GgrsError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use serial_test::serial;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use stubs_enum::{EnumInput, GameStubEnum, StubEnumConfig};
 
 #[test]
 #[serial]
 fn test_advance_frame_p2p_sessions_enum() -> Result<(), GgrsError> {
-    let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
-    let addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+    let addr1 = stubs_enum::localhost(7777);
+    let addr2 = stubs_enum::localhost(8888);
 
     let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
     let mut sess1 = SessionBuilder::<StubEnumConfig>::new()

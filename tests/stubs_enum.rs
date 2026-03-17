@@ -1,6 +1,6 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use ggrs::{Config, Frame, GameStateCell, GgrsRequest, InputStatus};
 use serde::{Deserialize, Serialize};
@@ -70,6 +70,12 @@ impl GameStubEnum {
 pub struct StateStubEnum {
     pub frame: i32,
     pub state: i32,
+}
+
+/// Shorthand for a loopback `SocketAddr` on the given port.
+#[allow(dead_code)]
+pub fn localhost(port: u16) -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port)
 }
 
 impl StateStubEnum {
