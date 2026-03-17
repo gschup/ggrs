@@ -76,7 +76,13 @@ impl<T: Config> SpectatorSession<T> {
         self.state
     }
 
-    /// Returns the number of frames behind the host
+    /// Returns how many confirmed frames the spectator has yet to process.
+    ///
+    /// Both `last_recv_frame` and `current_frame` are initialised to `NULL_FRAME` (-1),
+    /// so this returns `0` before any input has arrived from the host, which is correct:
+    /// neither side has advanced yet.  Once the session is running, the invariant
+    /// `last_recv_frame >= current_frame` is maintained by the session, so the result
+    /// is always non-negative.
     pub fn frames_behind_host(&self) -> usize {
         let diff = self.last_recv_frame - self.current_frame;
         assert!(diff >= 0);
