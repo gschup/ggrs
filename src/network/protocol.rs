@@ -192,6 +192,7 @@ impl<T: Config> PartialEq for UdpProtocol<T> {
 }
 
 impl<T: Config> UdpProtocol<T> {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         mut handles: Vec<PlayerHandle>,
         peer_addr: T::Address,
