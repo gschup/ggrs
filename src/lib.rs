@@ -183,7 +183,6 @@ where
     Spectator(A),
 }
 
-
 /// A session is always in one of these states. You can query the current state of a session via [`current_state`].
 ///
 /// [`current_state`]: P2PSession#method.current_state
