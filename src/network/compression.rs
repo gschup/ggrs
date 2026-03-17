@@ -41,7 +41,7 @@ pub(crate) fn decode(
 }
 
 pub(crate) fn delta_decode(ref_bytes: &[u8], data: &[u8]) -> Vec<Vec<u8>> {
-    assert!(data.len() % ref_bytes.len() == 0);
+    assert!(data.len().is_multiple_of(ref_bytes.len()));
     let out_size = data.len() / ref_bytes.len();
     let mut output = Vec::with_capacity(out_size);
 

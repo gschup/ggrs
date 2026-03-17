@@ -86,7 +86,7 @@ impl InputBytes {
 
     fn to_player_inputs<T: Config>(&self, num_players: usize) -> Vec<PlayerInput<T::Input>> {
         let mut player_inputs = Vec::new();
-        assert!(self.bytes.len() % num_players == 0);
+        assert!(self.bytes.len().is_multiple_of(num_players));
         let size = self.bytes.len() / num_players;
         for p in 0..num_players {
             let start = p * size;
@@ -356,7 +356,7 @@ impl<T: Config> UdpProtocol<T> {
         self.peer_addr.clone()
     }
 
-    pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<Event<T>> {
+    pub(crate) fn poll(&mut self, connect_status: &[ConnectionStatus]) -> Drain<'_, Event<T>> {
         let now = Instant::now();
         match self.state {
             ProtocolState::Synchronizing => {
