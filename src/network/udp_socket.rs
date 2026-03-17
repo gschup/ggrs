@@ -58,7 +58,9 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
             );
         }
 
-        self.socket.send_to(&buf, addr).unwrap();
+        if let Err(err) = self.socket.send_to(&buf, addr) {
+            warn!("Failed to send UDP packet to {addr}: {err}");
+        }
     }
 
     fn receive_all_messages(&mut self) -> Vec<(SocketAddr, Message)> {
@@ -75,8 +77,11 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => return received_messages,
                 // datagram socket sometimes get this error as a result of calling the send_to method
                 Err(ref err) if err.kind() == ErrorKind::ConnectionReset => continue,
-                // all other errors cause a panic
-                Err(err) => panic!("{:?}: {} on {:?}", err.kind(), err, &self.socket),
+                // unexpected errors are logged and treated like WouldBlock — stop receiving
+                Err(err) => {
+                    warn!("Unexpected error receiving UDP packet: {err}");
+                    return received_messages;
+                }
             }
         }
     }
