@@ -22,9 +22,20 @@ const UDP_HEADER_SIZE: usize = 28; // Size of IP + UDP headers
 const NUM_SYNC_PACKETS: u32 = 5;
 const UDP_SHUTDOWN_TIMER: u64 = 5000;
 const PENDING_OUTPUT_SIZE: usize = 128;
+/// How often to re-send handshake packets while waiting for the remote to respond.
+/// Only active during the synchronization phase (typically < 1 second).
 const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(200);
+/// How often to re-send input packets that have not yet been acknowledged by the remote.
+/// At 60 FPS inputs are already sent every ~16ms; this is the explicit retry floor for
+/// cases where a packet is dropped and no subsequent frame sends cover it in time.
 const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
+/// How often to send a keepalive packet when there is no other outgoing traffic.
+/// Prevents the remote's disconnect timer from firing during pauses or low-input periods.
+/// Must be well below `disconnect_timeout` (default 2 s).
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
+/// How often to send a quality/ping report to the remote.
+/// Drives the rolling RTT and bandwidth estimates exposed by `network_stats()`;
+/// at 200 ms this gives ~5 stat updates per second.
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 /// Number of old checksums to keep in memory
 pub const MAX_CHECKSUM_HISTORY_SIZE: usize = 32;
