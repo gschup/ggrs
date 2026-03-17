@@ -451,6 +451,26 @@ fn test_network_stats_invalid_handles() -> Result<(), GgrsError> {
 
 #[test]
 #[serial]
+fn test_network_stats_spectator_handle_does_not_panic() -> Result<(), GgrsError> {
+    let addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 7777);
+    let spec_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9999);
+
+    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let sess = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Remote(addr1), 1)?
+        .add_player(PlayerType::Spectator(spec_addr), 2)?
+        .start_p2p_session(socket)?;
+
+    // spectator handle must not panic — previously looked up addr in the wrong map
+    let result = sess.network_stats(2);
+    assert!(result.is_err()); // NotSynchronized is fine; a panic is not
+
+    Ok(())
+}
+
+#[test]
+#[serial]
 fn test_game_state_converges() -> Result<(), GgrsError> {
     let (mut sess1, mut sess2) = make_session(7777, 7777, 8888);
     sync_sessions(&mut sess1, &mut sess2);

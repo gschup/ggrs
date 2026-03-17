@@ -536,7 +536,7 @@ impl<T: Config> P2PSession<T> {
                 .network_stats(),
             Some(PlayerType::Spectator(addr)) => self
                 .player_reg
-                .remotes
+                .spectators
                 .get(addr)
                 .expect("Endpoint should exist for any registered player")
                 .network_stats(),
