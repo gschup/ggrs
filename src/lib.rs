@@ -45,7 +45,7 @@
 //! # struct GgrsConfig; impl ggrs::Config for GgrsConfig { type Input = u8; type State = u8; type Address = std::net::SocketAddr; }
 //! let socket = UdpNonBlockingSocket::bind_to_port(7000).unwrap();
 //! let mut session = SessionBuilder::<GgrsConfig>::new()
-//!     .with_num_players(2)
+//!     .with_num_players(2).unwrap()
 //!     .with_input_delay(2)
 //!     .add_player(PlayerType::Local, 0).unwrap()
 //!     .add_player(PlayerType::Remote("127.0.0.1:7001".parse().unwrap()), 1).unwrap()

@@ -17,7 +17,7 @@ fn test_add_more_players() -> Result<(), GgrsError> {
     let spec_addr = stubs::localhost(8090);
 
     let _sess = SessionBuilder::<StubConfig>::new()
-        .with_num_players(4)
+        .with_num_players(4)?
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Remote(remote_addr1), 1)?
         .add_player(PlayerType::Remote(remote_addr2), 2)?

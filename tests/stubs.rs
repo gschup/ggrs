@@ -218,13 +218,13 @@ pub fn make_host_and_spectator(
     spec_port: u16,
 ) -> Result<(P2PSession<StubConfig>, SpectatorSession<StubConfig>), GgrsError> {
     let mut host_sess = SessionBuilder::<StubConfig>::new()
-        .with_num_players(1)
+        .with_num_players(1)?
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Spectator(localhost(spec_port)), 1)?
         .start_p2p_session(UdpNonBlockingSocket::bind_to_port(host_port).unwrap())?;
 
     let mut spec_sess = SessionBuilder::<StubConfig>::new()
-        .with_num_players(1)
+        .with_num_players(1)?
         .start_spectator_session(
             localhost(host_port),
             UdpNonBlockingSocket::bind_to_port(spec_port).unwrap(),

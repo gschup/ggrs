@@ -169,10 +169,19 @@ impl<T: Config> SessionBuilder<T> {
     /// Call this **before** [`add_player()`] — handle validation uses the value set at the time
     /// `add_player` is called.
     ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if `num_players` is 0.
+    ///
     /// [`add_player()`]: Self::add_player
-    pub fn with_num_players(mut self, num_players: usize) -> Self {
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    pub fn with_num_players(mut self, num_players: usize) -> Result<Self, GgrsError> {
+        if num_players == 0 {
+            return Err(GgrsError::InvalidRequest {
+                info: "Number of players must be at least 1.".to_owned(),
+            });
+        }
         self.num_players = num_players;
-        self
+        Ok(self)
     }
 
     /// Sets the sparse saving mode. With sparse saving turned on, only the minimum confirmed frame

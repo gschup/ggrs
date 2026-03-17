@@ -96,7 +96,7 @@ fn test_builder_sparse_saving_errors_for_synctest() {
 fn test_create_session_single_player() -> Result<(), GgrsError> {
     let mut stub = stubs::GameStub1P::new();
     let mut sess = SessionBuilder::<StubConfig>::new()
-        .with_num_players(1)
+        .with_num_players(1)?
         .start_synctest_session()?;
 
     for i in 0..20 {

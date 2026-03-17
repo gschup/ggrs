@@ -20,7 +20,7 @@ fn test_start_session() {
 fn test_synchronize_with_host() -> Result<(), GgrsError> {
     let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
     let mut host_sess = SessionBuilder::<StubConfig>::new()
-        .with_num_players(1)
+        .with_num_players(1)?
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Spectator(stubs::localhost(8888)), 2)?
         .start_p2p_session(socket1)?;
@@ -81,14 +81,14 @@ fn test_spectator_observes_frames() -> Result<(), GgrsError> {
 #[serial]
 fn test_spectator_catches_up_after_lag() -> Result<(), GgrsError> {
     let mut host_sess = SessionBuilder::<StubConfig>::new()
-        .with_num_players(1)
+        .with_num_players(1)?
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Spectator(stubs::localhost(8888)), 1)?
         .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7777).unwrap())?;
 
     // catchup_speed=2 frames per advance_frame call when more than max_frames_behind=4 frames behind
     let mut spec_sess = SessionBuilder::<StubConfig>::new()
-        .with_num_players(1)
+        .with_num_players(1)?
         .with_max_frames_behind(4)?
         .with_catchup_speed(2)?
         .start_spectator_session(
