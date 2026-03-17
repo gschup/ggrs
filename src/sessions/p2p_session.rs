@@ -775,6 +775,7 @@ impl<T: Config> P2PSession<T> {
             for endpoint in self.player_reg.spectators.values_mut() {
                 if endpoint.is_running() {
                     endpoint.send_input(&input_map, &self.local_connect_status);
+                    endpoint.send_all_messages(&mut self.socket);
                 }
             }
 

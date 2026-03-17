@@ -50,19 +50,16 @@ fn test_spectator_observes_frames() -> Result<(), GgrsError> {
     let mut host_stub = stubs::GameStub1P::new();
     let mut spec_stub = stubs::GameStub1P::new();
 
-    // The host sends confirmed inputs to spectators one frame late: confirmed_frame is computed
-    // before local inputs are registered in the same advance_frame call. So after host frame N,
-    // only inputs up to frame N-1 have been sent to the spectator. We drive 11 host frames and
-    // expect the spectator to be able to observe 10 of them.
+    // confirmed_frame is computed before local inputs are registered in the same advance_frame
+    // call, so inputs for frame N are only confirmed (and sent to the spectator) during frame N+1.
+    // We drive 11 host frames and expect the spectator to be able to observe 10 of them.
     for i in 0..11 {
         host_sess.add_local_input(0, StubInput { inp: 1 }).unwrap();
         let host_requests = host_sess.advance_frame().unwrap();
         host_stub.handle_requests(host_requests);
-        // flush confirmed inputs (for frame i-1) to the spectator
-        host_sess.poll_remote_clients();
 
         if i > 0 {
-            // inputs for frame i-1 are now available; spectator can advance
+            // inputs for frame i-1 are now confirmed and have been sent; spectator can advance
             let spec_requests = spec_sess.advance_frame().unwrap();
             assert!(
                 spec_requests
@@ -71,8 +68,6 @@ fn test_spectator_observes_frames() -> Result<(), GgrsError> {
                 "spectator should have received an AdvanceFrame request at iteration {i}"
             );
             spec_stub.handle_requests(spec_requests);
-        } else {
-            spec_sess.poll_remote_clients(); // receive packets but can't advance yet
         }
     }
 
@@ -109,13 +104,13 @@ fn test_spectator_catches_up_after_lag() -> Result<(), GgrsError> {
 
     let mut host_stub = stubs::GameStub1P::new();
 
-    // host advances 6 frames; due to the 1-frame send lag, spectator receives inputs for
-    // frames 0-4 after 6 host advances → last_recv_frame=4, current_frame=-1 → 5 frames behind
+    // confirmed_frame is computed before local inputs are registered, so inputs for frame N are
+    // only confirmed (and sent to the spectator) during frame N+1. After 6 host advances the
+    // spectator has received frames 0-4 → last_recv_frame=4, current_frame=-1 → 5 frames behind.
     for _ in 0..6 {
         host_sess.add_local_input(0, StubInput { inp: 1 }).unwrap();
         let requests = host_sess.advance_frame().unwrap();
         host_stub.handle_requests(requests);
-        host_sess.poll_remote_clients(); // flush confirmed inputs to spectator socket
         spec_sess.poll_remote_clients(); // receive packets (but don't advance)
     }
 
