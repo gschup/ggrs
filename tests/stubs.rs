@@ -105,6 +105,47 @@ impl RandomChecksumGameStub {
     }
 }
 
+/// A single-player game stub for tests that use `with_num_players(1)`.
+/// The `advance_frame` logic only reads `inputs[0]`.
+pub struct GameStub1P {
+    pub gs: StateStub,
+}
+
+impl GameStub1P {
+    #[allow(dead_code)]
+    pub fn new() -> GameStub1P {
+        GameStub1P {
+            gs: StateStub { frame: 0, state: 0 },
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn handle_requests(&mut self, requests: Vec<GgrsRequest<StubConfig>>) {
+        for request in requests {
+            match request {
+                GgrsRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
+                GgrsRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GgrsRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+            }
+        }
+    }
+
+    fn save_game_state(&mut self, cell: GameStateCell<StateStub>, frame: Frame) {
+        assert_eq!(self.gs.frame, frame);
+        let checksum = calculate_hash(&self.gs);
+        cell.save(frame, Some(self.gs), Some(checksum as u128));
+    }
+
+    fn load_game_state(&mut self, cell: GameStateCell<StateStub>) {
+        self.gs = cell.load().unwrap();
+    }
+
+    fn advance_frame(&mut self, inputs: Vec<(StubInput, InputStatus)>) {
+        self.gs.state += inputs[0].0.inp as i32;
+        self.gs.frame += 1;
+    }
+}
+
 #[derive(Default, Copy, Clone, Hash)]
 pub struct StateStub {
     pub frame: i32,
