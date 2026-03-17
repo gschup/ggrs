@@ -747,8 +747,9 @@ impl<T: Config> UdpProtocol<T> {
     /// Upon receiving a `QualityReply`, update network stats.
     fn on_quality_reply(&mut self, body: &QualityReply) {
         let millis = millis_since_epoch();
-        assert!(millis >= body.pong);
-        self.round_trip_time = millis - body.pong;
+        // Use saturating_sub: if the clock went backward (NTP step) or the
+        // remote sent a tampered pong value, we get 0ms RTT rather than a panic.
+        self.round_trip_time = millis.saturating_sub(body.pong);
     }
 
     /// Upon receiving a `ChecksumReport`, add it to the checksum history
