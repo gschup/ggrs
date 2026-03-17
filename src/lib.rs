@@ -168,13 +168,14 @@ pub enum DesyncDetection {
 /// - local players, who play on the local device,
 /// - remote players, who play on other devices and
 /// - spectators, who are remote players that do not contribute to the game input.
-/// Both [`PlayerType::Remote`] and [`PlayerType::Spectator`] have a socket address associated with them.
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+///   Both [`PlayerType::Remote`] and [`PlayerType::Spectator`] have a socket address associated with them.
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
 pub enum PlayerType<A>
 where
     A: Clone + PartialEq + Eq + Hash,
 {
     /// This player plays on the local device.
+    #[default]
     Local,
     /// This player plays on a remote device identified by the socket address.
     Remote(A),
@@ -182,11 +183,6 @@ where
     Spectator(A),
 }
 
-impl<A: Clone + PartialEq + Eq + Hash> Default for PlayerType<A> {
-    fn default() -> Self {
-        Self::Local
-    }
-}
 
 /// A session is always in one of these states. You can query the current state of a session via [`current_state`].
 ///
