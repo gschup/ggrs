@@ -11,9 +11,10 @@ If you are interested in integrating rollback networking into your game or just 
 
 ## Live Demonstrations
 
-GGRS has two demo apps you can try in the browser! One written with [macroquad](https://github.com/not-fl3/macroquad), the other written with [bevy](https://bevyengine.org/). Both use [matchbox](https://github.com/johanhelsing/matchbox). Try it out with a friend! Just click the link and match with another player! (You can also open the link in two separate windows to play against yourself)
+GGRS has two demo apps — one written with [macroquad](https://github.com/not-fl3/macroquad), the other with [bevy](https://bevyengine.org/). Both use [matchbox](https://github.com/johanhelsing/matchbox) for WebRTC-based matchmaking.
 
-🚧 MATCHMAKING CURRENTLY OFFLINE! 🚧
+> **Note:** The hosted matchmaking server is currently offline, so the links below will not find opponents automatically. You can still open the link in two separate browser windows on the same machine to test locally.
+
 - [Bevy Demo](https://gschup.github.io/bevy_ggrs_demo/) ([Repository](https://github.com/gschup/bevy_ggrs_demo))
 - [Macroquad Demo](https://gschup.github.io/ggrs_demo/) ([Repository](https://github.com/gschup/ggrs_demo))
 
@@ -29,13 +30,13 @@ GGRS has two demo apps you can try in the browser! One written with [macroquad](
 
 To get started with GGRS, check out the following resources:
 
-- [Wiki](https://github.com/gschup/ggrs/wiki)
-- [Examples](./examples/)
-- [Documentation](https://docs.rs/ggrs/newest/ggrs/)
+- [Docs](./docs/) — guide covering setup, sessions, the main loop, requests/events, time sync, and more
+- [Examples](./examples/) — runnable P2P, spectator, and sync-test demos
+- [API Documentation](https://docs.rs/ggrs/newest/ggrs/)
 
 ## Development Status
 
-GGRS is in an early stage, but the main functionality for multiple players and spectators should be quite stable. See the Changelog for the latest changes, even those yet unreleased on crates.io! If you want to contribute, check out existing issues, as well as the contribution guide!
+GGRS is fairly stable. The core functionality for multiple players and spectators has not changed significantly in recent versions. See the Changelog for the latest changes, including those not yet published to crates.io. If you want to contribute, check out existing issues and the contribution guide!
 
 - [Changelog](./CHANGELOG.md)
 - [Issues](https://github.com/gschup/ggrs/issues)

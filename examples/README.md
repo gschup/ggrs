@@ -18,7 +18,7 @@ There is no real game, just movement with ice physics. Optionally, you can speci
 Since ExGame is based on floats and uses floating-point sin, cos and sqrt,
 I fully expect this example to desync when compiled on two different architectures/platforms.
 This is intentional to see when and how that happens. If you plan to implement your own
-deterministic game, make sure to take floating-point impresicions and non-deterministic results into consideration.
+deterministic game, make sure to take floating-point imprecisions and non-deterministic results into consideration.
 
 ### Launching ExGame P2P and Spectator
 

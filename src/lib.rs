@@ -1,7 +1,105 @@
 //! # GGRS
-//! GGRS (good game rollback system) is a reimagination of the GGPO network SDK written in 100% safe Rust 🦀.
-//! The callback-style API from the original library has been replaced with a much saner, simpler control flow.
-//! Instead of registering callback functions, GGRS returns a list of requests for the user to fulfill.
+//!
+//! GGRS (good game rollback system) is a reimagination of the GGPO network SDK written in Rust.
+//! Instead of the callback-style API from the original library, GGRS returns a list of [`GgrsRequest`]s
+//! for you to fulfill each frame.
+//!
+//! ## How It Works
+//!
+//! Rollback networking lets your game run at full speed using only local input, predicting what
+//! remote players are doing. When real remote inputs arrive, GGRS detects any misprediction,
+//! rolls the game back to the last correct state, and re-simulates forward. To support this, your
+//! game needs to be able to:
+//!
+//! 1. **Save** its state to a [`GameStateCell`] on request.
+//! 2. **Load** a previously saved state from a [`GameStateCell`] on request.
+//! 3. **Advance** by one frame given a set of player inputs.
+//!
+//! GGRS handles everything else: input exchange, prediction, rollback scheduling, time
+//! synchronization, and desync detection.
+//!
+//! ## Quick Start
+//!
+//! ### 1. Implement `Config`
+//!
+//! ```rust
+//! use serde::{Deserialize, Serialize};
+//!
+//! #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
+//! pub struct Input { pub left: bool, pub right: bool, pub jump: bool }
+//!
+//! pub struct GameState { /* ... */ }
+//!
+//! pub struct GgrsConfig;
+//! impl ggrs::Config for GgrsConfig {
+//!     type Input = Input;
+//!     type State = GameState;
+//!     type Address = std::net::SocketAddr;
+//! }
+//! ```
+//!
+//! ### 2. Build a Session
+//!
+//! ```rust,no_run
+//! # use ggrs::{SessionBuilder, PlayerType, UdpNonBlockingSocket};
+//! # struct GgrsConfig; impl ggrs::Config for GgrsConfig { type Input = u8; type State = u8; type Address = std::net::SocketAddr; }
+//! let socket = UdpNonBlockingSocket::bind_to_port(7000).unwrap();
+//! let mut session = SessionBuilder::<GgrsConfig>::new()
+//!     .with_num_players(2)
+//!     .with_input_delay(2)
+//!     .add_player(PlayerType::Local, 0).unwrap()
+//!     .add_player(PlayerType::Remote("127.0.0.1:7001".parse().unwrap()), 1).unwrap()
+//!     .start_p2p_session(socket).unwrap();
+//! ```
+//!
+//! ### 3. Drive the Game Loop
+//!
+//! Each tick, poll the network, drain events, then advance the frame:
+//!
+//! ```rust,no_run
+//! # use ggrs::*;
+//! # struct GgrsConfig;
+//! # impl Config for GgrsConfig { type Input = u8; type State = u8; type Address = std::net::SocketAddr; }
+//! # let socket = UdpNonBlockingSocket::bind_to_port(7000).unwrap();
+//! # let mut session: P2PSession<GgrsConfig> = SessionBuilder::new()
+//! #     .add_player(PlayerType::Local, 0).unwrap()
+//! #     .add_player(PlayerType::Remote("127.0.0.1:7001".parse().unwrap()), 1).unwrap()
+//! #     .start_p2p_session(socket).unwrap();
+//! # let local_handle = 0usize; let my_input: u8 = 0;
+//! session.poll_remote_clients();
+//! for event in session.events() { /* handle GgrsEvents */ }
+//! session.add_local_input(local_handle, my_input).unwrap();
+//! match session.advance_frame() {
+//!     Ok(requests) => {
+//!         for request in requests {
+//!             // handle SaveGameState, LoadGameState, AdvanceFrame — in order
+//!         }
+//!     }
+//!     Err(GgrsError::PredictionThreshold) => { /* skip frame */ }
+//!     Err(e) => panic!("{e}"),
+//! }
+//! ```
+//!
+//! ## Session Types
+//!
+//! | Type | Use case |
+//! |---|---|
+//! | [`P2PSession`] | Main multiplayer session; connects peers directly. |
+//! | [`SpectatorSession`] | Watch a game without contributing input. |
+//! | [`SyncTestSession`] | Local determinism testing; no network required. |
+//!
+//! All session types are constructed with [`SessionBuilder`].
+//!
+//! ## Feature Flags
+//!
+//! - **`sync-send`**: Adds `Send + Sync` bounds to [`Config`], [`NonBlockingSocket`], and session
+//!   types. Enable this if you need to share sessions across threads.
+//! - **`wasm-bindgen`**: Enables WASM support. Required when targeting `wasm32` with browser APIs.
+//!
+//! ## Further Reading
+//!
+//! See the [`docs/`](https://github.com/gschup/ggrs/tree/main/docs) folder for guides on sessions,
+//! the main loop, requests and events, time synchronization, and more.
 
 #![forbid(unsafe_code)] // let us try
 #![deny(missing_docs)]
