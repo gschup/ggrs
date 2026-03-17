@@ -1,10 +1,13 @@
 # Changelog
 
-In this document, all remarkable changes are listed. Not mentioned are smaller code cleanups or documentation improvements.
+In this document, all notable changes are listed, including bug fixes, breaking changes, and improvements to behaviour or documentation.
 
 ## Unreleased
 
-- Nothing here yet...
+- fix: `network_stats()` for spectator handles no longer panics — it was looking up the address in `player_reg.remotes` instead of `player_reg.spectators`
+- fix: confirmed inputs are now flushed to spectators immediately within `advance_frame()`, reducing spectator latency by one frame; previously the packets were queued and only sent on the next `poll_remote_clients()` call
+- breaking: `GgrsError::NotEnoughData` is a new error variant returned by `network_stats()` when less than one second has elapsed since the connection was established; previously `GgrsError::NotSynchronized` was returned in both this case and the "not yet connected" case
+- breaking: `SessionBuilder::start_synctest_session()` now returns `GgrsError::InvalidRequest` if sparse saving is enabled, rather than silently ignoring the setting — `SyncTestSession` must save every frame to compare checksums across the check window
 
 ## 0.11.0
 
