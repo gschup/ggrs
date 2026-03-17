@@ -279,7 +279,7 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
-        let ping = i32::try_from(self.round_trip_time / 2).expect("Ping is higher than i32::MAX");
+        let ping = i32::try_from(self.round_trip_time / 2).unwrap_or(i32::MAX);
         let remote_frame = self.last_recv_frame() + ((ping * self.fps as i32) / 1000);
         // Our frame "advantage" is how many frames behind the remote client we are. (It's an advantage because they will have to predict more often)
         self.local_frame_advantage = remote_frame - local_frame;
