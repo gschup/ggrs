@@ -4,10 +4,28 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ## Unreleased
 
+### Bug fixes
 - fix: `network_stats()` for spectator handles no longer panics — it was looking up the address in `player_reg.remotes` instead of `player_reg.spectators`
 - fix: confirmed inputs are now flushed to spectators immediately within `advance_frame()`, reducing spectator latency by one frame; previously the packets were queued and only sent on the next `poll_remote_clients()` call
+
+### Breaking changes
 - breaking: `GgrsError::NotEnoughData` is a new error variant returned by `network_stats()` when less than one second has elapsed since the connection was established; previously `GgrsError::NotSynchronized` was returned in both this case and the "not yet connected" case
 - breaking: `SessionBuilder::start_synctest_session()` now returns `GgrsError::InvalidRequest` if sparse saving is enabled, rather than silently ignoring the setting — `SyncTestSession` must save every frame to compare checksums across the check window
+
+### Improvements
+- refactor: `poll_remote_clients()` collects endpoint events before processing, removing unnecessary pre-emptive clones of handles and addresses
+- docs: `P2PSession::advance_frame()` and `poll_remote_clients()` now document the spectator packet delivery timing — packets queued during `advance_frame` are flushed at the start of the next `poll_remote_clients` call
+- docs: `SpectatorSession::advance_frame()` now documents its dependency on the host having called `poll_remote_clients` for inputs to have arrived
+- docs: `SpectatorSession::frames_behind_host()` now documents that both `current_frame` and `last_recv_frame` start at `NULL_FRAME`, making the initial return value of `0` explicit
+
+### Code quality
+- clippy: fixed `doc_lazy_continuation`, `doc_overindented_list_items`, `derivable_impls`, and `mismatched_lifetime_syntaxes` warnings across the codebase
+- tests: expanded unit test coverage across `frame_info`, `input_queue`, `sync_layer`, `time_sync`, and `compression` modules
+- tests: expanded integration test coverage with new tests for `P2PSession`, `SpectatorSession`, and `SyncTestSession`, including regression tests for the bugs fixed above
+
+## 0.11.1
+
+- fix: input packet size is now computed via `bincode::serialized_size` instead of `std::mem::size_of`, allowing enum inputs whose serialized size differs from their in-memory layout to work correctly
 
 ## 0.11.0
 
