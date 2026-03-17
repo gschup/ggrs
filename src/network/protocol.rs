@@ -8,7 +8,7 @@ use crate::time_sync::TimeSync;
 use crate::{
     Config, DesyncDetection, Frame, GgrsError, NonBlockingSocket, PlayerHandle, NULL_FRAME,
 };
-use tracing::trace;
+use tracing::{trace, warn};
 
 use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
@@ -691,7 +691,13 @@ impl<T: Config> UdpProtocol<T> {
         if let Some(decode_inp) = self.recv_inputs.get(&decode_frame) {
             self.running_last_input_recv = Instant::now();
 
-            let recv_inputs = decode(&decode_inp.bytes, &body.bytes).expect("decoding failed");
+            let recv_inputs = match decode(&decode_inp.bytes, &body.bytes) {
+                Ok(inputs) => inputs,
+                Err(e) => {
+                    warn!("Failed to decode input packet, discarding: {e}");
+                    return;
+                }
+            };
 
             for (i, inp) in recv_inputs.into_iter().enumerate() {
                 let inp_frame = body.start_frame + i as i32;
