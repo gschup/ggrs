@@ -29,6 +29,13 @@ pub enum GgrsError {
     NotSynchronized,
     /// The spectator got so far behind the host that catching up is impossible.
     SpectatorTooFarBehind,
+    /// Not enough data has been collected yet to compute the requested statistics.
+    /// This is returned by [`network_stats`] when less than one second has elapsed since the
+    /// connection was established. The session may already be [`Running`]; retry after a short delay.
+    ///
+    /// [`network_stats`]: crate::P2PSession::network_stats
+    /// [`Running`]: crate::SessionState::Running
+    NotEnoughData,
 }
 
 impl Display for GgrsError {
@@ -63,6 +70,12 @@ impl Display for GgrsError {
                 write!(
                     f,
                     "The spectator got so far behind the host that catching up is impossible."
+                )
+            }
+            GgrsError::NotEnoughData => {
+                write!(
+                    f,
+                    "Not enough data has been collected yet. Retry after at least one second."
                 )
             }
         }

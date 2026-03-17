@@ -292,7 +292,7 @@ impl<T: Config> UdpProtocol<T> {
         let now = millis_since_epoch();
         let seconds = (now - self.stats_start_time) / 1000;
         if seconds == 0 {
-            return Err(GgrsError::NotSynchronized);
+            return Err(GgrsError::NotEnoughData);
         }
 
         let total_bytes_sent = self.bytes_sent + (self.packets_sent * UDP_HEADER_SIZE);

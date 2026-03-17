@@ -91,9 +91,13 @@ impl<T: Config> SpectatorSession<T> {
 
     /// Used to fetch some statistics about the quality of the network connection.
     /// # Errors
-    /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
+    /// - Returns [`NotSynchronized`] if the endpoint has not yet started connecting.
+    /// - Returns [`NotEnoughData`] if less than one second has elapsed since the connection was
+    ///   established. The session may already be [`Running`]; retry after a short delay.
     ///
     /// [`NotSynchronized`]: GgrsError::NotSynchronized
+    /// [`NotEnoughData`]: GgrsError::NotEnoughData
+    /// [`Running`]: crate::SessionState::Running
     pub fn network_stats(&self) -> Result<NetworkStats, GgrsError> {
         self.host.network_stats()
     }

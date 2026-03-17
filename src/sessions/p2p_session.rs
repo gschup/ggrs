@@ -521,11 +521,15 @@ impl<T: Config> P2PSession<T> {
 
     /// Returns a [`NetworkStats`] struct that gives information about the quality of the network connection.
     /// # Errors
-    /// - Returns [`InvalidRequest`] if the handle not referring to a remote player or spectator.
-    /// - Returns [`NotSynchronized`] if the session is not connected to other clients yet.
+    /// - Returns [`InvalidRequest`] if the handle is not referring to a remote player or spectator.
+    /// - Returns [`NotSynchronized`] if the endpoint has not yet started connecting.
+    /// - Returns [`NotEnoughData`] if less than one second has elapsed since the connection was
+    ///   established. The session may already be [`Running`]; retry after a short delay.
     ///
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     /// [`NotSynchronized`]: GgrsError::NotSynchronized
+    /// [`NotEnoughData`]: GgrsError::NotEnoughData
+    /// [`Running`]: crate::SessionState::Running
     pub fn network_stats(&self, player_handle: PlayerHandle) -> Result<NetworkStats, GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             Some(PlayerType::Remote(addr)) => self
