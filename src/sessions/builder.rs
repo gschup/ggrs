@@ -358,12 +358,19 @@ impl<T: Config> SessionBuilder<T> {
     ///
     /// # Errors
     /// - Returns [`InvalidRequest`] if `check_distance` is greater than or equal to `max_prediction_window`.
+    /// - Returns [`InvalidRequest`] if sparse saving is enabled — synctest must save every frame
+    ///   to compare checksums across the full check window, so sparse saving is incompatible.
     ///
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn start_synctest_session(self) -> Result<SyncTestSession<T>, GgrsError> {
         if self.check_dist >= self.max_prediction {
             return Err(GgrsError::InvalidRequest {
                 info: "Check distance too big.".to_owned(),
+            });
+        }
+        if self.sparse_saving {
+            return Err(GgrsError::InvalidRequest {
+                info: "Sparse saving is not supported for synctest sessions.".to_owned(),
             });
         }
         Ok(SyncTestSession::new(

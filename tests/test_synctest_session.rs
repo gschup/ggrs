@@ -85,6 +85,14 @@ fn test_advance_frames_with_delayed_input() -> Result<(), GgrsError> {
 }
 
 #[test]
+fn test_builder_sparse_saving_errors_for_synctest() {
+    let result = SessionBuilder::<StubConfig>::new()
+        .with_sparse_saving_mode(true)
+        .start_synctest_session();
+    assert!(matches!(result, Err(GgrsError::InvalidRequest { .. })));
+}
+
+#[test]
 fn test_create_session_single_player() -> Result<(), GgrsError> {
     let mut stub = stubs::GameStub1P::new();
     let mut sess = SessionBuilder::<StubConfig>::new()
