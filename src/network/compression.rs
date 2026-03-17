@@ -80,4 +80,41 @@ mod compression_tests {
 
         assert!(pend_inp == decoded);
     }
+
+    #[test]
+    fn test_encode_decode_identical_to_reference() {
+        // When inputs are identical to the reference, delta is all-zeros — good for RLE
+        let reference = vec![1, 2, 3, 4];
+        let inputs = vec![reference.clone(), reference.clone()];
+        let encoded = encode(&reference, inputs.iter());
+        let decoded = decode(&reference, &encoded).unwrap();
+        assert_eq!(decoded, inputs);
+    }
+
+    #[test]
+    fn test_encode_decode_single_input() {
+        let reference = vec![0u8; 4];
+        let inputs = vec![vec![1u8, 2, 3, 4]];
+        let encoded = encode(&reference, inputs.iter());
+        let decoded = decode(&reference, &encoded).unwrap();
+        assert_eq!(decoded, inputs);
+    }
+
+    #[test]
+    fn test_encode_decode_all_zeros() {
+        let reference = vec![0u8; 4];
+        let inputs = vec![vec![0u8; 4], vec![0u8; 4], vec![0u8; 4]];
+        let encoded = encode(&reference, inputs.iter());
+        let decoded = decode(&reference, &encoded).unwrap();
+        assert_eq!(decoded, inputs);
+    }
+
+    #[test]
+    fn test_delta_encode_decode_in_isolation() {
+        let reference = vec![0xAA, 0xBB];
+        let inputs = vec![vec![0xFF, 0x00], vec![0x00, 0xFF]];
+        let encoded = delta_encode(&reference, inputs.iter());
+        let decoded = delta_decode(&reference, &encoded);
+        assert_eq!(decoded, inputs);
+    }
 }

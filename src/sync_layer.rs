@@ -399,6 +399,61 @@ mod sync_layer_tests {
         type Address = SocketAddr;
     }
 
+    // GameStateCell tests
+
+    #[test]
+    fn test_cell_default_frame_is_null() {
+        let cell = GameStateCell::<u8>::default();
+        assert_eq!(cell.frame(), NULL_FRAME);
+    }
+
+    #[test]
+    fn test_cell_save_and_frame() {
+        let cell = GameStateCell::<u8>::default();
+        cell.save(5, Some(42u8), None);
+        assert_eq!(cell.frame(), 5);
+    }
+
+    #[test]
+    fn test_cell_save_and_checksum() {
+        let cell = GameStateCell::<u8>::default();
+        cell.save(1, Some(0u8), Some(0xDEADBEEF));
+        assert_eq!(cell.checksum(), Some(0xDEADBEEF));
+    }
+
+    #[test]
+    fn test_cell_data_returns_none_before_save() {
+        let cell = GameStateCell::<u8>::default();
+        assert!(cell.data().is_none());
+    }
+
+    #[test]
+    fn test_cell_data_returns_some_after_save() {
+        let cell = GameStateCell::<u8>::default();
+        cell.save(1, Some(99u8), None);
+        let accessor = cell.data().expect("should have data");
+        assert_eq!(*accessor, 99u8);
+    }
+
+    #[test]
+    fn test_cell_load_clones_value() {
+        let cell = GameStateCell::<u8>::default();
+        cell.save(1, Some(77u8), None);
+        assert_eq!(cell.load(), Some(77u8));
+    }
+
+    #[test]
+    fn test_cell_clone_shares_state() {
+        let cell = GameStateCell::<u8>::default();
+        let clone = cell.clone();
+        cell.save(3, Some(55u8), None);
+        // clone shares the Arc, so it should see the saved state
+        assert_eq!(clone.frame(), 3);
+        assert_eq!(clone.load(), Some(55u8));
+    }
+
+    // SyncLayer tests
+
     #[test]
     fn test_different_delays() {
         let mut sync_layer = SyncLayer::<TestConfig>::new(2, 8);
@@ -430,5 +485,138 @@ mod sync_layer_tests {
 
             sync_layer.advance_frame();
         }
+    }
+
+    fn make_connect_status(n: usize) -> Vec<ConnectionStatus> {
+        vec![ConnectionStatus::default(); n]
+    }
+
+    #[test]
+    fn test_advance_frame_increments_current_frame() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        assert_eq!(sync_layer.current_frame(), 0);
+        sync_layer.advance_frame();
+        assert_eq!(sync_layer.current_frame(), 1);
+    }
+
+    #[test]
+    fn test_save_current_state_updates_last_saved_frame() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        let req = sync_layer.save_current_state();
+        assert_eq!(sync_layer.last_saved_frame(), 0);
+        // fulfill the save request so the cell contains frame 0
+        if let GgrsRequest::SaveGameState { cell, frame } = req {
+            cell.save(frame, Some(0u8), None);
+        }
+    }
+
+    #[test]
+    fn test_saved_state_by_frame_returns_none_before_save() {
+        let sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        assert!(sync_layer.saved_state_by_frame(0).is_none());
+    }
+
+    #[test]
+    fn test_saved_state_by_frame_returns_some_after_save() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        let req = sync_layer.save_current_state();
+        if let GgrsRequest::SaveGameState { cell, frame } = req {
+            cell.save(frame, Some(7u8), None);
+        }
+        assert!(sync_layer.saved_state_by_frame(0).is_some());
+    }
+
+    #[test]
+    fn test_load_frame_rewinds_current_frame() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        // save frame 0
+        let req = sync_layer.save_current_state();
+        if let GgrsRequest::SaveGameState { cell, frame } = req {
+            cell.save(frame, Some(0u8), None);
+        }
+        // advance to frame 3
+        sync_layer.advance_frame();
+        sync_layer.advance_frame();
+        sync_layer.advance_frame();
+        assert_eq!(sync_layer.current_frame(), 3);
+        // load frame 0
+        let _req = sync_layer.load_frame(0);
+        assert_eq!(sync_layer.current_frame(), 0);
+    }
+
+    #[test]
+    fn test_check_simulation_consistency_no_mismatch() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(2, 8);
+        let connect_status = make_connect_status(2);
+        for i in 0..5 {
+            let inp = PlayerInput::new(i, TestInput { inp: i as u8 });
+            sync_layer.add_remote_input(0, inp);
+            sync_layer.add_remote_input(1, inp);
+            sync_layer.synchronized_inputs(&connect_status);
+            sync_layer.advance_frame();
+        }
+        assert_eq!(
+            sync_layer.check_simulation_consistency(NULL_FRAME),
+            NULL_FRAME
+        );
+    }
+
+    #[test]
+    fn test_check_simulation_consistency_finds_mismatch() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        // Add frame 0, then request frame 1 to trigger a prediction
+        sync_layer.add_remote_input(0, PlayerInput::new(0, TestInput { inp: 5 }));
+        let connect_status = make_connect_status(1);
+        sync_layer.synchronized_inputs(&connect_status); // requests frame 0
+        sync_layer.advance_frame();
+        sync_layer.synchronized_inputs(&connect_status); // requests frame 1 → prediction
+                                                         // Now add real frame 1 (player 0) with a different value to cause a mismatch
+        sync_layer.add_remote_input(0, PlayerInput::new(1, TestInput { inp: 99 }));
+        assert_eq!(sync_layer.check_simulation_consistency(NULL_FRAME), 1);
+    }
+
+    #[test]
+    fn test_set_last_confirmed_frame_updates_last_confirmed() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        for i in 0..10 {
+            sync_layer.add_remote_input(0, PlayerInput::new(i, TestInput { inp: i as u8 }));
+            sync_layer.advance_frame();
+        }
+        sync_layer.set_last_confirmed_frame(5, false);
+        assert_eq!(sync_layer.last_confirmed_frame(), 5);
+    }
+
+    #[test]
+    fn test_set_last_confirmed_frame_sparse_saving_caps_at_last_saved() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        // save frame 0
+        let req = sync_layer.save_current_state();
+        if let GgrsRequest::SaveGameState { cell, frame } = req {
+            cell.save(frame, Some(0u8), None);
+        }
+        // advance several frames without saving
+        for i in 0..5 {
+            sync_layer.add_remote_input(0, PlayerInput::new(i, TestInput { inp: 0 }));
+            sync_layer.advance_frame();
+        }
+        // with sparse_saving=true, confirmed frame should be capped at last_saved_frame (0)
+        sync_layer.set_last_confirmed_frame(4, true);
+        assert_eq!(sync_layer.last_confirmed_frame(), 0);
+    }
+
+    #[test]
+    fn test_disconnected_player_returns_default_input() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(2, 8);
+        let mut connect_status = make_connect_status(2);
+        // mark player 1 as disconnected before frame 0
+        connect_status[1].disconnected = true;
+        connect_status[1].last_frame = -1;
+        // provide input only for player 0
+        sync_layer.add_remote_input(0, PlayerInput::new(0, TestInput { inp: 42 }));
+
+        let inputs = sync_layer.synchronized_inputs(&connect_status);
+        assert_eq!(inputs[0].1, InputStatus::Confirmed);
+        assert_eq!(inputs[1].1, InputStatus::Disconnected);
+        assert_eq!(inputs[1].0.inp, 0); // default
     }
 }
