@@ -585,7 +585,7 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GgrsEvent<T>> {
+    pub fn events(&mut self) -> Drain<'_, GgrsEvent<T>> {
         self.event_queue.drain(..)
     }
 

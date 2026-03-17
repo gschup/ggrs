@@ -63,7 +63,7 @@ impl<T> GameStateCell<T> {
         if let Ok(mapped_data) =
             parking_lot::MutexGuard::try_map(self.0.lock(), |state| state.data.as_mut())
         {
-            return Some(GameStateAccessor(mapped_data));
+            Some(GameStateAccessor(mapped_data))
         } else {
             None
         }

@@ -93,7 +93,7 @@ impl<T: Config> SpectatorSession<T> {
     }
 
     /// Returns all events that happened since last queried for events. If the number of stored events exceeds `MAX_EVENT_QUEUE_SIZE`, the oldest events will be discarded.
-    pub fn events(&mut self) -> Drain<GgrsEvent<T>> {
+    pub fn events(&mut self) -> Drain<'_, GgrsEvent<T>> {
         self.event_queue.drain(..)
     }
 
@@ -102,7 +102,7 @@ impl<T: Config> SpectatorSession<T> {
     /// Failure to do so will cause panics later.
     /// # Errors
     /// - Returns [`NotSynchronized`] if the session is not yet ready to accept input.
-    /// In this case, you either need to start the session or wait for synchronization between clients.
+    ///   In this case, you either need to start the session or wait for synchronization between clients.
     ///
     /// [`Vec<GgrsRequest>`]: GgrsRequest
     /// [`NotSynchronized`]: GgrsError::NotSynchronized
