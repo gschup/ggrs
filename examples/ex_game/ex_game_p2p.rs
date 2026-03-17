@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a GGRS session
     let mut sess_build = SessionBuilder::<GGRSConfig>::new()
-        .with_num_players(num_players)
+        .with_num_players(num_players)?
         // (optional) exchange and validate state checksums
         .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 100 })
         // (optional) set expected update frequency
@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 match sess.advance_frame() {
-                    Ok(requests) => game.handle_requests(requests, sess.in_lockstep_mode()),
+                    Ok(requests) => game.handle_requests(requests),
                     Err(e) => return Err(Box::new(e)),
                 }
             }

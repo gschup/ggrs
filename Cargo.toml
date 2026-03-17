@@ -3,6 +3,7 @@ name = "ggrs"
 version = "0.11.1"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
 edition = "2021"
+rust-version = "1.66"
 description = "GGRS is a reimagination of GGPO, enabling P2P rollback networking in Rust. Rollback to the future!"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -21,6 +22,8 @@ rand = "0.8"
 bitfield-rle = "0.2.1"
 parking_lot = "0.12"
 instant = "0.1"
+# Not used directly; declared so the wasm-bindgen feature can activate getrandom/js,
+# which is required for `rand` to generate random numbers in a browser environment.
 getrandom = { version = "0.2", optional = true }
 tracing = "0.1"
 

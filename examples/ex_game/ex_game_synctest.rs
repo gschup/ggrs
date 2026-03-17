@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a GGRS session
     let mut sess = SessionBuilder::new()
-        .with_num_players(opt.num_players)
+        .with_num_players(opt.num_players)?
         .with_check_distance(opt.check_distance)
         .with_input_delay(2)
         .start_synctest_session()?;
@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             match sess.advance_frame() {
-                Ok(requests) => game.handle_requests(requests, false),
+                Ok(requests) => game.handle_requests(requests),
                 Err(e) => return Err(Box::new(e)),
             }
         }
