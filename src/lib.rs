@@ -105,7 +105,10 @@
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 //#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
-use std::{fmt::Debug, hash::Hash};
+use std::{
+    fmt::{self, Debug},
+    hash::Hash,
+};
 
 pub use error::GgrsError;
 pub use network::messages::Message;
@@ -203,6 +206,47 @@ pub enum InputStatus {
     Predicted,
     /// The player has disconnected at or prior to this frame, so this input is a dummy.
     Disconnected,
+}
+
+impl fmt::Display for DesyncDetection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::On { interval } => write!(f, "On (interval: {interval})"),
+            Self::Off => write!(f, "Off"),
+        }
+    }
+}
+
+impl<A> fmt::Display for PlayerType<A>
+where
+    A: Clone + PartialEq + Eq + Hash + fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Local => write!(f, "Local"),
+            Self::Remote(addr) => write!(f, "Remote({addr})"),
+            Self::Spectator(addr) => write!(f, "Spectator({addr})"),
+        }
+    }
+}
+
+impl fmt::Display for SessionState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Synchronizing => write!(f, "Synchronizing"),
+            Self::Running => write!(f, "Running"),
+        }
+    }
+}
+
+impl fmt::Display for InputStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Confirmed => write!(f, "Confirmed"),
+            Self::Predicted => write!(f, "Predicted"),
+            Self::Disconnected => write!(f, "Disconnected"),
+        }
+    }
 }
 
 /// Notifications that you can receive from the session. Handling them is up to the user.
