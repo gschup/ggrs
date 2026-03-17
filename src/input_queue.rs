@@ -324,4 +324,98 @@ mod input_queue_tests {
             assert_eq!(input_in_queue.inp, correct_input);
         }
     }
+
+    #[test]
+    fn test_prediction_returned_for_missing_frame() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        let input = PlayerInput::new(0, TestInput { inp: 42 });
+        queue.add_input(input);
+        // frame 1 has not been added yet — should get a prediction
+        let (_inp, status) = queue.input(1);
+        assert_eq!(status, InputStatus::Predicted);
+    }
+
+    #[test]
+    fn test_prediction_repeats_last_input() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        let input = PlayerInput::new(0, TestInput { inp: 77 });
+        queue.add_input(input);
+        // prediction should repeat the last real input
+        let (predicted, _status) = queue.input(1);
+        assert_eq!(predicted.inp, 77);
+    }
+
+    #[test]
+    fn test_confirmed_input_after_prediction_no_mismatch() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.add_input(PlayerInput::new(0, TestInput { inp: 5 }));
+        // trigger prediction for frame 1
+        queue.input(1);
+        // now add the real input for frame 1 matching the prediction
+        queue.add_input(PlayerInput::new(1, TestInput { inp: 5 }));
+        assert_eq!(queue.first_incorrect_frame(), NULL_FRAME);
+    }
+
+    #[test]
+    fn test_first_incorrect_frame_tracked_on_mismatch() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.add_input(PlayerInput::new(0, TestInput { inp: 5 }));
+        // trigger prediction for frame 1 (predicts inp=5)
+        queue.input(1);
+        // add real input for frame 1 that differs from prediction
+        queue.add_input(PlayerInput::new(1, TestInput { inp: 99 }));
+        assert_eq!(queue.first_incorrect_frame(), 1);
+    }
+
+    #[test]
+    fn test_reset_prediction_clears_state() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.add_input(PlayerInput::new(0, TestInput { inp: 5 }));
+        queue.input(1);
+        queue.add_input(PlayerInput::new(1, TestInput { inp: 99 }));
+        assert_eq!(queue.first_incorrect_frame(), 1);
+
+        queue.reset_prediction();
+
+        assert_eq!(queue.first_incorrect_frame(), NULL_FRAME);
+        assert_eq!(queue.last_requested_frame, NULL_FRAME);
+    }
+
+    #[test]
+    fn test_confirmed_input_returns_correct_value() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        for i in 0..6 {
+            queue.add_input(PlayerInput::new(i, TestInput { inp: i as u8 * 10 }));
+        }
+        let confirmed = queue.confirmed_input(3);
+        assert_eq!(confirmed.frame, 3);
+        assert_eq!(confirmed.input.inp, 30);
+    }
+
+    #[test]
+    fn test_discard_confirmed_frames_reduces_length() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        for i in 0..10 {
+            queue.add_input(PlayerInput::new(i, TestInput { inp: i as u8 }));
+        }
+        let len_before = queue.length;
+        queue.discard_confirmed_frames(5);
+        assert!(queue.length < len_before);
+    }
+
+    #[test]
+    fn test_queue_wraps_around_without_panic() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        // INPUT_QUEUE_LENGTH is 128. Add frames in batches, discarding confirmed frames
+        // between batches to keep the queue from filling up. This exercises the circular
+        // index wraparound path.
+        for i in 0..200_i32 {
+            let result = queue.add_input(PlayerInput::new(i, TestInput { inp: i as u8 }));
+            assert_ne!(result, NULL_FRAME, "frame {i} should have been accepted");
+            // discard every 64 frames so the queue never exceeds INPUT_QUEUE_LENGTH
+            if i > 0 && i % 64 == 0 {
+                queue.discard_confirmed_frames(i - 1);
+            }
+        }
+    }
 }

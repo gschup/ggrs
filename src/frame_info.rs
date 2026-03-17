@@ -86,4 +86,26 @@ mod game_input_tests {
         let input2 = PlayerInput::new(0, TestInput { inp: 7 });
         assert!(!input1.equal(&input2, false)); // different bits
     }
+
+    #[test]
+    fn test_input_equality_frame_mismatch_not_input_only() {
+        // same input, different frames — with input_only=false this should be false
+        let input1 = PlayerInput::new(0, TestInput { inp: 5 });
+        let input2 = PlayerInput::new(1, TestInput { inp: 5 });
+        assert!(!input1.equal(&input2, false));
+    }
+
+    #[test]
+    fn test_blank_input() {
+        let input = PlayerInput::<TestInput>::blank_input(7);
+        assert_eq!(input.frame, 7);
+        assert_eq!(input.input.inp, 0);
+    }
+
+    #[test]
+    fn test_new_stores_frame_and_input() {
+        let input = PlayerInput::new(42, TestInput { inp: 99 });
+        assert_eq!(input.frame, 42);
+        assert_eq!(input.input.inp, 99);
+    }
 }
