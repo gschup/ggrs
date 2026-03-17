@@ -354,10 +354,47 @@ pub trait Config: 'static + Send + Sync {
     type Address: Clone + PartialEq + Eq + Hash + Send + Sync + Debug;
 }
 
-/// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.
-/// However you wish to send and receive messages, it should be implemented through these two methods.
-/// Messages should be sent in an UDP-like fashion, unordered and unreliable.
-/// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
+/// Custom transport layer for GGRS sessions.
+///
+/// Implement this trait to use GGRS with any transport that can send and receive discrete,
+/// unordered, unreliable packets — WebRTC data channels, Steam networking, shared-memory
+/// queues for testing, etc. GGRS provides its own reliability and ordering on top.
+///
+/// The built-in [`UdpNonBlockingSocket`] implements this trait for standard UDP.
+///
+/// # WASM / WebRTC example
+///
+/// On WASM, UDP sockets are unavailable. A common approach is to use
+/// [matchbox_socket](https://github.com/johanhelsing/matchbox) which wraps WebRTC data
+/// channels with a UDP-like interface. The implementation pattern looks like this:
+///
+/// ```ignore
+/// use ggrs::{Message, NonBlockingSocket};
+/// use matchbox_socket::{PeerId, WebRtcSocket};
+///
+/// pub struct MatchboxSocket(WebRtcSocket);
+///
+/// impl NonBlockingSocket<PeerId> for MatchboxSocket {
+///     fn send_to(&mut self, msg: &Message, addr: &PeerId) {
+///         let encoded = bincode::serialize(msg).expect("serialization failed");
+///         self.0.send(encoded.into(), *addr);
+///     }
+///
+///     fn receive_all_messages(&mut self) -> Vec<(PeerId, Message)> {
+///         self.0.receive()
+///             .filter_map(|(peer, packet)| {
+///                 let msg = bincode::deserialize(&packet).ok()?;
+///                 Some((peer, msg))
+///             })
+///             .collect()
+///     }
+/// }
+/// ```
+///
+/// Then use `PeerId` as `Config::Address` and pass your `MatchboxSocket` to
+/// [`SessionBuilder::start_p2p_session()`].
+///
+/// [`SessionBuilder::start_p2p_session()`]: crate::SessionBuilder::start_p2p_session
 #[cfg(feature = "sync-send")]
 pub trait NonBlockingSocket<A>: Send + Sync
 where
@@ -388,10 +425,47 @@ pub trait Config: 'static {
     type Address: Clone + PartialEq + Eq + Hash + Debug;
 }
 
-/// This [`NonBlockingSocket`] trait is used when you want to use GGRS with your own socket.
-/// However you wish to send and receive messages, it should be implemented through these two methods.
-/// Messages should be sent in an UDP-like fashion, unordered and unreliable.
-/// GGRS has an internal protocol on top of this to make sure all important information is sent and received.
+/// Custom transport layer for GGRS sessions.
+///
+/// Implement this trait to use GGRS with any transport that can send and receive discrete,
+/// unordered, unreliable packets — WebRTC data channels, Steam networking, shared-memory
+/// queues for testing, etc. GGRS provides its own reliability and ordering on top.
+///
+/// The built-in [`UdpNonBlockingSocket`] implements this trait for standard UDP.
+///
+/// # WASM / WebRTC example
+///
+/// On WASM, UDP sockets are unavailable. A common approach is to use
+/// [matchbox_socket](https://github.com/johanhelsing/matchbox) which wraps WebRTC data
+/// channels with a UDP-like interface. The implementation pattern looks like this:
+///
+/// ```ignore
+/// use ggrs::{Message, NonBlockingSocket};
+/// use matchbox_socket::{PeerId, WebRtcSocket};
+///
+/// pub struct MatchboxSocket(WebRtcSocket);
+///
+/// impl NonBlockingSocket<PeerId> for MatchboxSocket {
+///     fn send_to(&mut self, msg: &Message, addr: &PeerId) {
+///         let encoded = bincode::serialize(msg).expect("serialization failed");
+///         self.0.send(encoded.into(), *addr);
+///     }
+///
+///     fn receive_all_messages(&mut self) -> Vec<(PeerId, Message)> {
+///         self.0.receive()
+///             .filter_map(|(peer, packet)| {
+///                 let msg = bincode::deserialize(&packet).ok()?;
+///                 Some((peer, msg))
+///             })
+///             .collect()
+///     }
+/// }
+/// ```
+///
+/// Then use `PeerId` as `Config::Address` and pass your `MatchboxSocket` to
+/// [`SessionBuilder::start_p2p_session()`].
+///
+/// [`SessionBuilder::start_p2p_session()`]: crate::SessionBuilder::start_p2p_session
 #[cfg(not(feature = "sync-send"))]
 pub trait NonBlockingSocket<A>
 where

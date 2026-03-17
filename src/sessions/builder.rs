@@ -152,12 +152,24 @@ impl<T: Config> SessionBuilder<T> {
     /// by giving remote inputs time to arrive before they are needed. The trade-off is a small
     /// but constant increase in perceived input latency. This is usually preferable to frequent
     /// rollbacks at higher network latencies.
+    ///
+    /// There is no enforced upper bound, but values above ~8 frames will produce noticeable
+    /// input lag. Setting this higher than `max_prediction_window` is not recommended —
+    /// inputs delayed beyond the prediction window will stall the session.
     pub fn with_input_delay(mut self, delay: usize) -> Self {
         self.input_delay = delay;
         self
     }
 
     /// Change number of total players. Default is 2.
+    ///
+    /// Must be at least 1. This value determines valid player handle ranges: local and remote
+    /// player handles must be in `0..num_players`, and spectator handles must be `>= num_players`.
+    ///
+    /// Call this **before** [`add_player()`] — handle validation uses the value set at the time
+    /// `add_player` is called.
+    ///
+    /// [`add_player()`]: Self::add_player
     pub fn with_num_players(mut self, num_players: usize) -> Self {
         self.num_players = num_players;
         self
@@ -212,7 +224,15 @@ impl<T: Config> SessionBuilder<T> {
     /// The check distance is the number of frames that will be rolled back and re-simulated each
     /// update. After re-simulation, the resulting checksums are compared against the originals. A
     /// mismatch indicates a non-determinism bug. Higher values catch more bugs but increase CPU
-    /// cost. Must be less than the max prediction window.
+    /// cost.
+    ///
+    /// Must be **less than** `max_prediction_window` (default 8). A value of 0 or 1 disables
+    /// checksum comparison — use 2 or higher to actually catch non-determinism.
+    /// [`start_synctest_session()`] returns [`GgrsError::InvalidRequest`] if this constraint
+    /// is violated.
+    ///
+    /// [`start_synctest_session()`]: Self::start_synctest_session
+    /// [`GgrsError::InvalidRequest`]: GgrsError::InvalidRequest
     pub fn with_check_distance(mut self, check_distance: usize) -> Self {
         self.check_dist = check_distance;
         self

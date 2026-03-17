@@ -6,8 +6,39 @@ use crate::network::messages::ConnectionStatus;
 use crate::sync_layer::SyncLayer;
 use crate::{Config, Frame, GgrsRequest, PlayerHandle};
 
-/// During a [`SyncTestSession`], GGRS will simulate a rollback every frame and resimulate the last n states, where n is the given check distance.
-/// The resimulated checksums will be compared with the original checksums and report if there was a mismatch.
+/// A session for verifying that your game logic is deterministic, without any network involvement.
+///
+/// # How it works
+///
+/// Every call to [`advance_frame()`] performs the following sequence:
+///
+/// 1. **Save** — the current game state is saved.
+/// 2. **Advance** — your game logic runs for one frame with the inputs you provided.
+/// 3. **Roll back** — GGRS rewinds `check_distance` frames and re-simulates forward,
+///    requesting a [`Load`] followed by `check_distance` × [`Advance`] requests.
+/// 4. **Compare** — the checksums produced during re-simulation are compared against those
+///    saved during the original run. A mismatch means your game is **not deterministic**:
+///    the same inputs from the same state produced different results on separate runs.
+///
+/// If a checksum mismatch is detected, [`advance_frame()`] **panics** — this is intentional.
+/// `SyncTestSession` is a development tool; a mismatch is a bug that must be fixed before shipping.
+///
+/// # All players are local
+///
+/// There is no network in a sync test. You must call [`add_local_input()`] for **every** player
+/// handle (0 through `num_players - 1`) before each [`advance_frame()`] call, even in a
+/// multi-player configuration.
+///
+/// # Limitations
+///
+/// - Sparse saving is incompatible with `SyncTestSession`: the session must save every frame
+///   to have checksums available for the full check window.
+/// - The `check_distance` must be less than `max_prediction_window`.
+///
+/// [`advance_frame()`]: Self::advance_frame
+/// [`add_local_input()`]: Self::add_local_input
+/// [`Load`]: crate::GgrsRequest::LoadGameState
+/// [`Advance`]: crate::GgrsRequest::AdvanceFrame
 pub struct SyncTestSession<T>
 where
     T: Config,

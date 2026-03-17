@@ -1,4 +1,26 @@
-/// The `NetworkStats` struct contains statistics about the current session.
+/// Statistics about the quality of the network connection to a remote peer.
+///
+/// Obtained via [`P2PSession::network_stats()`] or [`SpectatorSession::network_stats()`].
+///
+/// # Availability
+///
+/// Stats are computed over a rolling 1-second window. Until at least one second has elapsed
+/// since the session entered the [`Running`] state, those methods return
+/// [`GgrsError::NotEnoughData`] rather than a `NetworkStats` value. Poll in your game loop
+/// after synchronization and discard the error until data is available:
+///
+/// ```ignore
+/// match session.network_stats(player_handle) {
+///     Ok(stats) => { /* use stats */ }
+///     Err(GgrsError::NotEnoughData) => { /* still warming up — ignore */ }
+///     Err(e) => return Err(e),
+/// }
+/// ```
+///
+/// [`P2PSession::network_stats()`]: crate::P2PSession::network_stats
+/// [`SpectatorSession::network_stats()`]: crate::SpectatorSession::network_stats
+/// [`Running`]: crate::SessionState::Running
+/// [`GgrsError::NotEnoughData`]: crate::GgrsError::NotEnoughData
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NetworkStats {
     /// The length of the queue containing UDP packets which have not yet been acknowledged by the end client.
