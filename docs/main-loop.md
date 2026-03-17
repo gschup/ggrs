@@ -102,6 +102,18 @@ match session.advance_frame() {
 }
 ```
 
+## Network Statistics
+
+`network_stats()` uses a rolling one-second window. Until that window is full, it returns `Err(GgrsError::NotEnoughData)` — even if the session is already `Running`. This is distinct from `NotSynchronized` (which means the session has not yet connected). Handle both non-fatally in your stats polling code:
+
+```rust
+match session.network_stats(player_handle) {
+    Ok(stats) => { /* display ping, bandwidth, etc. */ }
+    Err(GgrsError::NotEnoughData) => { /* still warming up — try again next tick */ }
+    Err(e) => return Err(e),
+}
+```
+
 ## Working Example
 
 The [`ex_game_p2p`](../examples/) example in this repository demonstrates a complete working game loop with P2P, spectator, and sync-test modes.

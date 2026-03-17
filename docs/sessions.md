@@ -31,7 +31,7 @@ let socket = UdpNonBlockingSocket::bind_to_port(7000)
     .expect("failed to bind socket");
 
 let mut session = SessionBuilder::<GgrsConfig>::new()
-    .with_num_players(2)
+    .with_num_players(2)?
     .with_fps(60)?
     .with_input_delay(2)
     .add_player(PlayerType::Local, 0)?
@@ -48,7 +48,7 @@ let socket = UdpNonBlockingSocket::bind_to_port(7002)
 let host_addr: std::net::SocketAddr = "127.0.0.1:7000".parse()?;
 
 let mut session = SessionBuilder::<GgrsConfig>::new()
-    .with_num_players(2)
+    .with_num_players(2)?
     .start_spectator_session(host_addr, socket);
 ```
 
@@ -56,7 +56,7 @@ let mut session = SessionBuilder::<GgrsConfig>::new()
 
 ```rust
 let mut session = SessionBuilder::<GgrsConfig>::new()
-    .with_num_players(2)
+    .with_num_players(2)?
     .with_check_distance(7)
     .start_synctest_session()?;
 ```
@@ -84,7 +84,7 @@ GGRS supports multiple players on the same client (e.g., two gamepads on one mac
 
 ```rust
 let session = SessionBuilder::<GgrsConfig>::new()
-    .with_num_players(3)
+    .with_num_players(3)?
     .add_player(PlayerType::Local, 0)?           // local player 1
     .add_player(PlayerType::Local, 1)?           // local player 2 (same machine)
     .add_player(PlayerType::Remote(remote_addr), 2)?

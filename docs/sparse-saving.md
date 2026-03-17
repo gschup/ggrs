@@ -25,10 +25,14 @@ Configure it via `SessionBuilder` before starting a session:
 
 ```rust
 let session = SessionBuilder::<GgrsConfig>::new()
-    .with_num_players(2)
+    .with_num_players(2)?
     .with_sparse_saving_mode(true)
     // ... other options
     .start_p2p_session(socket)?;
 ```
 
 No other changes to your request handling are needed — the `SaveGameState` and `LoadGameState` requests work identically either way.
+
+## Incompatibility with `SyncTestSession`
+
+Sparse saving cannot be used with `SyncTestSession`. The sync test must save every frame to have checksums available across the full check window. Calling `start_synctest_session()` with sparse saving enabled returns `GgrsError::InvalidRequest`.

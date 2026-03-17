@@ -11,12 +11,23 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 ### Breaking changes
 - breaking: `GgrsError::NotEnoughData` is a new error variant returned by `network_stats()` when less than one second has elapsed since the connection was established; previously `GgrsError::NotSynchronized` was returned in both this case and the "not yet connected" case
 - breaking: `SessionBuilder::start_synctest_session()` now returns `GgrsError::InvalidRequest` if sparse saving is enabled, rather than silently ignoring the setting — `SyncTestSession` must save every frame to compare checksums across the check window
+- breaking: `SessionBuilder::with_num_players()` now returns `Result<Self, GgrsError>` and immediately rejects a value of `0`; previously the error was deferred to session start
 
 ### Improvements
+- feat: `Display` implementations added for `SessionState`, `InputStatus`, `PlayerType`, and `DesyncDetection`
 - refactor: `poll_remote_clients()` collects endpoint events before processing, removing unnecessary pre-emptive clones of handles and addresses
-- docs: `P2PSession::advance_frame()` and `poll_remote_clients()` now document the spectator packet delivery timing — packets queued during `advance_frame` are flushed at the start of the next `poll_remote_clients` call
+- docs: `SessionBuilder` methods now document valid value ranges and constraint relationships
+- docs: `NetworkStats` now explains the one-second warmup window and the idiomatic `NotEnoughData` handling pattern
+- docs: `SyncTestSession` struct now fully documents the save/advance/rollback/compare lifecycle, the panic-on-mismatch behaviour, and the all-players-local requirement
+- docs: `NonBlockingSocket` now includes a WASM/WebRTC implementation example using matchbox
+- docs: `P2PSession::advance_frame()` and `poll_remote_clients()` now document the spectator packet delivery timing
 - docs: `SpectatorSession::advance_frame()` now documents its dependency on the host having called `poll_remote_clients` for inputs to have arrived
-- docs: `SpectatorSession::frames_behind_host()` now documents that both `current_frame` and `last_recv_frame` start at `NULL_FRAME`, making the initial return value of `0` explicit
+- docs: `SpectatorSession::frames_behind_host()` now documents that both `current_frame` and `last_recv_frame` start at `NULL_FRAME`
+- examples: `handle_requests` no longer takes an `in_lockstep` flag or uses `unreachable!()` — all request variants are handled unconditionally, relying on the library's guarantee that Save/Load are never sent in lockstep mode
+
+### Crate hygiene
+- chore: `rust-version = "1.66"` added to `Cargo.toml`, establishing the declared MSRV
+- chore: added comment to the `getrandom` optional dependency clarifying it exists to forward the `js` feature to `rand` on WASM targets
 
 ### Code quality
 - clippy: fixed `doc_lazy_continuation`, `doc_overindented_list_items`, `derivable_impls`, and `mismatched_lifetime_syntaxes` warnings across the codebase
