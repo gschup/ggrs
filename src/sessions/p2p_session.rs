@@ -458,17 +458,15 @@ impl<T: Config> P2PSession<T> {
         // run endpoint poll and get events from players and spectators. This will trigger additional packets to be sent.
         let mut events = VecDeque::new();
         for endpoint in self.player_reg.remotes.values_mut() {
-            let handles = endpoint.handles().clone();
-            let addr = endpoint.peer_addr();
-            for event in endpoint.poll(&self.local_connect_status) {
-                events.push_back((event, handles.clone(), addr.clone()))
+            let polled: Vec<_> = endpoint.poll(&self.local_connect_status).collect();
+            for event in polled {
+                events.push_back((event, endpoint.handles().clone(), endpoint.peer_addr()));
             }
         }
         for endpoint in self.player_reg.spectators.values_mut() {
-            let handles = endpoint.handles().clone();
-            let addr = endpoint.peer_addr();
-            for event in endpoint.poll(&self.local_connect_status) {
-                events.push_back((event, handles.clone(), addr.clone()))
+            let polled: Vec<_> = endpoint.poll(&self.local_connect_status).collect();
+            for event in polled {
+                events.push_back((event, endpoint.handles().clone(), endpoint.peer_addr()));
             }
         }
 
