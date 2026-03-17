@@ -26,7 +26,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - examples: `handle_requests` no longer takes an `in_lockstep` flag or uses `unreachable!()` — all request variants are handled unconditionally, relying on the library's guarantee that Save/Load are never sent in lockstep mode
 
 ### Crate hygiene
-- chore: `rust-version = "1.66"` added to `Cargo.toml`, establishing the declared MSRV
+- chore: `rust-version = "1.87"` added to `Cargo.toml`, establishing the declared MSRV
 - chore: added comment to the `getrandom` optional dependency clarifying it exists to forward the `js` feature to `rand` on WASM targets
 
 ### Code quality
