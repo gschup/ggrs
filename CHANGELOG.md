@@ -30,9 +30,9 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - chore: added comment to the `getrandom` optional dependency clarifying it exists to forward the `js` feature to `rand` on WASM targets
 
 ### Code quality
-- clippy: fixed `doc_lazy_continuation`, `doc_overindented_list_items`, `derivable_impls`, and `mismatched_lifetime_syntaxes` warnings across the codebase
-- tests: expanded unit test coverage across `frame_info`, `input_queue`, `sync_layer`, `time_sync`, and `compression` modules
-- tests: expanded integration test coverage with new tests for `P2PSession`, `SpectatorSession`, and `SyncTestSession`, including regression tests for the bugs fixed above
+- clippy: resolved warnings across the codebase; added `#[must_use]` to `SessionBuilder` and its builder methods
+- refactor: internal constants consolidated and de-duplicated; `GgrsError` now derives `Eq`; minor readability improvements throughout
+- tests: expanded unit and integration test coverage across all session types and internal modules
 
 ## 0.11.1
 
