@@ -189,6 +189,7 @@ where
     bytes_sent: usize,
     round_trip_time: u128,
     last_send_time: Instant,
+    last_sync_request_time: Instant,
     last_recv_time: Instant,
 
     // debug desync
@@ -277,6 +278,7 @@ impl<T: Config> UdpProtocol<T> {
             bytes_sent: 0,
             round_trip_time: 0,
             last_send_time: Instant::now(),
+            last_sync_request_time: Instant::now(),
             last_recv_time: Instant::now(),
 
             // debug desync
@@ -373,7 +375,7 @@ impl<T: Config> UdpProtocol<T> {
         match self.state {
             ProtocolState::Synchronizing => {
                 // some time has passed, let us send another sync request
-                if self.last_send_time + SYNC_RETRY_INTERVAL < now {
+                if self.last_sync_request_time + SYNC_RETRY_INTERVAL < now {
                     self.send_sync_request();
                 }
             }
@@ -546,6 +548,7 @@ impl<T: Config> UdpProtocol<T> {
     }
 
     fn send_sync_request(&mut self) {
+        self.last_sync_request_time = Instant::now();
         let random_number = rand::random::<u32>();
         self.sync_random_requests.insert(random_number);
         let body = SyncRequest {
