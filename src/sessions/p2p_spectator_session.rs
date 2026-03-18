@@ -16,9 +16,10 @@ const NORMAL_SPEED: usize = 1;
 // The amount of inputs a spectator can buffer (a second worth of inputs)
 pub(crate) const SPECTATOR_BUFFER_SIZE: usize = 60;
 
-/// [`SpectatorSession`] provides all functionality to connect to a remote host in a peer-to-peer fashion.
-/// The host will broadcast all confirmed inputs to this session.
-/// This session can be used to spectate a session without contributing to the game input.
+/// Connects to a remote host in a peer-to-peer fashion without contributing input.
+///
+/// The host will broadcast all confirmed inputs to this session, allowing it to
+/// replay the game as a spectator.
 pub struct SpectatorSession<T>
 where
     T: Config,
@@ -167,7 +168,7 @@ impl<T: Config> SpectatorSession<T> {
         }
 
         // handle all events locally
-        for (event, addr) in events.drain(..) {
+        for (event, addr) in events {
             self.handle_event(event, addr);
         }
 

@@ -56,8 +56,7 @@ impl<T: Config> PlayerRegistry<T> {
             .iter()
             .filter_map(|(k, v)| match v {
                 PlayerType::Local => Some(*k),
-                PlayerType::Remote(_) => None,
-                PlayerType::Spectator(_) => None,
+                PlayerType::Remote(_) | PlayerType::Spectator(_) => None,
             })
             .collect()
     }
@@ -66,9 +65,8 @@ impl<T: Config> PlayerRegistry<T> {
         self.handles
             .iter()
             .filter_map(|(k, v)| match v {
-                PlayerType::Local => None,
                 PlayerType::Remote(_) => Some(*k),
-                PlayerType::Spectator(_) => None,
+                PlayerType::Local | PlayerType::Spectator(_) => None,
             })
             .collect()
     }
@@ -77,9 +75,8 @@ impl<T: Config> PlayerRegistry<T> {
         self.handles
             .iter()
             .filter_map(|(k, v)| match v {
-                PlayerType::Local => Some(*k),
                 PlayerType::Remote(_) => None,
-                PlayerType::Spectator(_) => Some(*k),
+                PlayerType::Local | PlayerType::Spectator(_) => Some(*k),
             })
             .collect()
     }
@@ -99,17 +96,14 @@ impl<T: Config> PlayerRegistry<T> {
     }
 
     pub fn handles_by_address(&self, addr: T::Address) -> Vec<PlayerHandle> {
-        let handles: Vec<PlayerHandle> = self
-            .handles
+        self.handles
             .iter()
             .filter_map(|(h, player_type)| match player_type {
+                PlayerType::Remote(a) | PlayerType::Spectator(a) => Some((h, a)),
                 PlayerType::Local => None,
-                PlayerType::Remote(a) => Some((h, a)),
-                PlayerType::Spectator(a) => Some((h, a)),
             })
             .filter_map(|(h, a)| if addr == *a { Some(*h) } else { None })
-            .collect();
-        handles
+            .collect()
     }
 }
 
@@ -180,8 +174,8 @@ impl<T: Config> P2PSession<T> {
 
         // sync layer & set input delay
         let mut sync_layer = SyncLayer::new(num_players, max_prediction);
-        for (player_handle, player_type) in players.handles.iter() {
-            if let PlayerType::Local = player_type {
+        for (player_handle, player_type) in &players.handles {
+            if matches!(player_type, PlayerType::Local) {
                 sync_layer.set_frame_delay(*player_handle, input_delay);
             }
         }
@@ -471,7 +465,7 @@ impl<T: Config> P2PSession<T> {
         }
 
         // handle all events locally
-        for (event, handles, addr) in events.drain(..) {
+        for (event, handles, addr) in events {
             self.handle_event(event, handles, addr);
         }
 
