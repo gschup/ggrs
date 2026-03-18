@@ -53,6 +53,7 @@ impl<I: Copy + Clone + PartialEq + Default> PlayerInput<I> {
     }
 
     /// Returns true if both the frame number and input data match.
+    #[cfg(test)]
     pub(crate) fn matches_full(&self, other: &Self) -> bool {
         self.frame == other.frame && self.input == other.input
     }
