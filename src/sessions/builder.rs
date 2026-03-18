@@ -8,7 +8,8 @@ use crate::{
     SyncTestSession,
 };
 
-use super::p2p_spectator_session::SPECTATOR_BUFFER_SIZE;
+// The amount of inputs a spectator can buffer (a second worth of inputs at 60 FPS)
+pub(crate) const SPECTATOR_BUFFER_SIZE: usize = 60;
 
 const DEFAULT_PLAYERS: usize = 2;
 const DEFAULT_SAVE_MODE: bool = false;

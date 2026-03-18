@@ -6,15 +6,13 @@ use crate::{
         messages::ConnectionStatus,
         protocol::{Event, UdpProtocol},
     },
-    sessions::builder::MAX_EVENT_QUEUE_SIZE,
+    sessions::builder::{MAX_EVENT_QUEUE_SIZE, SPECTATOR_BUFFER_SIZE},
     Config, Frame, GgrsError, GgrsEvent, GgrsRequest, InputStatus, NetworkStats, NonBlockingSocket,
     SessionState, NULL_FRAME,
 };
 
 // The amount of frames the spectator advances in a single step if not too far behind
 const NORMAL_SPEED: usize = 1;
-// The amount of inputs a spectator can buffer (a second worth of inputs)
-pub(crate) const SPECTATOR_BUFFER_SIZE: usize = 60;
 
 /// Connects to a remote host in a peer-to-peer fashion without contributing input.
 ///

@@ -3,6 +3,7 @@ use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
 use crate::network::protocol::{UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
+use crate::sessions::builder::MAX_EVENT_QUEUE_SIZE;
 use crate::sync_layer::SyncLayer;
 use crate::DesyncDetection;
 use crate::{
@@ -18,7 +19,6 @@ use std::convert::TryInto;
 
 const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
-const MAX_EVENT_QUEUE_SIZE: usize = 100;
 
 pub(crate) struct PlayerRegistry<T>
 where
