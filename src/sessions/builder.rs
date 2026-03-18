@@ -258,6 +258,10 @@ impl<T: Config> SessionBuilder<T> {
     /// Sets the maximum frames behind. If the spectator is more than this amount of frames behind the received inputs,
     /// it will catch up with `catchup_speed` amount of frames per step.
     ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if `max_frames_behind` is 0 or `>= SPECTATOR_BUFFER_SIZE`.
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn with_max_frames_behind(mut self, max_frames_behind: usize) -> Result<Self, GgrsError> {
         if max_frames_behind < 1 {
             return Err(GgrsError::InvalidRequest {
@@ -278,6 +282,11 @@ impl<T: Config> SessionBuilder<T> {
 
     /// Sets the catchup speed. Per default, this is set to 1, so the spectator never catches up.
     /// If you want the spectator to catch up to the host if `max_frames_behind` is surpassed, set this to a value higher than 1.
+    ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if `catchup_speed` is 0 or `>= max_frames_behind`.
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn with_catchup_speed(mut self, catchup_speed: usize) -> Result<Self, GgrsError> {
         if catchup_speed < 1 {
             return Err(GgrsError::InvalidRequest {
