@@ -143,7 +143,6 @@ impl<T: Config> SessionBuilder<T> {
     /// game where GGRS frames are only advanced once a second; with input delay set to zero, the
     /// framerate impact is approximately equivalent to taking the highest latency client and adding
     /// its latency to the current time to tick a frame.
-    #[must_use]
     pub fn with_max_prediction_window(mut self, window: usize) -> Self {
         self.max_prediction = window;
         self
@@ -159,7 +158,6 @@ impl<T: Config> SessionBuilder<T> {
     /// There is no enforced upper bound, but values above ~8 frames will produce noticeable
     /// input lag. Setting this higher than `max_prediction_window` is not recommended —
     /// inputs delayed beyond the prediction window will stall the session.
-    #[must_use]
     pub fn with_input_delay(mut self, delay: usize) -> Self {
         self.input_delay = delay;
         self
@@ -193,7 +191,6 @@ impl<T: Config> SessionBuilder<T> {
     /// much less save requests at the cost of potentially longer rollbacks and thus more advance
     /// frame requests. Recommended, if saving your gamestate takes much more time than advancing
     /// the game state.
-    #[must_use]
     pub fn with_sparse_saving_mode(mut self, sparse_saving: bool) -> Self {
         self.sparse_saving = sparse_saving;
         self
@@ -201,21 +198,18 @@ impl<T: Config> SessionBuilder<T> {
 
     /// Sets the desync detection mode. With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
     /// If a desync is found the session will send a DesyncDetected event.
-    #[must_use]
     pub fn with_desync_detection_mode(mut self, desync_detection: DesyncDetection) -> Self {
         self.desync_detection = desync_detection;
         self
     }
 
     /// Sets the disconnect timeout. The session will automatically disconnect from a remote peer if it has not received a packet in the timeout window.
-    #[must_use]
     pub fn with_disconnect_timeout(mut self, timeout: Duration) -> Self {
         self.disconnect_timeout = timeout;
         self
     }
 
     /// Sets the time before the first notification will be sent in case of a prolonged period of no received packages.
-    #[must_use]
     pub fn with_disconnect_notify_delay(mut self, notify_delay: Duration) -> Self {
         self.disconnect_notify_start = notify_delay;
         self
@@ -250,7 +244,6 @@ impl<T: Config> SessionBuilder<T> {
     ///
     /// [`start_synctest_session()`]: Self::start_synctest_session
     /// [`GgrsError::InvalidRequest`]: GgrsError::InvalidRequest
-    #[must_use]
     pub fn with_check_distance(mut self, check_distance: usize) -> Self {
         self.check_dist = check_distance;
         self
