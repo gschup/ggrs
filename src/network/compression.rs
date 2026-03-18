@@ -1,6 +1,9 @@
 // special thanks to james7132
 
-pub(crate) fn encode<'a>(reference: &[u8], pending_input: impl Iterator<Item = &'a Vec<u8>>) -> Vec<u8> {
+pub(crate) fn encode<'a>(
+    reference: &[u8],
+    pending_input: impl Iterator<Item = &'a Vec<u8>>,
+) -> Vec<u8> {
     // first, do a XOR encoding to the reference input (will probably lead to a lot of same bits in sequence)
     let buf = delta_encode(reference, pending_input);
     // then, RLE encode the buffer (making use of the property mentioned above)
@@ -131,9 +134,9 @@ mod compression_tests {
         // simulate an enum whose variants serialize to different sizes
         let reference = vec![0u8; 1];
         let inputs = vec![
-            vec![1u8],          // 1 byte variant
-            vec![2u8, 10, 20],  // 3 byte variant
-            vec![1u8],          // back to 1 byte
+            vec![1u8],                // 1 byte variant
+            vec![2u8, 10, 20],        // 3 byte variant
+            vec![1u8],                // back to 1 byte
             vec![3u8, 1, 2, 3, 4, 5], // 6 byte variant
         ];
         let encoded = encode(&reference, inputs.iter());
