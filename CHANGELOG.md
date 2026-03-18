@@ -7,8 +7,11 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 ### Bug fixes
 - fix: `network_stats()` for spectator handles no longer panics — it was looking up the address in `player_reg.remotes` instead of `player_reg.spectators`
 - fix: confirmed inputs are now flushed to spectators immediately within `advance_frame()`, reducing spectator latency by one frame; previously the packets were queued and only sent on the next `poll_remote_clients()` call
+- fix: spectator session no longer stalls at frame 0 when started before the host; sync request retries now use a dedicated timer instead of the shared last-send timer, which was being reset by ACKs and keepalives
+- fix: delta compression no longer panics when inputs serialize to variable sizes (e.g. enums with variants of different sizes); each encoded input is now length-prefixed
 
 ### Breaking changes
+- breaking: the network wire format for input packets has changed; clients on different versions of ggrs will not be able to communicate
 - breaking: `GgrsError::NotEnoughData` is a new error variant returned by `network_stats()` when less than one second has elapsed since the connection was established; previously `GgrsError::NotSynchronized` was returned in both this case and the "not yet connected" case
 - breaking: `SessionBuilder::start_synctest_session()` now returns `GgrsError::InvalidRequest` if sparse saving is enabled, rather than silently ignoring the setting — `SyncTestSession` must save every frame to compare checksums across the check window
 - breaking: `SessionBuilder::with_num_players()` now returns `Result<Self, GgrsError>` and immediately rejects a value of `0`; previously the error was deferred to session start
