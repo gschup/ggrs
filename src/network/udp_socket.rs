@@ -10,7 +10,7 @@ use crate::{network::messages::Message, NonBlockingSocket};
 const RECV_BUFFER_SIZE: usize = 4096;
 /// A packet larger than this may be fragmented, so ideally we wouldn't send packets larger than
 /// this.
-/// Source: https://stackoverflow.com/a/35697810/775982
+/// Source: <https://stackoverflow.com/a/35697810/775982>
 const IDEAL_MAX_UDP_PACKET_SIZE: usize = 508;
 
 /// A simple non-blocking UDP socket tu use with GGRS Sessions. Listens to 0.0.0.0 on a given port.
@@ -22,6 +22,9 @@ pub struct UdpNonBlockingSocket {
 
 impl UdpNonBlockingSocket {
     /// Binds an UDP Socket to 0.0.0.0:port and set it to non-blocking mode.
+    ///
+    /// # Errors
+    /// Returns an [`std::io::Error`] if the socket cannot be bound or set to non-blocking mode.
     pub fn bind_to_port(port: u16) -> Result<Self, std::io::Error> {
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
         let socket = UdpSocket::bind(addr)?;
@@ -76,7 +79,7 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
                 // there are no more messages
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => return received_messages,
                 // datagram socket sometimes get this error as a result of calling the send_to method
-                Err(ref err) if err.kind() == ErrorKind::ConnectionReset => continue,
+                Err(ref err) if err.kind() == ErrorKind::ConnectionReset => {},
                 // unexpected errors are logged and treated like WouldBlock — stop receiving
                 Err(err) => {
                     warn!("Unexpected error receiving UDP packet: {err}");

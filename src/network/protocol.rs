@@ -349,7 +349,7 @@ impl<T: Config> UdpProtocol<T> {
 
         self.state = ProtocolState::Disconnected;
         // schedule the timeout which will lead to shutdown
-        self.shutdown_timeout = Instant::now().add(Duration::from_millis(UDP_SHUTDOWN_TIMER))
+        self.shutdown_timeout = Instant::now().add(Duration::from_millis(UDP_SHUTDOWN_TIMER));
     }
 
     pub(crate) fn synchronize(&mut self) {
@@ -514,7 +514,7 @@ impl<T: Config> UdpProtocol<T> {
                 "Encoded {} bytes from {} pending output(s) into {} bytes",
                 {
                     let mut sum = 0;
-                    for gi in self.pending_output.iter() {
+                    for gi in &self.pending_output {
                         sum += gi.bytes.len();
                     }
                     sum
@@ -557,7 +557,7 @@ impl<T: Config> UdpProtocol<T> {
         let body = QualityReport {
             frame_advantage: i16::try_from(
                 self.local_frame_advantage
-                    .clamp(i16::MIN as i32, i16::MAX as i32),
+                    .clamp(i32::from(i16::MIN), i32::from(i16::MAX)),
             )
             .expect("local_frame_advantage should have been clamped into the range of an i16"),
             ping: millis_since_epoch(),
@@ -750,7 +750,7 @@ impl<T: Config> UdpProtocol<T> {
 
     /// Upon receiving a `QualityReport`, update network stats and reply with a `QualityReply`.
     fn on_quality_report(&mut self, body: &QualityReport) {
-        self.remote_frame_advantage = body.frame_advantage as i32;
+        self.remote_frame_advantage = i32::from(body.frame_advantage);
         let reply_body = QualityReply { pong: body.ping };
         self.queue_message(MessageBody::QualityReply(reply_body));
     }
