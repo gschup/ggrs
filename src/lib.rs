@@ -104,7 +104,6 @@
 #![forbid(unsafe_code)] // let us try
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
-//#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 use std::{
     fmt::{self, Debug},
     hash::Hash,
