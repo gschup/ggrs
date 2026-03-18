@@ -47,8 +47,14 @@ impl<I: Copy + Clone + PartialEq + Default> PlayerInput<I> {
         }
     }
 
-    pub(crate) fn equal(&self, other: &Self, input_only: bool) -> bool {
-        (input_only || self.frame == other.frame) && self.input == other.input
+    /// Returns true if only the input data matches, ignoring frame numbers.
+    pub(crate) fn input_matches(&self, other: &Self) -> bool {
+        self.input == other.input
+    }
+
+    /// Returns true if both the frame number and input data match.
+    pub(crate) fn matches_full(&self, other: &Self) -> bool {
+        self.frame == other.frame && self.input == other.input
     }
 }
 
@@ -70,29 +76,29 @@ mod game_input_tests {
     fn test_input_equality() {
         let input1 = PlayerInput::new(0, TestInput { inp: 5 });
         let input2 = PlayerInput::new(0, TestInput { inp: 5 });
-        assert!(input1.equal(&input2, false));
+        assert!(input1.matches_full(&input2));
     }
 
     #[test]
     fn test_input_equality_input_only() {
         let input1 = PlayerInput::new(0, TestInput { inp: 5 });
         let input2 = PlayerInput::new(5, TestInput { inp: 5 });
-        assert!(input1.equal(&input2, true)); // different frames, but does not matter
+        assert!(input1.input_matches(&input2)); // different frames, but does not matter
     }
 
     #[test]
     fn test_input_equality_fail() {
         let input1 = PlayerInput::new(0, TestInput { inp: 5 });
         let input2 = PlayerInput::new(0, TestInput { inp: 7 });
-        assert!(!input1.equal(&input2, false)); // different bits
+        assert!(!input1.matches_full(&input2)); // different bits
     }
 
     #[test]
     fn test_input_equality_frame_mismatch_not_input_only() {
-        // same input, different frames — with input_only=false this should be false
+        // same input, different frames — matches_full checks both
         let input1 = PlayerInput::new(0, TestInput { inp: 5 });
         let input2 = PlayerInput::new(1, TestInput { inp: 5 });
-        assert!(!input1.equal(&input2, false));
+        assert!(!input1.matches_full(&input2));
     }
 
     #[test]

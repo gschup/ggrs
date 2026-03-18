@@ -190,7 +190,7 @@ impl<T: Config> InputQueue<T> {
             assert!(frame_number == self.prediction.frame);
 
             // Remember the first input which was incorrect so we can report it
-            if self.first_incorrect_frame == NULL_FRAME && !self.prediction.equal(&input, true) {
+            if self.first_incorrect_frame == NULL_FRAME && !self.prediction.input_matches(&input) {
                 self.first_incorrect_frame = frame_number;
             }
 
