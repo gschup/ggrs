@@ -324,7 +324,7 @@ impl<T: Config> SessionBuilder<T> {
 
         // count the number of players per address
         let mut addr_count = HashMap::<PlayerType<T::Address>, Vec<PlayerHandle>>::new();
-        for (handle, player_type) in self.player_reg.handles.iter() {
+        for (handle, player_type) in &self.player_reg.handles {
             match player_type {
                 PlayerType::Remote(_) | PlayerType::Spectator(_) => addr_count
                     .entry(player_type.clone())
@@ -335,7 +335,7 @@ impl<T: Config> SessionBuilder<T> {
         }
 
         // for each unique address, create an endpoint
-        for (player_type, handles) in addr_count.into_iter() {
+        for (player_type, handles) in addr_count {
             match player_type {
                 PlayerType::Remote(peer_addr) => {
                     self.player_reg.remotes.insert(

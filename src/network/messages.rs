@@ -61,11 +61,11 @@ impl std::fmt::Debug for Input {
 }
 struct BytesDebug<'a>(&'a [u8]);
 
-impl<'a> std::fmt::Debug for BytesDebug<'a> {
+impl std::fmt::Debug for BytesDebug<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("0x")?;
         for byte in self.0 {
-            write!(f, "{:02x}", byte)?;
+            write!(f, "{byte:02x}")?;
         }
         Ok(())
     }

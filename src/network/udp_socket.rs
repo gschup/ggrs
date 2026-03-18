@@ -79,7 +79,7 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
                 // there are no more messages
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => return received_messages,
                 // datagram socket sometimes get this error as a result of calling the send_to method
-                Err(ref err) if err.kind() == ErrorKind::ConnectionReset => {},
+                Err(ref err) if err.kind() == ErrorKind::ConnectionReset => {}
                 // unexpected errors are logged and treated like WouldBlock — stop receiving
                 Err(err) => {
                     warn!("Unexpected error receiving UDP packet: {err}");

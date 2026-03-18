@@ -26,7 +26,7 @@ impl<T> GameStateCell<T> {
     /// Provides direct access to the `T` that the user previously saved into the cell (if there was
     /// one previously saved), without cloning it.
     ///
-    /// You probably want to use [load()](Self::load) instead to clone the data; this function is
+    /// You probably want to use [`load()`](Self::load) instead to clone the data; this function is
     /// useful only in niche use cases.
     ///
     /// # Example usage
@@ -58,15 +58,11 @@ impl<T> GameStateCell<T> {
     /// ```
     ///
     /// If you really, really need mutable access to the `T`, then consider using the aptly named
-    /// [GameStateAccessor::as_mut_dangerous()].
+    /// [`GameStateAccessor::as_mut_dangerous()`].
     pub fn data(&self) -> Option<GameStateAccessor<'_, T>> {
-        if let Ok(mapped_data) =
-            parking_lot::MutexGuard::try_map(self.0.lock(), |state| state.data.as_mut())
-        {
-            Some(GameStateAccessor(mapped_data))
-        } else {
-            None
-        }
+        parking_lot::MutexGuard::try_map(self.0.lock(), |state| state.data.as_mut())
+            .ok()
+            .map(GameStateAccessor)
     }
 
     pub(crate) fn frame(&self) -> Frame {
@@ -81,7 +77,7 @@ impl<T> GameStateCell<T> {
 impl<T: Clone> GameStateCell<T> {
     /// Loads a `T` that the user previously saved into this cell, by cloning the `T`.
     ///
-    /// See also [data()](Self::data) if you want a reference to the `T` without cloning it.
+    /// See also [`data()`](Self::data) if you want a reference to the `T` without cloning it.
     pub fn load(&self) -> Option<T> {
         let data = self.data()?;
         Some(data.clone())
@@ -110,28 +106,28 @@ impl<T> std::fmt::Debug for GameStateCell<T> {
     }
 }
 
-/// A read-only accessor for the `T` that the user previously saved into a [GameStateCell].
+/// A read-only accessor for the `T` that the user previously saved into a [`GameStateCell`].
 ///
-/// You can use [deref()](Deref::deref) to access the `T` without cloning it; see
-/// [GameStateCell::data()](GameStateCell::data) for a usage example.
+/// You can use [`deref()`](Deref::deref) to access the `T` without cloning it; see
+/// [`GameStateCell::data()`](GameStateCell::data) for a usage example.
 ///
 /// This type exists to A) hide the type of the lock guard that allows thread-safe access to the
 ///  saved `T` so that it does not form part of GGRS API and B) make dangerous mutable access to the
-///  `T` very explicit (see [as_mut_dangerous()](Self::as_mut_dangerous)).
+///  `T` very explicit (see [`as_mut_dangerous()`](Self::as_mut_dangerous)).
 pub struct GameStateAccessor<'c, T>(MappedMutexGuard<'c, T>);
 
-impl<'c, T> Deref for GameStateAccessor<'c, T> {
+impl<T> Deref for GameStateAccessor<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'c, T> GameStateAccessor<'c, T> {
-    /// Get mutable access to the `T` that the user previously saved into a [GameStateCell].
+impl<T> GameStateAccessor<'_, T> {
+    /// Get mutable access to the `T` that the user previously saved into a [`GameStateCell`].
     ///
-    /// You probably do not need this! It's safer to use [Self::deref()](Deref::deref) instead;
-    /// see [GameStateCell::data()](GameStateCell::data) for a usage example.
+    /// You probably do not need this! It's safer to use [`Self::deref()`](Deref::deref) instead;
+    /// see [`GameStateCell::data()`](GameStateCell::data) for a usage example.
     ///
     /// **Danger**: the underlying `T` must _not_ be modified in any way that affects (or may ever
     /// in future affect) game logic. If this invariant is violated, you will almost certainly get

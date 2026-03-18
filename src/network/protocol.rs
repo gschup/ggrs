@@ -398,7 +398,9 @@ impl<T: Config> UdpProtocol<T> {
                 if !self.disconnect_notify_sent
                     && self.last_recv_time + self.disconnect_notify_start < now
                 {
-                    let duration: Duration = self.disconnect_timeout - self.disconnect_notify_start;
+                    let duration: Duration = self
+                        .disconnect_timeout
+                        .saturating_sub(self.disconnect_notify_start);
                     self.event_queue.push_back(Event::NetworkInterrupted {
                         disconnect_timeout: Duration::as_millis(&duration),
                     });

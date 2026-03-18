@@ -207,16 +207,15 @@ impl<T: Config> SyncTestSession<T> {
         self.checksum_history
             .retain(|&k, _| k >= oldest_allowed_frame);
 
-        match self.sync_layer.saved_state_by_frame(frame_to_check) {
-            Some(latest_cell) => match self.checksum_history.get(&latest_cell.frame()) {
-                Some(&cs) => cs == latest_cell.checksum(),
-                None => {
-                    self.checksum_history
-                        .insert(latest_cell.frame(), latest_cell.checksum());
-                    true
-                }
-            },
-            None => true,
+        let Some(latest_cell) = self.sync_layer.saved_state_by_frame(frame_to_check) else {
+            return true;
+        };
+        if let Some(&cs) = self.checksum_history.get(&latest_cell.frame()) {
+            cs == latest_cell.checksum()
+        } else {
+            self.checksum_history
+                .insert(latest_cell.frame(), latest_cell.checksum());
+            true
         }
     }
 
