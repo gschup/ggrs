@@ -37,6 +37,14 @@ where
 }
 
 impl<T: Config> InputQueue<T> {
+    fn prev_pos(head: usize) -> usize {
+        if head == 0 {
+            INPUT_QUEUE_LENGTH - 1
+        } else {
+            head - 1
+        }
+    }
+
     pub(crate) fn new() -> Self {
         Self {
             head: 0,
@@ -129,11 +137,7 @@ impl<T: Config> InputQueue<T> {
                 self.prediction = PlayerInput::blank_input(self.prediction.frame);
             } else {
                 // basing new prediction frame from previously added frame
-                let previous_position = match self.head {
-                    0 => INPUT_QUEUE_LENGTH - 1,
-                    _ => self.head - 1,
-                };
-                self.prediction = self.inputs[previous_position];
+                self.prediction = self.inputs[Self::prev_pos(self.head)];
             }
             // update the prediction's frame
             self.prediction.frame += 1;
@@ -167,10 +171,7 @@ impl<T: Config> InputQueue<T> {
     /// Adds an input frame to the queue at the given frame number. If there are predicted inputs, we will check those and mark them as incorrect, if necessary.
     /// Returns the frame number
     fn add_input_by_frame(&mut self, input: PlayerInput<T::Input>, frame_number: Frame) {
-        let previous_position = match self.head {
-            0 => INPUT_QUEUE_LENGTH - 1,
-            _ => self.head - 1,
-        };
+        let previous_position = Self::prev_pos(self.head);
 
         assert!(self.last_added_frame == NULL_FRAME || frame_number == self.last_added_frame + 1);
         assert!(frame_number == 0 || self.inputs[previous_position].frame == frame_number - 1);
@@ -207,10 +208,7 @@ impl<T: Config> InputQueue<T> {
 
     /// Advances the queue head to the next frame and either drops inputs or fills the queue if the input delay has changed since the last frame.
     fn advance_queue_head(&mut self, mut input_frame: Frame) -> Frame {
-        let previous_position = match self.head {
-            0 => INPUT_QUEUE_LENGTH - 1,
-            _ => self.head - 1,
-        };
+        let previous_position = Self::prev_pos(self.head);
 
         let mut expected_frame = if self.first_frame {
             0
@@ -232,11 +230,9 @@ impl<T: Config> InputQueue<T> {
             expected_frame += 1;
         }
 
-        let previous_position = match self.head {
-            0 => INPUT_QUEUE_LENGTH - 1,
-            _ => self.head - 1,
-        };
-        assert!(input_frame == 0 || input_frame == self.inputs[previous_position].frame + 1);
+        assert!(
+            input_frame == 0 || input_frame == self.inputs[Self::prev_pos(self.head)].frame + 1
+        );
         input_frame
     }
 }
