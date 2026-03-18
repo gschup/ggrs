@@ -259,8 +259,9 @@ impl<T: Config> SessionBuilder<T> {
 
         if max_frames_behind >= SPECTATOR_BUFFER_SIZE {
             return Err(GgrsError::InvalidRequest {
-                info: "Max frames behind cannot be larger or equal than the Spectator buffer size (60)"
-                    .to_owned(),
+                info: format!(
+                    "Max frames behind cannot be larger or equal than the Spectator buffer size ({SPECTATOR_BUFFER_SIZE})"
+                ),
             });
         }
         self.max_frames_behind = max_frames_behind;
