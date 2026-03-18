@@ -7,7 +7,7 @@ use crate::Frame;
 /// This enum contains all error messages this library can return. Most API functions will generally return a [`Result<(), GgrsError>`].
 ///
 /// [`Result<(), GgrsError>`]: std::result::Result
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GgrsError {
     /// When the prediction threshold has been reached, we cannot accept more inputs from the local player.
     PredictionThreshold,
@@ -41,38 +41,37 @@ pub enum GgrsError {
 impl Display for GgrsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GgrsError::PredictionThreshold => {
+            Self::PredictionThreshold => {
                 write!(
                     f,
                     "Prediction threshold is reached, cannot proceed without catching up."
                 )
             }
-            GgrsError::InvalidRequest { info } => {
-                write!(f, "Invalid Request: {}", info)
+            Self::InvalidRequest { info } => {
+                write!(f, "Invalid Request: {info}")
             }
-            GgrsError::NotSynchronized => {
+            Self::NotSynchronized => {
                 write!(
                     f,
                     "The session is not yet synchronized with all remote sessions."
                 )
             }
-            GgrsError::MismatchedChecksum {
+            Self::MismatchedChecksum {
                 current_frame,
                 mismatched_frames,
             } => {
                 write!(
                     f,
-                    "Detected checksum mismatch during rollback on frame {}, mismatched frames: {:?}",
-                    current_frame, mismatched_frames
+                    "Detected checksum mismatch during rollback on frame {current_frame}, mismatched frames: {mismatched_frames:?}",
                 )
             }
-            GgrsError::SpectatorTooFarBehind => {
+            Self::SpectatorTooFarBehind => {
                 write!(
                     f,
                     "The spectator got so far behind the host that catching up is impossible."
                 )
             }
-            GgrsError::NotEnoughData => {
+            Self::NotEnoughData => {
                 write!(
                     f,
                     "Not enough data has been collected yet. Retry after at least one second."
