@@ -17,9 +17,9 @@ make sure all of your commits are atomic (one feature per commit).
 
 Always write a clear log message for your commits. One-line messages are fine for small changes, but bigger changes should look like this:
 
-    >$ git commit -m "prefix: brief summary of the commit
-    > 
-    > A paragraph describing what changed and its impact."
+    $ git commit -m "prefix: brief summary of the commit
+
+    A paragraph describing what changed and its impact."
 
 With the following prefixes commonly used:
 
@@ -31,3 +31,10 @@ With the following prefixes commonly used:
 
 More about the [GitHub flow](https://guides.github.com/introduction/flow/).
 More about the [Conventional Commits Specification](https://www.conventionalcommits.org/en/v1.0.0/)
+
+## Guidelines
+
+- **No `cargo doc` warnings** - the codebase has `#![deny(missing_docs)]` enabled. New public items must have doc comments.
+- **Run `cargo fmt`** before committing.
+- **Run `cargo test`** to make sure existing tests pass.
+- For usage and architecture questions, see the [docs/](./docs/) folder.
