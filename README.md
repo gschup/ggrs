@@ -25,6 +25,7 @@ GGRS has two demo apps — one written with [macroquad](https://github.com/not-f
 - [NES-bundler](https://github.com/tedsteen/nes-bundler)
 - [Girls with Swords](https://github.com/trian-gles/Girls-with-swords-GGRS) ([gameplay footage](https://youtu.be/TFJSpAqXtiI))
 - [NieR Automata: Online](https://git.yasupa.de/jasper3108/NAMS-mp) ([Youtube](https://www.youtube.com/@nieronline))
+- [Signs of Danger](https://store.steampowered.com/app/3816900/Signs_of_Danger/) ([devlog](https://www.slowrush.dev/), forked)
 
 ## Getting Started
 
