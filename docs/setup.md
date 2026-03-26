@@ -57,11 +57,23 @@ pub struct GgrsConfig;
 
 impl ggrs::Config for GgrsConfig {
     type Input = Input;       // transmitted over the network each frame
+    type InputPredictor = ggrs::PredictRepeatLast; // how to predict missing remote inputs
     type State = GameState;   // saved/loaded during rollbacks
     type Address = std::net::SocketAddr;
 }
 ```
 
 `Input` must implement `Default` — GGRS uses the default value to represent "no input" for disconnected players.
+
+### Input Prediction
+
+When remote inputs haven't arrived yet, GGRS must predict what a player's input will be so the game can keep running without waiting. The `InputPredictor` associated type on `Config` controls this prediction strategy.
+
+GGRS ships with two predictors:
+
+- **`PredictRepeatLast`** — predicts that the player will repeat their last known input. This is a good default for most action games where inputs represent held state (e.g., buttons currently pressed).
+- **`PredictDefault`** — always predicts `Input::default()`, regardless of the previous input. This is better suited for transition-based inputs where events are one-off (e.g., "button just pressed this frame").
+
+You can also implement the [`InputPredictor`](https://docs.rs/ggrs/latest/ggrs/trait.InputPredictor.html) trait yourself to exploit known properties of your input format. See the rustdoc on `InputPredictor` for detailed guidance on improving prediction accuracy through input quantization and choosing between state-based and transition-based input representations.
 
 See [Sessions](sessions.md) for the next step.
