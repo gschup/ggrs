@@ -75,8 +75,8 @@ impl<T: Config> PlayerRegistry<T> {
         self.handles
             .iter()
             .filter_map(|(k, v)| match v {
-                PlayerType::Remote(_) => None,
-                PlayerType::Local | PlayerType::Spectator(_) => Some(*k),
+                PlayerType::Spectator(_) => Some(*k),
+                PlayerType::Local | PlayerType::Remote(_) => None,
             })
             .collect()
     }
