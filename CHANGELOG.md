@@ -5,6 +5,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 ## Unreleased
 
 ### Bug fixes
+- fix: `spectator_handles()` now returns only spectator handles; previously it incorrectly returned local + spectator handles due to a copy-paste bug (fixes [#105](https://github.com/gschup/ggrs/issues/105))
 - fix: `network_stats()` for spectator handles no longer panics — it was looking up the address in `player_reg.remotes` instead of `player_reg.spectators`
 - fix: confirmed inputs are now flushed to spectators immediately within `advance_frame()`, reducing spectator latency by one frame; previously the packets were queued and only sent on the next `poll_remote_clients()` call
 - fix: spectator session no longer stalls at frame 0 when started before the host; sync request retries now use a dedicated timer instead of the shared last-send timer, which was being reset by ACKs and keepalives
@@ -15,8 +16,10 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - breaking: `GgrsError::NotEnoughData` is a new error variant returned by `network_stats()` when less than one second has elapsed since the connection was established; previously `GgrsError::NotSynchronized` was returned in both this case and the "not yet connected" case
 - breaking: `SessionBuilder::start_synctest_session()` now returns `GgrsError::InvalidRequest` if sparse saving is enabled, rather than silently ignoring the setting — `SyncTestSession` must save every frame to compare checksums across the check window
 - breaking: `SessionBuilder::with_num_players()` now returns `Result<Self, GgrsError>` and immediately rejects a value of `0`; previously the error was deferred to session start
+- breaking: `Config` trait now requires a `type InputPredictor: InputPredictor<Self::Input>` associated type; migrate existing impls by adding `type InputPredictor = ggrs::PredictRepeatLast;`, which preserves the previous behaviour of repeating the last known input
 
 ### Improvements
+- feat: custom input prediction via the new `InputPredictor` trait; set `type InputPredictor` on your `Config` to control how missing remote inputs are predicted. GGRS ships with `PredictRepeatLast` (repeat last input, good for held-button state) and `PredictDefault` (always use `Input::default()`, good for one-shot events); implement the trait yourself for custom strategies (closes [#69](https://github.com/gschup/ggrs/issues/69))
 - feat: `Display` implementations added for `SessionState`, `InputStatus`, `PlayerType`, and `DesyncDetection`
 - refactor: `poll_remote_clients()` collects endpoint events before processing, removing unnecessary pre-emptive clones of handles and addresses
 - docs: `SessionBuilder` methods now document valid value ranges and constraint relationships
