@@ -6,7 +6,7 @@ GGRS provides three session types. All are constructed with [`SessionBuilder`](h
 
 ### `P2PSession`
 
-The main session type for multiplayer games. All participating clients create their own `P2PSession` and connect to each other in a peer-to-peer mesh. Each client sends only its own local inputs; GGRS handles prediction and rollback transparently.
+The main session type for multiplayer games. All participating clients create their own `P2PSession` and connect to each other in a peer-to-peer mesh. Each client sends only its own local inputs; GGRS handles prediction and rollback transparently. The prediction strategy is controlled by the `InputPredictor` type on your `Config` — see [Setup](setup.md#input-prediction).
 
 ### `SpectatorSession`
 
