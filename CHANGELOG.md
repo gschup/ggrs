@@ -4,6 +4,8 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ## Unreleased
 
+## 0.12.0
+
 ### Bug fixes
 - fix: `spectator_handles()` now returns only spectator handles; previously it incorrectly returned local + spectator handles due to a copy-paste bug (fixes [#105](https://github.com/gschup/ggrs/issues/105))
 - fix: `network_stats()` for spectator handles no longer panics — it was looking up the address in `player_reg.remotes` instead of `player_reg.spectators`
