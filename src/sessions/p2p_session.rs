@@ -527,9 +527,7 @@ impl<T: Config> P2PSession<T> {
     ) -> Result<(), GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             Some(PlayerType::Local) => {
-                let fills = self
-                    .sync_layer
-                    .set_frame_delay(player_handle, delay);
+                let fills = self.sync_layer.set_frame_delay(player_handle, delay);
 
                 // When delay increases, the InputQueue silently replicates the last input to fill
                 // the gap. Send those fill inputs to remote peers so they see consecutive frames.

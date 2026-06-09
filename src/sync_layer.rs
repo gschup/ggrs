@@ -219,7 +219,6 @@ impl<T: Config> SyncLayer<T> {
         self.input_queues[player_handle].set_frame_delay(delay)
     }
 
-
     pub(crate) fn reset_prediction(&mut self) {
         for i in 0..self.num_players {
             self.input_queues[i].reset_prediction();

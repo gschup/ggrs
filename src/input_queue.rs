@@ -71,10 +71,7 @@ impl<T: Config> InputQueue<T> {
     /// Changes the frame delay and returns any fill inputs that were implicitly added to bridge the
     /// gap. The caller is responsible for sending these to remote peers so they see consecutive
     /// frame numbers.
-    pub(crate) fn set_frame_delay(
-        &mut self,
-        delay: usize,
-    ) -> Vec<PlayerInput<T::Input>> {
+    pub(crate) fn set_frame_delay(&mut self, delay: usize) -> Vec<PlayerInput<T::Input>> {
         let old_delay = self.frame_delay;
         self.frame_delay = delay;
 
@@ -456,7 +453,10 @@ mod input_queue_tests {
 
         // The next sequential game frame (5) must still be accepted
         let result = queue.add_input(PlayerInput::new(5, TestInput { inp: 5 }));
-        assert_ne!(result, NULL_FRAME, "first input after delay increase should not be dropped");
+        assert_ne!(
+            result, NULL_FRAME,
+            "first input after delay increase should not be dropped"
+        );
     }
 
     #[test]
@@ -499,7 +499,10 @@ mod input_queue_tests {
                 accepted += 1;
             }
         }
-        assert!(accepted > 0, "at least some inputs after delay decrease should be accepted");
+        assert!(
+            accepted > 0,
+            "at least some inputs after delay decrease should be accepted"
+        );
     }
 
     #[test]
