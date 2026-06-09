@@ -4,6 +4,9 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ## Unreleased
 
+### Improvements
+- feat: `P2PSession::set_input_delay()` allows changing the input delay for a local player mid-session (closes [#106](https://github.com/gschup/ggrs/issues/106))
+
 ## 0.12.0
 
 ### Bug fixes

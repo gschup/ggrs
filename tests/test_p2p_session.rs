@@ -318,6 +318,59 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
     Ok(())
 }
 
+// ── set_input_delay ───────────────────────────────────────────────────────────
+
+#[test]
+#[serial]
+fn test_set_input_delay_mid_session() -> Result<(), GgrsError> {
+    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7779, 8889);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
+
+    for i in 0..10 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+        stub1.handle_requests(sess1.advance_frame().unwrap());
+        stub2.handle_requests(sess2.advance_frame().unwrap());
+    }
+
+    // increase delay mid-session
+    sess1.set_input_delay(0, 4).unwrap();
+    sess2.set_input_delay(1, 4).unwrap();
+
+    for i in 0..20 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+        stub1.handle_requests(sess1.advance_frame().unwrap());
+        stub2.handle_requests(sess2.advance_frame().unwrap());
+    }
+
+    // decrease delay mid-session
+    sess1.set_input_delay(0, 1).unwrap();
+    sess2.set_input_delay(1, 1).unwrap();
+
+    for i in 0..10 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+        stub1.handle_requests(sess1.advance_frame().unwrap());
+        stub2.handle_requests(sess2.advance_frame().unwrap());
+    }
+
+    // both sessions must agree on the game state after all the delay changes
+    assert_eq!(stub1.gs.frame, stub2.gs.frame);
+    assert_eq!(stub1.gs.state, stub2.gs.state);
+
+    Ok(())
+}
+
 // ── Builder validation ────────────────────────────────────────────────────────
 
 #[test]

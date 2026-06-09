@@ -511,6 +511,36 @@ impl<T: Config> P2PSession<T> {
         }
     }
 
+    /// Changes the input delay for a local player. This can be called at any point during a session.
+    ///
+    /// When decreasing delay, inputs that fall inside the now-removed frames are dropped.
+    /// When increasing delay, the last known input is replicated to fill the created gap.
+    ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if the handle does not refer to a local player.
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    pub fn set_input_delay(
+        &mut self,
+        player_handle: PlayerHandle,
+        delay: usize,
+    ) -> Result<(), GgrsError> {
+        match self.player_reg.handles.get(&player_handle) {
+            Some(PlayerType::Local) => {
+                self.sync_layer.set_frame_delay(player_handle, delay);
+                Ok(())
+            }
+            Some(PlayerType::Remote(_) | PlayerType::Spectator(_)) => {
+                Err(GgrsError::InvalidRequest {
+                    info: "Cannot set input delay for a remote player or spectator.".to_owned(),
+                })
+            }
+            None => Err(GgrsError::InvalidRequest {
+                info: "Invalid player handle.".to_owned(),
+            }),
+        }
+    }
+
     /// Returns a [`NetworkStats`] struct that gives information about the quality of the network connection.
     /// # Errors
     /// - Returns [`InvalidRequest`] if the handle is not referring to a remote player or spectator.
