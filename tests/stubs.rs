@@ -34,6 +34,12 @@ impl Config for StubConfig {
     type Address = SocketAddr;
 }
 
+impl Default for GameStub {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GameStub {
     #[allow(dead_code)]
     pub fn new() -> GameStub {
@@ -71,6 +77,12 @@ impl GameStub {
 pub struct RandomChecksumGameStub {
     pub gs: StateStub,
     rng: ThreadRng,
+}
+
+impl Default for RandomChecksumGameStub {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RandomChecksumGameStub {
@@ -113,6 +125,12 @@ impl RandomChecksumGameStub {
 /// The `advance_frame` logic only reads `inputs[0]`.
 pub struct GameStub1P {
     pub gs: StateStub,
+}
+
+impl Default for GameStub1P {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GameStub1P {
@@ -161,7 +179,7 @@ impl StateStub {
         let p0_inputs = inputs[0].0.inp;
         let p1_inputs = inputs[1].0.inp;
 
-        if (p0_inputs + p1_inputs) % 2 == 0 {
+        if (p0_inputs + p1_inputs).is_multiple_of(2) {
             self.state += 2;
         } else {
             self.state -= 1;

@@ -192,7 +192,7 @@ mod compression_tests {
             &[0x00, 0x01, 0x00],
         ];
         for &garbage in cases {
-            let rle_encoded = bitfield_rle::encode(garbage.to_vec());
+            let rle_encoded = bitfield_rle::encode(garbage);
             let _ = decode(&reference, &rle_encoded);
         }
     }

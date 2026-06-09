@@ -9,25 +9,25 @@ use stubs::{StubConfig, StubInput};
 #[test]
 #[serial]
 fn test_start_session() {
-    let socket = UdpNonBlockingSocket::bind_to_port(9999).unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7800).unwrap();
     let spec_sess =
-        SessionBuilder::<StubConfig>::new().start_spectator_session(stubs::localhost(7777), socket);
+        SessionBuilder::<StubConfig>::new().start_spectator_session(stubs::localhost(7801), socket);
     assert!(spec_sess.current_state() == SessionState::Synchronizing);
 }
 
 #[test]
 #[serial]
 fn test_synchronize_with_host() -> Result<(), GgrsError> {
-    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7802).unwrap();
     let mut host_sess = SessionBuilder::<StubConfig>::new()
         .with_num_players(1)?
         .add_player(PlayerType::Local, 0)?
-        .add_player(PlayerType::Spectator(stubs::localhost(8888)), 2)?
+        .add_player(PlayerType::Spectator(stubs::localhost(7803)), 2)?
         .start_p2p_session(socket1)?;
 
-    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let socket2 = UdpNonBlockingSocket::bind_to_port(7803).unwrap();
     let mut spec_sess = SessionBuilder::<StubConfig>::new()
-        .start_spectator_session(stubs::localhost(7777), socket2);
+        .start_spectator_session(stubs::localhost(7802), socket2);
 
     assert_eq!(spec_sess.current_state(), SessionState::Synchronizing);
     assert_eq!(host_sess.current_state(), SessionState::Synchronizing);
@@ -46,7 +46,7 @@ fn test_synchronize_with_host() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_spectator_observes_frames() -> Result<(), GgrsError> {
-    let (mut host_sess, mut spec_sess) = stubs::make_host_and_spectator(7777, 8888)?;
+    let (mut host_sess, mut spec_sess) = stubs::make_host_and_spectator(7804, 7805)?;
     let mut host_stub = stubs::GameStub1P::new();
     let mut spec_stub = stubs::GameStub1P::new();
 
@@ -83,8 +83,8 @@ fn test_spectator_catches_up_after_lag() -> Result<(), GgrsError> {
     let mut host_sess = SessionBuilder::<StubConfig>::new()
         .with_num_players(1)?
         .add_player(PlayerType::Local, 0)?
-        .add_player(PlayerType::Spectator(stubs::localhost(8888)), 1)?
-        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7777).unwrap())?;
+        .add_player(PlayerType::Spectator(stubs::localhost(7807)), 1)?
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7806).unwrap())?;
 
     // catchup_speed=2 frames per advance_frame call when more than max_frames_behind=4 frames behind
     let mut spec_sess = SessionBuilder::<StubConfig>::new()
@@ -92,8 +92,8 @@ fn test_spectator_catches_up_after_lag() -> Result<(), GgrsError> {
         .with_max_frames_behind(4)?
         .with_catchup_speed(2)?
         .start_spectator_session(
-            stubs::localhost(7777),
-            UdpNonBlockingSocket::bind_to_port(8888).unwrap(),
+            stubs::localhost(7806),
+            UdpNonBlockingSocket::bind_to_port(7807).unwrap(),
         );
 
     for _ in 0..50 {

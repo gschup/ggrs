@@ -7,16 +7,16 @@ use stubs_enum::{EnumInput, GameStubEnum, StubEnumConfig};
 #[test]
 #[serial]
 fn test_advance_frame_p2p_sessions_enum() -> Result<(), GgrsError> {
-    let addr1 = stubs_enum::localhost(7777);
-    let addr2 = stubs_enum::localhost(8888);
+    let addr1 = stubs_enum::localhost(7860);
+    let addr2 = stubs_enum::localhost(7861);
 
-    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7860).unwrap();
     let mut sess1 = SessionBuilder::<StubEnumConfig>::new()
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Remote(addr2), 1)?
         .start_p2p_session(socket1)?;
 
-    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let socket2 = UdpNonBlockingSocket::bind_to_port(7861).unwrap();
     let mut sess2 = SessionBuilder::<StubEnumConfig>::new()
         .add_player(PlayerType::Remote(addr1), 0)?
         .add_player(PlayerType::Local, 1)?
@@ -66,8 +66,8 @@ fn test_advance_frame_p2p_sessions_enum() -> Result<(), GgrsError> {
         stub2.handle_requests(requests2);
 
         // gamestate evolves
-        assert_eq!(stub1.gs.frame, i as i32 + 1);
-        assert_eq!(stub2.gs.frame, i as i32 + 1);
+        assert_eq!(stub1.gs.frame, i + 1);
+        assert_eq!(stub2.gs.frame, i + 1);
     }
 
     Ok(())

@@ -33,6 +33,12 @@ impl Config for StubEnumConfig {
     type Address = SocketAddr;
 }
 
+impl Default for GameStubEnum {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GameStubEnum {
     #[allow(dead_code)]
     pub fn new() -> GameStubEnum {

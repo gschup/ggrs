@@ -10,7 +10,7 @@ use stubs::{StubConfig, StubInput};
 #[test]
 #[serial]
 fn test_add_more_players() -> Result<(), GgrsError> {
-    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7700).unwrap();
     let remote_addr1 = stubs::localhost(8080);
     let remote_addr2 = stubs::localhost(8081);
     let remote_addr3 = stubs::localhost(8082);
@@ -30,7 +30,7 @@ fn test_add_more_players() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_start_session() -> Result<(), GgrsError> {
-    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7701).unwrap();
     let remote_addr = stubs::localhost(8080);
     let spec_addr = stubs::localhost(8090);
 
@@ -45,7 +45,7 @@ fn test_start_session() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_disconnect_player() -> Result<(), GgrsError> {
-    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7702).unwrap();
     let remote_addr = stubs::localhost(8080);
     let spec_addr = stubs::localhost(8090);
 
@@ -67,16 +67,16 @@ fn test_disconnect_player() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_synchronize_p2p_sessions() -> Result<(), GgrsError> {
-    let addr1 = stubs::localhost(7777);
-    let addr2 = stubs::localhost(8888);
+    let addr1 = stubs::localhost(7703);
+    let addr2 = stubs::localhost(7704);
 
-    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7703).unwrap();
     let mut sess1 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Remote(addr2), 1)?
         .start_p2p_session(socket1)?;
 
-    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let socket2 = UdpNonBlockingSocket::bind_to_port(7704).unwrap();
     let mut sess2 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Local, 1)?
         .add_player(PlayerType::Remote(addr1), 0)?
@@ -99,16 +99,16 @@ fn test_synchronize_p2p_sessions() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_advance_frame_p2p_sessions() -> Result<(), GgrsError> {
-    let addr1 = stubs::localhost(7777);
-    let addr2 = stubs::localhost(8888);
+    let addr1 = stubs::localhost(7705);
+    let addr2 = stubs::localhost(7706);
 
-    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7705).unwrap();
     let mut sess1 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Remote(addr2), 1)?
         .start_p2p_session(socket1)?;
 
-    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let socket2 = UdpNonBlockingSocket::bind_to_port(7706).unwrap();
     let mut sess2 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Remote(addr1), 0)?
         .add_player(PlayerType::Local, 1)?
@@ -150,18 +150,18 @@ fn test_advance_frame_p2p_sessions() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_desyncs_detected() -> Result<(), GgrsError> {
-    let addr1 = stubs::localhost(7777);
-    let addr2 = stubs::localhost(8888);
+    let addr1 = stubs::localhost(7707);
+    let addr2 = stubs::localhost(7708);
     let desync_mode = DesyncDetection::On { interval: 100 };
 
-    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7707).unwrap();
     let mut sess1 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Remote(addr2), 1)?
         .with_desync_detection_mode(desync_mode)
         .start_p2p_session(socket1)?;
 
-    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let socket2 = UdpNonBlockingSocket::bind_to_port(7708).unwrap();
     let mut sess2 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Remote(addr1), 0)?
         .add_player(PlayerType::Local, 1)?
@@ -176,10 +176,10 @@ fn test_desyncs_detected() -> Result<(), GgrsError> {
     }
 
     // drain events
-    assert!(sess1.events().chain(sess2.events()).all(|e| match e {
-        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. } => true,
-        _ => false,
-    }));
+    assert!(sess1.events().chain(sess2.events()).all(|e| matches!(
+        e,
+        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. }
+    )));
 
     let mut stub1 = stubs::GameStub::new();
     let mut stub2 = stubs::GameStub::new();
@@ -264,11 +264,11 @@ fn test_desyncs_detected() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
-    let addr1 = stubs::localhost(7777);
-    let addr2 = stubs::localhost(8888);
+    let addr1 = stubs::localhost(7709);
+    let addr2 = stubs::localhost(7710);
     let desync_mode = DesyncDetection::On { interval: 100 };
 
-    let socket1 = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7709).unwrap();
     let mut sess1 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Remote(addr2), 1)?
@@ -276,7 +276,7 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
         .with_desync_detection_mode(desync_mode)
         .start_p2p_session(socket1)?;
 
-    let socket2 = UdpNonBlockingSocket::bind_to_port(8888).unwrap();
+    let socket2 = UdpNonBlockingSocket::bind_to_port(7710).unwrap();
     let mut sess2 = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Remote(addr1), 0)?
         .add_player(PlayerType::Local, 1)?
@@ -292,10 +292,10 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
     }
 
     // drain events
-    assert!(sess1.events().chain(sess2.events()).all(|e| match e {
-        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. } => true,
-        _ => false,
-    }));
+    assert!(sess1.events().chain(sess2.events()).all(|e| matches!(
+        e,
+        GgrsEvent::Synchronizing { .. } | GgrsEvent::Synchronized { .. }
+    )));
 
     let mut stub1 = stubs::GameStub::new();
     let mut stub2 = stubs::GameStub::new();
@@ -410,7 +410,7 @@ fn test_builder_spectator_handle_below_num_players_errors() {
 #[test]
 #[serial]
 fn test_builder_missing_player_errors() {
-    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7713).unwrap();
     // num_players=2 but only player 0 registered
     let result = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Local, 0)
@@ -430,7 +430,7 @@ fn test_builder_fps_zero_errors() {
 #[test]
 #[serial]
 fn test_synchronizing_events_emitted() -> Result<(), GgrsError> {
-    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7777, 8888);
+    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7714, 7715);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     let events1: Vec<_> = sess1.events().collect();
@@ -455,7 +455,7 @@ fn test_synchronizing_events_emitted() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_network_stats_invalid_handles() -> Result<(), GgrsError> {
-    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7777, 8888);
+    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7716, 7717);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     // invalid handle → error
@@ -470,10 +470,10 @@ fn test_network_stats_invalid_handles() -> Result<(), GgrsError> {
 #[test]
 #[serial]
 fn test_network_stats_spectator_handle_does_not_panic() -> Result<(), GgrsError> {
-    let addr1 = stubs::localhost(7777);
-    let spec_addr = stubs::localhost(9999);
+    let addr1 = stubs::localhost(7718);
+    let spec_addr = stubs::localhost(7719);
 
-    let socket = UdpNonBlockingSocket::bind_to_port(7777).unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(7718).unwrap();
     let sess = SessionBuilder::<StubConfig>::new()
         .add_player(PlayerType::Local, 0)?
         .add_player(PlayerType::Remote(addr1), 1)?
@@ -490,7 +490,7 @@ fn test_network_stats_spectator_handle_does_not_panic() -> Result<(), GgrsError>
 #[test]
 #[serial]
 fn test_game_state_converges() -> Result<(), GgrsError> {
-    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7777, 8888);
+    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7720, 7721);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     let mut stub1 = stubs::GameStub::new();
@@ -521,7 +521,7 @@ fn test_game_state_converges() -> Result<(), GgrsError> {
 #[serial]
 fn test_desync_detection_off_by_default() -> Result<(), GgrsError> {
     // Sessions created without calling with_desync_detection_mode → Off by default
-    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7777, 8888);
+    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7722, 7723);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     // drain sync events
