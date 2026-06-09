@@ -371,6 +371,54 @@ fn test_set_input_delay_mid_session() -> Result<(), GgrsError> {
     Ok(())
 }
 
+#[test]
+#[serial]
+fn test_increase_input_delay_does_not_freeze() -> Result<(), GgrsError> {
+    // Regression test: increasing input delay mid-session used to cause advance_frame()
+    // to stop emitting AdvanceFrame requests, freezing the game.
+    let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7724, 7725);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
+
+    for i in 0..5 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+        stub1.handle_requests(sess1.advance_frame().unwrap());
+        stub2.handle_requests(sess2.advance_frame().unwrap());
+    }
+
+    let frame_before = stub1.gs.frame;
+
+    // Increase delay by 1 — this was the exact scenario that caused the freeze
+    sess1.set_input_delay(0, 1).unwrap();
+    sess2.set_input_delay(1, 1).unwrap();
+
+    for i in 0..10 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+        stub1.handle_requests(sess1.advance_frame().unwrap());
+        stub2.handle_requests(sess2.advance_frame().unwrap());
+    }
+
+    // Sessions must have advanced beyond the point where the delay was changed
+    assert!(
+        stub1.gs.frame > frame_before,
+        "session 1 froze after delay increase (frame stayed at {frame_before})"
+    );
+    assert!(
+        stub2.gs.frame > frame_before,
+        "session 2 froze after delay increase (frame stayed at {frame_before})"
+    );
+
+    Ok(())
+}
+
 // ── Builder validation ────────────────────────────────────────────────────────
 
 #[test]

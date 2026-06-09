@@ -22,6 +22,9 @@ where
 
     /// The last frame added by the user
     last_added_frame: Frame,
+    /// The last game frame submitted by the user (before frame delay is applied). Used to enforce
+    /// sequential submission independent of the current frame_delay value.
+    last_user_frame: Frame,
     /// The first frame in the queue that is known to be an incorrect prediction
     first_incorrect_frame: Frame,
     /// The last frame that has been requested. We make sure to never delete anything after this, as we would throw away important data.
@@ -53,6 +56,7 @@ impl<T: Config> InputQueue<T> {
             frame_delay: 0,
             first_frame: true,
             last_added_frame: NULL_FRAME,
+            last_user_frame: NULL_FRAME,
             first_incorrect_frame: NULL_FRAME,
             last_requested_frame: NULL_FRAME,
             prediction: PlayerInput::blank_input(NULL_FRAME),
@@ -64,8 +68,26 @@ impl<T: Config> InputQueue<T> {
         self.first_incorrect_frame
     }
 
-    pub(crate) fn set_frame_delay(&mut self, delay: usize) {
+    /// Changes the frame delay and returns any fill inputs that were implicitly added to bridge the
+    /// gap. The caller is responsible for sending these to remote peers so they see consecutive
+    /// frame numbers.
+    pub(crate) fn set_frame_delay(
+        &mut self,
+        delay: usize,
+    ) -> Vec<PlayerInput<T::Input>> {
+        let old_delay = self.frame_delay;
         self.frame_delay = delay;
+
+        if delay <= old_delay || self.last_added_frame == NULL_FRAME {
+            return Vec::new();
+        }
+
+        let fill_count = delay - old_delay;
+        let fill_start = self.last_added_frame + 1;
+        let last_input = self.inputs[Self::prev_pos(self.head)];
+        (0..fill_count as i32)
+            .map(|i| PlayerInput::new(fill_start + i, last_input.input))
+            .collect()
     }
 
     pub(crate) fn reset_prediction(&mut self) {
@@ -168,13 +190,14 @@ impl<T: Config> InputQueue<T> {
 
     /// Adds an input frame to the queue. Will consider the set frame delay.
     pub(crate) fn add_input(&mut self, input: PlayerInput<T::Input>) -> Frame {
-        // Verify that inputs are passed in sequentially by the user, regardless of frame delay.
-        if self.last_added_frame != NULL_FRAME
-            && input.frame + self.frame_delay as i32 != self.last_added_frame + 1
-        {
+        // Verify that inputs are passed in sequentially by the user. We compare against the raw
+        // user frame (before delay is applied) so that changing frame_delay mid-session does not
+        // break the sequential check.
+        if self.last_user_frame != NULL_FRAME && input.frame != self.last_user_frame + 1 {
             // drop the input if not given sequentially
             return NULL_FRAME;
         }
+        self.last_user_frame = input.frame;
 
         // Move the queue head to the correct point in preparation to input the frame into the queue.
         let new_frame = self.advance_queue_head(input.frame);
@@ -417,6 +440,66 @@ mod input_queue_tests {
         let len_before = queue.length;
         queue.discard_confirmed_frames(5);
         assert!(queue.length < len_before);
+    }
+
+    #[test]
+    fn test_increase_delay_mid_session_does_not_drop_next_input() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        // Add a few frames with no delay
+        for i in 0..5_i32 {
+            let result = queue.add_input(PlayerInput::new(i, TestInput { inp: i as u8 }));
+            assert_ne!(result, NULL_FRAME, "frame {i} should be accepted");
+        }
+
+        // Increase delay from 0 to 2
+        queue.set_frame_delay(2);
+
+        // The next sequential game frame (5) must still be accepted
+        let result = queue.add_input(PlayerInput::new(5, TestInput { inp: 5 }));
+        assert_ne!(result, NULL_FRAME, "first input after delay increase should not be dropped");
+    }
+
+    #[test]
+    fn test_increase_delay_fills_with_last_input() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        // Add frames 0-4 with no delay; the last submitted input has inp=4
+        for i in 0..5_i32 {
+            queue.add_input(PlayerInput::new(i, TestInput { inp: i as u8 }));
+        }
+
+        // Increase delay from 0 to 2; the fills should be stamped with the last known input
+        let fills = queue.set_frame_delay(2);
+
+        assert_eq!(fills.len(), 2);
+        // Both fill frames carry the last input value (inp=4)
+        assert!(fills.iter().all(|f| f.input.inp == 4));
+        // Frames are consecutive starting right after last_added_frame (4)
+        assert_eq!(fills[0].frame, 5);
+        assert_eq!(fills[1].frame, 6);
+    }
+
+    #[test]
+    fn test_decrease_delay_mid_session_continues_sequentially() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.set_frame_delay(3);
+        for i in 0..5_i32 {
+            let result = queue.add_input(PlayerInput::new(i, TestInput { inp: i as u8 }));
+            assert_ne!(result, NULL_FRAME, "frame {i} should be accepted");
+        }
+
+        // Decrease delay from 3 to 1
+        queue.set_frame_delay(1);
+
+        // Some inputs will be dropped (the ones that would land before last_added_frame),
+        // but eventually the queue accepts sequential inputs again
+        let mut accepted = 0;
+        for i in 5..10_i32 {
+            let result = queue.add_input(PlayerInput::new(i, TestInput { inp: i as u8 }));
+            if result != NULL_FRAME {
+                accepted += 1;
+            }
+        }
+        assert!(accepted > 0, "at least some inputs after delay decrease should be accepted");
     }
 
     #[test]

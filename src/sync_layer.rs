@@ -210,10 +210,15 @@ impl<T: Config> SyncLayer<T> {
         }
     }
 
-    pub(crate) fn set_frame_delay(&mut self, player_handle: PlayerHandle, delay: usize) {
+    pub(crate) fn set_frame_delay(
+        &mut self,
+        player_handle: PlayerHandle,
+        delay: usize,
+    ) -> Vec<PlayerInput<T::Input>> {
         assert!(player_handle < self.num_players as PlayerHandle);
-        self.input_queues[player_handle].set_frame_delay(delay);
+        self.input_queues[player_handle].set_frame_delay(delay)
     }
+
 
     pub(crate) fn reset_prediction(&mut self) {
         for i in 0..self.num_players {
