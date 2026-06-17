@@ -160,7 +160,8 @@ pub type PlayerHandle = usize;
 pub enum DesyncDetection {
     /// Desync detection is turned on with a specified interval rate given by the user.
     On {
-        /// interval rate given by the user. e.g. at 60hz an interval of 10 results to 6 reports a second.
+        /// Interval rate given by the user. Must be higher than 0.
+        /// For example, at 60hz an interval of 10 results in 6 reports a second.
         interval: u32,
     },
     /// Desync detection is turned off

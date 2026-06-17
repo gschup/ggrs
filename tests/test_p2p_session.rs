@@ -467,6 +467,56 @@ fn test_builder_fps_zero_errors() {
     assert!(result.is_err());
 }
 
+#[test]
+fn test_builder_num_players_revalidates_local_handles() {
+    let result = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Local, 1)
+        .unwrap()
+        .with_num_players(1);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_builder_num_players_revalidates_spectator_handles() {
+    let spec_addr = stubs::localhost(9001);
+    let result = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Spectator(spec_addr), 2)
+        .unwrap()
+        .with_num_players(3);
+    assert!(result.is_err());
+}
+
+#[test]
+#[serial]
+fn test_builder_desync_detection_interval_zero_errors() -> Result<(), GgrsError> {
+    let socket = UdpNonBlockingSocket::bind_to_port(7730).unwrap();
+    let result = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .with_desync_detection_mode(DesyncDetection::On { interval: 0 })
+        .add_player(PlayerType::Local, 0)?
+        .start_p2p_session(socket);
+    assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn test_builder_max_frames_behind_is_independent_of_catchup_speed() {
+    let result = SessionBuilder::<StubConfig>::new()
+        .with_catchup_speed(5)
+        .unwrap()
+        .with_max_frames_behind(5);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_builder_catchup_speed_can_exceed_max_frames_behind() {
+    let result = SessionBuilder::<StubConfig>::new()
+        .with_max_frames_behind(4)
+        .unwrap()
+        .with_catchup_speed(10);
+    assert!(result.is_ok());
+}
+
 // ── Session behaviour ─────────────────────────────────────────────────────────
 
 #[test]
