@@ -162,12 +162,7 @@ fn test_desyncs_detected() -> Result<(), GgrsError> {
         .with_desync_detection_mode(desync_mode)
         .start_p2p_session(socket2)?;
 
-    while sess1.current_state() != SessionState::Running
-        && sess2.current_state() != SessionState::Running
-    {
-        sess1.poll_remote_clients();
-        sess2.poll_remote_clients();
-    }
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     // drain events
     assert!(sess1.events().chain(sess2.events()).all(|e| matches!(
@@ -278,12 +273,7 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
         .with_desync_detection_mode(desync_mode)
         .start_p2p_session(socket2)?;
 
-    while sess1.current_state() != SessionState::Running
-        && sess2.current_state() != SessionState::Running
-    {
-        sess1.poll_remote_clients();
-        sess2.poll_remote_clients();
-    }
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     // drain events
     assert!(sess1.events().chain(sess2.events()).all(|e| matches!(
