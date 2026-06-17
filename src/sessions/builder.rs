@@ -20,7 +20,7 @@ const DEFAULT_DISCONNECT_NOTIFY_START: Duration = Duration::from_millis(500);
 const DEFAULT_FPS: usize = 60;
 const DEFAULT_MAX_PREDICTION_FRAMES: usize = 8;
 const DEFAULT_CHECK_DISTANCE: usize = 2;
-// If the spectator is more than this amount of frames behind, it will advance the game two steps at a time to catch up
+// If the spectator is more than this amount of frames behind, it will use catch-up speed.
 const DEFAULT_MAX_FRAMES_BEHIND: usize = 10;
 // The amount of frames the spectator advances in a single step if too far behind
 const DEFAULT_CATCHUP_SPEED: usize = 1;
@@ -80,7 +80,7 @@ impl<T: Config> SessionBuilder<T> {
     }
 
     /// Must be called for each player in the session (e.g. in a 3 player session, must be called 3 times) before starting the session.
-    /// Player handles for players should be between 0 and `num_players`, spectator handles should be higher than `num_players`.
+    /// Local and remote player handles must be in `0..num_players`, while spectator handles must be `>= num_players`.
     /// Later, you will need the player handle to add input, change parameters or disconnect the player or spectator.
     ///
     /// # Errors
@@ -211,8 +211,8 @@ impl<T: Config> SessionBuilder<T> {
         self
     }
 
-    /// Sets the desync detection mode. With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
-    /// If a desync is found the session will send a DesyncDetected event.
+    /// Sets the desync detection mode. With desync detection, the session compares checksums for all peers to detect desyncs.
+    /// If a desync is found, the session sends a `DesyncDetected` event. `DesyncDetection::On` requires an interval higher than 0 when starting a P2P session.
     pub fn with_desync_detection_mode(mut self, desync_detection: DesyncDetection) -> Self {
         self.desync_detection = desync_detection;
         self
@@ -264,8 +264,8 @@ impl<T: Config> SessionBuilder<T> {
         self
     }
 
-    /// Sets the maximum frames behind. If the spectator is more than this amount of frames behind the received inputs,
-    /// it will catch up with `catchup_speed` amount of frames per step.
+    /// Sets the spectator catch-up threshold. If the spectator is more than this amount of frames behind the received inputs,
+    /// it will advance up to `catchup_speed` frames per step.
     ///
     /// # Errors
     /// - Returns [`InvalidRequest`] if `max_frames_behind` is 0 or `>= SPECTATOR_BUFFER_SIZE`.
@@ -289,8 +289,9 @@ impl<T: Config> SessionBuilder<T> {
         Ok(self)
     }
 
-    /// Sets the catchup speed. Per default, this is set to 1, so the spectator never catches up.
-    /// If you want the spectator to catch up to the host if `max_frames_behind` is surpassed, set this to a value higher than 1.
+    /// Sets the spectator catch-up speed. By default, this is set to 1, so the spectator never catches up faster than normal.
+    /// If you want the spectator to catch up to the host once `max_frames_behind` is surpassed, set this to a value higher than 1.
+    /// The actual number of frames advanced is capped by the number of confirmed frames available from the host.
     ///
     /// # Errors
     /// - Returns [`InvalidRequest`] if `catchup_speed` is 0.

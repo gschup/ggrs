@@ -6,7 +6,7 @@ Add GGRS to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ggrs = "0.11"
+ggrs = "0.12"
 ```
 
 ## Feature Flags
