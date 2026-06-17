@@ -21,6 +21,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ### Tests
 - tests: stabilized P2P and spectator session tests on macOS by replacing fixed busy-wait loops with deadline-based polling
+- tests: desync integration tests now wait until both P2P sessions are running before advancing frames, avoiding intermittent `NotSynchronized` failures
 
 ## 0.12.0
 
