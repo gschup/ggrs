@@ -686,19 +686,6 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
 
-        let expected_next_frame = if self.last_recv_frame() == NULL_FRAME {
-            0
-        } else {
-            self.last_recv_frame() + 1
-        };
-        if body.start_frame > expected_next_frame {
-            warn!(
-                "Discarding input packet starting at frame {}; expected at most {}",
-                body.start_frame, expected_next_frame
-            );
-            return;
-        }
-
         // drop pending outputs until the ack frame
         self.pop_pending_output(body.ack_frame);
 
@@ -906,7 +893,7 @@ mod protocol_tests {
     }
 
     #[test]
-    fn input_packet_with_future_gap_is_dropped() {
+    fn input_packet_without_reference_frame_is_ignored() {
         let mut protocol = running_protocol(vec![0], 2);
         let frame_zero = bincode::serialize(&TestInput { inp: 7 }).unwrap();
         protocol.recv_inputs.insert(

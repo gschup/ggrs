@@ -8,7 +8,8 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - breaking: `NetworkStats::kbps_sent` has been removed; `network_stats()` now reports queue length, RTT, and frame-advantage data only
 
 ### Bug fixes
-- fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, frame gaps, compressed payloads, or decoded player input shapes are invalid
+- fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, compressed payloads, or decoded player input shapes are invalid
+- fix: input packets with a start frame ahead of the last received frame are no longer rejected; the gap check was incorrectly blocking the first packet from a peer using input delay, freezing the session
 - fix: increasing input delay mid-session now sends generated gap-fill inputs to remote peers, preventing sessions from freezing after the delay change
 - fix: input delay changes now work when multiple local players share one endpoint; outgoing local inputs are queued by effective frame until every local player has input for that frame
 - fix: `SessionBuilder::with_num_players()` now revalidates already-registered handles, so changing the player count after adding players cannot leave invalid local, remote, or spectator handles in the builder
