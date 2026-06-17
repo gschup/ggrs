@@ -647,6 +647,10 @@ impl<T: Config> P2PSession<T> {
         input: PlayerInput<T::Input>,
     ) {
         assert_ne!(input.frame, NULL_FRAME);
+        // No remote peers means no one to send to; skip queuing to prevent unbounded growth.
+        if self.player_reg.remotes.is_empty() {
+            return;
+        }
         self.outgoing_local_inputs
             .entry(input.frame)
             .or_default()
