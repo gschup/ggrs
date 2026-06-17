@@ -192,8 +192,8 @@ impl StateStub {
 
 // ── Shared session helpers ────────────────────────────────────────────────────
 
-const SYNC_TIMEOUT: Duration = Duration::from_secs(2);
-const SYNC_POLL_INTERVAL: Duration = Duration::from_millis(5);
+pub const SYNC_TIMEOUT: Duration = Duration::from_secs(2);
+pub const SYNC_POLL_INTERVAL: Duration = Duration::from_millis(5);
 
 /// Shorthand for a loopback `SocketAddr` on the given port.
 #[allow(dead_code)]
@@ -226,7 +226,7 @@ pub fn make_p2p_sessions(
 
 /// Poll both sessions until they reach `Running` state or the sync timeout expires.
 #[allow(dead_code)]
-pub fn sync_p2p_sessions(s1: &mut P2PSession<StubConfig>, s2: &mut P2PSession<StubConfig>) {
+pub fn sync_p2p_sessions<C: Config>(s1: &mut P2PSession<C>, s2: &mut P2PSession<C>) {
     let deadline = Instant::now() + SYNC_TIMEOUT;
     while Instant::now() < deadline {
         s1.poll_remote_clients();

@@ -1,29 +1,9 @@
+mod stubs;
 mod stubs_enum;
 
-use ggrs::{GgrsError, P2PSession, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
+use ggrs::{GgrsError, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket};
 use serial_test::serial;
-use std::thread;
-use std::time::{Duration, Instant};
 use stubs_enum::{EnumInput, GameStubEnum, StubEnumConfig};
-
-const SYNC_TIMEOUT: Duration = Duration::from_secs(2);
-const SYNC_POLL_INTERVAL: Duration = Duration::from_millis(5);
-
-fn sync_p2p_sessions(s1: &mut P2PSession<StubEnumConfig>, s2: &mut P2PSession<StubEnumConfig>) {
-    let deadline = Instant::now() + SYNC_TIMEOUT;
-    while Instant::now() < deadline {
-        s1.poll_remote_clients();
-        s2.poll_remote_clients();
-        if s1.current_state() == SessionState::Running
-            && s2.current_state() == SessionState::Running
-        {
-            return;
-        }
-        thread::sleep(SYNC_POLL_INTERVAL);
-    }
-    assert!(s1.current_state() == SessionState::Running);
-    assert!(s2.current_state() == SessionState::Running);
-}
 
 #[test]
 #[serial]
@@ -46,7 +26,7 @@ fn test_advance_frame_p2p_sessions_enum() -> Result<(), GgrsError> {
     assert!(sess1.current_state() == SessionState::Synchronizing);
     assert!(sess2.current_state() == SessionState::Synchronizing);
 
-    sync_p2p_sessions(&mut sess1, &mut sess2);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     assert!(sess1.current_state() == SessionState::Running);
     assert!(sess2.current_state() == SessionState::Running);
