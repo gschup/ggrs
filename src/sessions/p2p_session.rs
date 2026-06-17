@@ -13,8 +13,8 @@ use crate::{
 use tracing::{debug, trace, warn};
 
 use std::collections::vec_deque::Drain;
-use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::collections::{BTreeMap, HashMap};
 use std::convert::TryInto;
 
 const RECOMMENDATION_INTERVAL: Frame = 60;
@@ -143,8 +143,12 @@ where
 
     /// Contains all events to be forwarded to the user.
     event_queue: VecDeque<GgrsEvent<T>>,
-    /// Contains all local inputs not yet sent into the system. This should have inputs for every local player before calling advance_frame
-    local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
+    /// User-submitted inputs for the current session frame. This should have inputs for every local player before calling advance_frame.
+    pending_local_inputs: HashMap<PlayerHandle, PlayerInput<T::Input>>,
+    /// Delayed/effective local inputs accepted by the sync layer but not yet handed to the UDP endpoints.
+    outgoing_local_inputs: BTreeMap<Frame, HashMap<PlayerHandle, PlayerInput<T::Input>>>,
+    /// The newest complete outgoing local-input frame handed to the UDP endpoints.
+    last_sent_outgoing_input_frame: Frame,
 
     /// With desync detection, the session will compare checksums for all peers to detect discrepancies / desyncs between peers
     desync_detection: DesyncDetection,
@@ -214,7 +218,9 @@ impl<T: Config> P2PSession<T> {
             disconnect_frame: NULL_FRAME,
             player_reg: players,
             event_queue: VecDeque::new(),
-            local_inputs: HashMap::new(),
+            pending_local_inputs: HashMap::new(),
+            outgoing_local_inputs: BTreeMap::new(),
+            last_sent_outgoing_input_frame: NULL_FRAME,
             desync_detection,
             local_checksum_history: HashMap::new(),
             last_sent_checksum_frame: NULL_FRAME,
@@ -246,7 +252,8 @@ impl<T: Config> P2PSession<T> {
             });
         }
         let player_input = PlayerInput::<T::Input>::new(self.sync_layer.current_frame(), input);
-        self.local_inputs.insert(player_handle, player_input);
+        self.pending_local_inputs
+            .insert(player_handle, player_input);
         Ok(())
     }
 
@@ -273,7 +280,7 @@ impl<T: Config> P2PSession<T> {
 
         // check if input for all local players is queued
         for handle in self.player_reg.local_player_handles() {
-            if !self.local_inputs.contains_key(&handle) {
+            if !self.pending_local_inputs.contains_key(&handle) {
                 return Err(GgrsError::InvalidRequest {
                     info: format!(
                         "Missing local input for handle {handle} while calling advance_frame()."
@@ -368,26 +375,24 @@ impl<T: Config> P2PSession<T> {
         // register local inputs in the system and send them
         for handle in self.player_reg.local_player_handles() {
             // we have checked that these all exist
-            let player_input = self
-                .local_inputs
-                .get_mut(&handle)
-                .expect("Missing local input while calling advance_frame().");
-            // send the input into the sync layer
-            let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
-            player_input.frame = actual_frame;
+            let queued_input = {
+                let player_input = self
+                    .pending_local_inputs
+                    .get_mut(&handle)
+                    .expect("Missing local input while calling advance_frame().");
+                // send the input into the sync layer
+                let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
+                player_input.frame = actual_frame;
+                *player_input
+            };
             // if the input has not been dropped
-            if actual_frame != NULL_FRAME {
-                self.local_connect_status[handle].last_frame = actual_frame;
+            if queued_input.frame != NULL_FRAME {
+                self.local_connect_status[handle].last_frame = queued_input.frame;
+                self.queue_outgoing_local_input(handle, queued_input);
             }
         }
 
-        // if the local inputs have not been dropped by the sync layer, send to all remote clients
-        if !self.local_inputs.values().any(|&i| i.frame == NULL_FRAME) {
-            for endpoint in self.player_reg.remotes.values_mut() {
-                endpoint.send_input(&self.local_inputs, &self.local_connect_status);
-                endpoint.send_all_messages(&mut self.socket);
-            }
-        }
+        self.send_ready_outgoing_inputs_to_remotes();
 
         /*
          * ADVANCE THE STATE
@@ -416,7 +421,7 @@ impl<T: Config> P2PSession<T> {
             // advance the frame count
             self.sync_layer.advance_frame();
             // clear the local inputs after advancing the frame to allow new inputs to be ingested
-            self.local_inputs.clear();
+            self.pending_local_inputs.clear();
             requests.push(GgrsRequest::AdvanceFrame { inputs });
         } else {
             debug!(
@@ -532,15 +537,12 @@ impl<T: Config> P2PSession<T> {
                 // When delay increases, the InputQueue silently replicates the last input to fill
                 // the gap. Send those fill inputs to remote peers so they see consecutive frames.
                 for fill_input in fills {
-                    let mut inputs_for_send = HashMap::new();
-                    inputs_for_send.insert(player_handle, fill_input);
                     if fill_input.frame != NULL_FRAME {
                         self.local_connect_status[player_handle].last_frame = fill_input.frame;
-                    }
-                    for endpoint in self.player_reg.remotes.values_mut() {
-                        endpoint.send_input(&inputs_for_send, &self.local_connect_status);
+                        self.queue_outgoing_local_input(player_handle, fill_input);
                     }
                 }
+                self.send_ready_outgoing_inputs_to_remotes();
 
                 Ok(())
             }
@@ -637,6 +639,61 @@ impl<T: Config> P2PSession<T> {
     /// Return the number of spectators currently registered
     pub fn num_spectators(&self) -> usize {
         self.player_reg.num_spectators()
+    }
+
+    fn queue_outgoing_local_input(
+        &mut self,
+        player_handle: PlayerHandle,
+        input: PlayerInput<T::Input>,
+    ) {
+        assert_ne!(input.frame, NULL_FRAME);
+        self.outgoing_local_inputs
+            .entry(input.frame)
+            .or_default()
+            .insert(player_handle, input);
+    }
+
+    fn send_ready_outgoing_inputs_to_remotes(&mut self) {
+        if self.player_reg.remotes.is_empty() {
+            return;
+        }
+
+        let local_handles = self.player_reg.local_player_handles();
+        if local_handles.is_empty() {
+            return;
+        }
+
+        while let Some(frame_to_send) = self.next_complete_outgoing_input_frame(&local_handles) {
+            let inputs = self
+                .outgoing_local_inputs
+                .remove(&frame_to_send)
+                .expect("complete outgoing input frame should still be queued");
+
+            for endpoint in self.player_reg.remotes.values_mut() {
+                endpoint.send_input(&inputs, &self.local_connect_status);
+                endpoint.send_all_messages(&mut self.socket);
+            }
+
+            self.last_sent_outgoing_input_frame = frame_to_send;
+        }
+    }
+
+    fn next_complete_outgoing_input_frame(&self, local_handles: &[PlayerHandle]) -> Option<Frame> {
+        let next_frame = if self.last_sent_outgoing_input_frame == NULL_FRAME {
+            *self.outgoing_local_inputs.keys().next()?
+        } else {
+            self.last_sent_outgoing_input_frame + 1
+        };
+
+        let inputs = self.outgoing_local_inputs.get(&next_frame)?;
+        if local_handles
+            .iter()
+            .all(|handle| inputs.contains_key(handle))
+        {
+            Some(next_frame)
+        } else {
+            None
+        }
     }
 
     /// Returns the handles of local players that have been added

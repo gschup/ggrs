@@ -413,6 +413,69 @@ fn test_increase_input_delay_does_not_freeze() -> Result<(), GgrsError> {
     Ok(())
 }
 
+#[test]
+#[serial]
+fn test_input_delay_change_with_multiple_local_players() -> Result<(), GgrsError> {
+    let addr1 = stubs::localhost(7726);
+    let addr2 = stubs::localhost(7727);
+
+    let mut sess1 = SessionBuilder::<StubConfig>::new()
+        .with_num_players(3)?
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Local, 1)?
+        .add_player(PlayerType::Remote(addr2), 2)?
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7726).unwrap())?;
+
+    let mut sess2 = SessionBuilder::<StubConfig>::new()
+        .with_num_players(3)?
+        .add_player(PlayerType::Remote(addr1), 0)?
+        .add_player(PlayerType::Remote(addr1), 1)?
+        .add_player(PlayerType::Local, 2)?
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7727).unwrap())?;
+
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
+
+    for i in 0..5 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess1.add_local_input(1, StubInput { inp: i + 10 }).unwrap();
+        sess2.add_local_input(2, StubInput { inp: i }).unwrap();
+
+        stub1.handle_requests(sess1.advance_frame().unwrap());
+        stub2.handle_requests(sess2.advance_frame().unwrap());
+    }
+
+    let frame_before = stub1.gs.frame;
+
+    sess1.set_input_delay(0, 2).unwrap();
+
+    for i in 5..25 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess1.add_local_input(1, StubInput { inp: i + 10 }).unwrap();
+        sess2.add_local_input(2, StubInput { inp: i }).unwrap();
+
+        stub1.handle_requests(sess1.advance_frame().unwrap());
+        stub2.handle_requests(sess2.advance_frame().unwrap());
+    }
+
+    assert!(
+        stub1.gs.frame > frame_before,
+        "session with multiple local players froze after delay increase"
+    );
+    assert_eq!(stub1.gs.frame, stub2.gs.frame);
+    assert_eq!(stub1.gs.state, stub2.gs.state);
+
+    Ok(())
+}
+
 // ── Builder validation ────────────────────────────────────────────────────────
 
 #[test]
