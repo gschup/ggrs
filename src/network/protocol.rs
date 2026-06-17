@@ -18,7 +18,6 @@ use std::ops::Add;
 
 use super::network_stats::NetworkStats;
 
-const UDP_HEADER_SIZE: usize = 28; // Size of IP + UDP headers
 const NUM_SYNC_PACKETS: u32 = 5;
 const UDP_SHUTDOWN_TIMER: u64 = 5000;
 const PENDING_OUTPUT_SIZE: usize = 128;
@@ -34,7 +33,7 @@ const RUNNING_RETRY_INTERVAL: Duration = Duration::from_millis(200);
 /// Must be well below `disconnect_timeout` (default 2 s).
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 /// How often to send a quality/ping report to the remote.
-/// Drives the rolling RTT and bandwidth estimates exposed by `network_stats()`;
+/// Drives the rolling RTT and frame-advantage estimates exposed by `network_stats()`;
 /// at 200 ms this gives ~5 stat updates per second.
 const QUALITY_REPORT_INTERVAL: Duration = Duration::from_millis(200);
 /// Number of old checksums to keep in memory
@@ -197,8 +196,6 @@ where
 
     // network
     stats_start_time: u128,
-    packets_sent: usize,
-    bytes_sent: usize,
     round_trip_time: u128,
     last_send_time: Instant,
     last_sync_request_time: Instant,
@@ -286,8 +283,6 @@ impl<T: Config> UdpProtocol<T> {
 
             // network
             stats_start_time: 0,
-            packets_sent: 0,
-            bytes_sent: 0,
             round_trip_time: 0,
             last_send_time: Instant::now(),
             last_sync_request_time: Instant::now(),
@@ -321,14 +316,9 @@ impl<T: Config> UdpProtocol<T> {
             return Err(GgrsError::NotEnoughData);
         }
 
-        let total_bytes_sent = self.bytes_sent + (self.packets_sent * UDP_HEADER_SIZE);
-        let bps = total_bytes_sent / seconds as usize;
-        //let upd_overhead = (self.packets_sent * UDP_HEADER_SIZE) / self.bytes_sent;
-
         Ok(NetworkStats {
             ping: self.round_trip_time,
             send_queue_len: self.pending_output.len(),
-            kbps_sent: bps / 1024,
             local_frames_behind: self.local_frame_advantage,
             remote_frames_behind: self.remote_frame_advantage,
         })
@@ -476,7 +466,8 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
 
-        trace!("Sending {} messages over socket", self.send_queue.len());
+        let num_messages = self.send_queue.len();
+        trace!("Sending {num_messages} messages over socket");
         for msg in self.send_queue.drain(..) {
             socket.send_to(&msg, &self.peer_addr);
         }
@@ -590,9 +581,7 @@ impl<T: Config> UdpProtocol<T> {
         let header = MessageHeader { magic: self.magic };
         let msg = Message { header, body };
 
-        self.packets_sent += 1;
         self.last_send_time = Instant::now();
-        self.bytes_sent += std::mem::size_of_val(&msg);
 
         // add the packet to the back of the send queue
         self.send_queue.push_back(msg);
