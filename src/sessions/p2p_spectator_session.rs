@@ -127,7 +127,9 @@ impl<T: Config> SpectatorSession<T> {
 
         let frames_behind = self.frames_behind_host();
         let frames_to_advance = if frames_behind > self.max_frames_behind {
-            self.catchup_speed.min(frames_behind)
+            self.catchup_speed
+                .min(frames_behind)
+                .min(SPECTATOR_BUFFER_SIZE - 1)
         } else {
             NORMAL_SPEED
         };
