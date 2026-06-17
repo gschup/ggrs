@@ -95,19 +95,31 @@ impl InputBytes {
         Self { frame, bytes }
     }
 
-    fn to_player_inputs<T: Config>(&self, num_players: usize) -> Vec<PlayerInput<T::Input>> {
+    fn to_player_inputs<T: Config>(
+        &self,
+        num_players: usize,
+    ) -> Result<Vec<PlayerInput<T::Input>>, String> {
+        if num_players == 0 {
+            return Err("packet has no player inputs to decode".to_owned());
+        }
+        if !self.bytes.len().is_multiple_of(num_players) {
+            return Err(format!(
+                "input byte length {} is not divisible by player count {num_players}",
+                self.bytes.len()
+            ));
+        }
+
         let mut player_inputs = Vec::new();
-        assert!(self.bytes.len().is_multiple_of(num_players));
         let size = self.bytes.len() / num_players;
         for p in 0..num_players {
             let start = p * size;
             let end = start + size;
             let player_byte_slice = &self.bytes[start..end];
-            let input: T::Input =
-                bincode::deserialize(player_byte_slice).expect("input deserialization failed");
+            let input: T::Input = bincode::deserialize(player_byte_slice)
+                .map_err(|e| format!("failed to deserialize input for player {p}: {e}"))?;
             player_inputs.push(PlayerInput::new(self.frame, input));
         }
-        player_inputs
+        Ok(player_inputs)
     }
 }
 
@@ -668,6 +680,36 @@ impl<T: Config> UdpProtocol<T> {
     }
 
     fn on_input(&mut self, body: &Input) {
+        if !body.disconnect_requested && body.peer_connect_status.len() != self.num_players {
+            warn!(
+                "Discarding input packet with {} connection statuses; expected {}",
+                body.peer_connect_status.len(),
+                self.num_players
+            );
+            return;
+        }
+
+        if body.start_frame < 0 {
+            warn!(
+                "Discarding input packet with invalid start frame {}",
+                body.start_frame
+            );
+            return;
+        }
+
+        let expected_next_frame = if self.last_recv_frame() == NULL_FRAME {
+            0
+        } else {
+            self.last_recv_frame() + 1
+        };
+        if body.start_frame > expected_next_frame {
+            warn!(
+                "Discarding input packet starting at frame {}; expected at most {}",
+                body.start_frame, expected_next_frame
+            );
+            return;
+        }
+
         // drop pending outputs until the ack frame
         self.pop_pending_output(body.ack_frame);
 
@@ -689,11 +731,6 @@ impl<T: Config> UdpProtocol<T> {
                 );
             }
         }
-
-        // if the encoded packet is decoded with an input we did not receive yet, we cannot recover
-        assert!(
-            self.last_recv_frame() == NULL_FRAME || self.last_recv_frame() + 1 >= body.start_frame
-        );
 
         // if we did not receive any input yet, we decode with the blank input,
         // otherwise we use the input previous to the start of the encoded inputs
@@ -727,7 +764,13 @@ impl<T: Config> UdpProtocol<T> {
                     bytes: inp,
                 };
                 // send the input to the session
-                let player_inputs = input_data.to_player_inputs::<T>(self.handles.len());
+                let player_inputs = match input_data.to_player_inputs::<T>(self.handles.len()) {
+                    Ok(inputs) => inputs,
+                    Err(e) => {
+                        warn!("Discarding input packet for frame {inp_frame}: {e}");
+                        return;
+                    }
+                };
                 self.recv_inputs.insert(input_data.frame, input_data);
 
                 for (i, player_input) in player_inputs.into_iter().enumerate() {
@@ -804,5 +847,122 @@ impl<T: Config> UdpProtocol<T> {
             checksum,
         };
         self.queue_message(MessageBody::ChecksumReport(body));
+    }
+}
+
+#[cfg(test)]
+mod protocol_tests {
+    use super::*;
+    use crate::network::compression::encode;
+    use crate::PredictRepeatLast;
+    use serde::{Deserialize, Serialize};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
+    struct TestInput {
+        inp: u8,
+    }
+
+    struct TestConfig;
+
+    impl Config for TestConfig {
+        type Input = TestInput;
+        type InputPredictor = PredictRepeatLast;
+        type State = ();
+        type Address = SocketAddr;
+    }
+
+    fn localhost(port: u16) -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)
+    }
+
+    fn running_protocol(handles: Vec<PlayerHandle>, num_players: usize) -> UdpProtocol<TestConfig> {
+        let mut protocol = UdpProtocol::new(
+            handles,
+            localhost(9000),
+            num_players,
+            1,
+            8,
+            Duration::from_millis(2000),
+            Duration::from_millis(500),
+            60,
+            DesyncDetection::Off,
+        );
+        protocol.state = ProtocolState::Running;
+        protocol
+    }
+
+    fn input_message(body: Input) -> Message {
+        Message {
+            header: MessageHeader { magic: 0 },
+            body: MessageBody::Input(body),
+        }
+    }
+
+    #[test]
+    fn input_packet_with_short_connection_status_is_dropped() {
+        let mut protocol = running_protocol(vec![0], 2);
+        let msg = input_message(Input {
+            peer_connect_status: Vec::new(),
+            disconnect_requested: false,
+            start_frame: 0,
+            ack_frame: NULL_FRAME,
+            bytes: Vec::new(),
+        });
+
+        protocol.handle_message(&msg);
+
+        assert_eq!(protocol.last_recv_frame(), NULL_FRAME);
+        assert!(protocol.event_queue.is_empty());
+    }
+
+    #[test]
+    fn input_packet_with_future_gap_is_dropped() {
+        let mut protocol = running_protocol(vec![0], 2);
+        let frame_zero = bincode::serialize(&TestInput { inp: 7 }).unwrap();
+        protocol.recv_inputs.insert(
+            0,
+            InputBytes {
+                frame: 0,
+                bytes: frame_zero,
+            },
+        );
+        let msg = input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 2],
+            disconnect_requested: false,
+            start_frame: 2,
+            ack_frame: NULL_FRAME,
+            bytes: Vec::new(),
+        });
+
+        protocol.handle_message(&msg);
+
+        assert!(!protocol.recv_inputs.contains_key(&2));
+        assert!(protocol.event_queue.is_empty());
+    }
+
+    #[test]
+    fn input_packet_with_wrong_player_byte_shape_is_dropped() {
+        let mut protocol = running_protocol(vec![0, 1], 2);
+        let reference = protocol
+            .recv_inputs
+            .get(&NULL_FRAME)
+            .expect("blank reference input should exist")
+            .bytes
+            .clone();
+        let decoded_inputs = [vec![1_u8]];
+        let encoded = encode(&reference, decoded_inputs.iter());
+        let msg = input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 2],
+            disconnect_requested: false,
+            start_frame: 0,
+            ack_frame: NULL_FRAME,
+            bytes: encoded,
+        });
+
+        protocol.handle_message(&msg);
+
+        assert_eq!(protocol.last_recv_frame(), NULL_FRAME);
+        assert!(protocol.event_queue.is_empty());
     }
 }
