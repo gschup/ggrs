@@ -199,11 +199,11 @@ fn test_spectator_caps_catchup_speed_to_available_frames() -> Result<(), GgrsErr
         .filter(|r| matches!(r, GgrsRequest::AdvanceFrame { .. }))
         .count();
 
-    assert!(advance_count >= frames_available);
-    assert!(advance_count <= 10);
+    let expected_advance = frames_available.min(10);
+    assert_eq!(advance_count, expected_advance);
     spec_stub.handle_requests(requests);
     assert_eq!(spec_stub.gs.frame, advance_count as i32);
-    assert_eq!(spec_sess.frames_behind_host(), 0);
+    assert_eq!(spec_sess.frames_behind_host(), frames_available - expected_advance);
 
     Ok(())
 }
