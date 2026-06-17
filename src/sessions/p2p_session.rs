@@ -683,12 +683,22 @@ impl<T: Config> P2PSession<T> {
     }
 
     fn next_complete_outgoing_input_frame(&self, local_handles: &[PlayerHandle]) -> Option<Frame> {
-        let next_frame = if self.last_sent_outgoing_input_frame == NULL_FRAME {
-            *self.outgoing_local_inputs.keys().next()?
-        } else {
-            self.last_sent_outgoing_input_frame + 1
-        };
+        if self.last_sent_outgoing_input_frame == NULL_FRAME {
+            // Nothing sent yet: find the first frame that has inputs from all local players.
+            // We scan rather than assuming the first key is complete, because players with
+            // different input delays may leave earlier frame slots incomplete.
+            return self
+                .outgoing_local_inputs
+                .iter()
+                .find(|(_, inputs)| {
+                    local_handles
+                        .iter()
+                        .all(|handle| inputs.contains_key(handle))
+                })
+                .map(|(&frame, _)| frame);
+        }
 
+        let next_frame = self.last_sent_outgoing_input_frame + 1;
         let inputs = self.outgoing_local_inputs.get(&next_frame)?;
         if local_handles
             .iter()

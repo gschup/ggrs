@@ -177,8 +177,10 @@ fn test_spectator_caps_catchup_speed_to_available_frames() -> Result<(), GgrsErr
     assert_eq!(spec_sess.current_state(), SessionState::Running);
 
     let mut host_stub = stubs::GameStub1P::new();
+    // Drive host until spectator is more than catchup_speed (10) frames behind, so the cap
+    // fires unconditionally and the assertion doesn't depend on a stale snapshot.
     let deadline = Instant::now() + TEST_TIMEOUT;
-    while spec_sess.frames_behind_host() <= 4 && Instant::now() < deadline {
+    while spec_sess.frames_behind_host() <= 10 && Instant::now() < deadline {
         host_sess.add_local_input(0, StubInput { inp: 1 }).unwrap();
         let requests = host_sess.advance_frame().unwrap();
         host_stub.handle_requests(requests);
@@ -186,10 +188,10 @@ fn test_spectator_caps_catchup_speed_to_available_frames() -> Result<(), GgrsErr
         thread::sleep(POLL_INTERVAL);
     }
 
-    let frames_available = spec_sess.frames_behind_host();
     assert!(
-        frames_available > 4,
-        "expected >4 frames available, got {frames_available}"
+        spec_sess.frames_behind_host() > 10,
+        "expected >10 frames available, got {}",
+        spec_sess.frames_behind_host()
     );
 
     let mut spec_stub = stubs::GameStub1P::new();
@@ -199,11 +201,10 @@ fn test_spectator_caps_catchup_speed_to_available_frames() -> Result<(), GgrsErr
         .filter(|r| matches!(r, GgrsRequest::AdvanceFrame { .. }))
         .count();
 
-    let expected_advance = frames_available.min(10);
-    assert_eq!(advance_count, expected_advance);
+    // Exactly catchup_speed frames should have been advanced (cap fires because >10 available).
+    assert_eq!(advance_count, 10);
     spec_stub.handle_requests(requests);
     assert_eq!(spec_stub.gs.frame, advance_count as i32);
-    assert_eq!(spec_sess.frames_behind_host(), frames_available - expected_advance);
 
     Ok(())
 }
