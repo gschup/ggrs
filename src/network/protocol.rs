@@ -918,6 +918,34 @@ mod protocol_tests {
     }
 
     #[test]
+    fn first_input_packet_with_nonzero_start_frame_is_accepted() {
+        // Regression: when the sender has input_delay > 0 its first packet has start_frame > 0.
+        // The protocol must accept it because the NULL_FRAME sentinel in recv_inputs serves as
+        // the delta-decode reference for any first packet, regardless of start_frame.
+        let mut protocol = running_protocol(vec![0], 1);
+        let reference = protocol
+            .recv_inputs
+            .get(&NULL_FRAME)
+            .expect("blank reference input should exist")
+            .bytes
+            .clone();
+        let input_bytes = bincode::serialize(&TestInput { inp: 42 }).unwrap();
+        let encoded = encode(&reference, [input_bytes].iter());
+        let msg = input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 1],
+            disconnect_requested: false,
+            start_frame: 2, // as if input_delay = 2
+            ack_frame: NULL_FRAME,
+            bytes: encoded,
+        });
+
+        protocol.handle_message(&msg);
+
+        assert_eq!(protocol.last_recv_frame(), 2);
+        assert!(!protocol.event_queue.is_empty());
+    }
+
+    #[test]
     fn input_packet_with_wrong_player_byte_shape_is_dropped() {
         let mut protocol = running_protocol(vec![0, 1], 2);
         let reference = protocol
