@@ -125,8 +125,9 @@ impl<T: Config> SpectatorSession<T> {
 
         let mut requests = Vec::new();
 
-        let frames_to_advance = if self.frames_behind_host() > self.max_frames_behind {
-            self.catchup_speed
+        let frames_behind = self.frames_behind_host();
+        let frames_to_advance = if frames_behind > self.max_frames_behind {
+            self.catchup_speed.min(frames_behind)
         } else {
             NORMAL_SPEED
         };

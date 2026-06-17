@@ -154,3 +154,56 @@ fn test_spectator_catches_up_after_lag() -> Result<(), GgrsError> {
 
     Ok(())
 }
+
+#[test]
+#[serial]
+fn test_spectator_caps_catchup_speed_to_available_frames() -> Result<(), GgrsError> {
+    let mut host_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Spectator(stubs::localhost(7809)), 1)?
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7808).unwrap())?;
+
+    let mut spec_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .with_max_frames_behind(4)?
+        .with_catchup_speed(10)?
+        .start_spectator_session(
+            stubs::localhost(7808),
+            UdpNonBlockingSocket::bind_to_port(7809).unwrap(),
+        );
+
+    stubs::sync_host_and_spectator(&mut host_sess, &mut spec_sess);
+    assert_eq!(spec_sess.current_state(), SessionState::Running);
+
+    let mut host_stub = stubs::GameStub1P::new();
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while spec_sess.frames_behind_host() <= 4 && Instant::now() < deadline {
+        host_sess.add_local_input(0, StubInput { inp: 1 }).unwrap();
+        let requests = host_sess.advance_frame().unwrap();
+        host_stub.handle_requests(requests);
+        spec_sess.poll_remote_clients();
+        thread::sleep(POLL_INTERVAL);
+    }
+
+    let frames_available = spec_sess.frames_behind_host();
+    assert!(
+        frames_available > 4,
+        "expected >4 frames available, got {frames_available}"
+    );
+
+    let mut spec_stub = stubs::GameStub1P::new();
+    let requests = advance_spectator_when_ready(&mut spec_sess)?;
+    let advance_count = requests
+        .iter()
+        .filter(|r| matches!(r, GgrsRequest::AdvanceFrame { .. }))
+        .count();
+
+    assert!(advance_count >= frames_available);
+    assert!(advance_count <= 10);
+    spec_stub.handle_requests(requests);
+    assert_eq!(spec_stub.gs.frame, advance_count as i32);
+    assert_eq!(spec_sess.frames_behind_host(), 0);
+
+    Ok(())
+}
