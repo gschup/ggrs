@@ -29,9 +29,6 @@ pub struct NetworkStats {
     pub send_queue_len: usize,
     /// The roundtrip packet transmission time as calculated by GGRS.
     pub ping: u128,
-    /// The estimated bandwidth used between the two clients, in kilobits per second.
-    pub kbps_sent: usize,
-
     /// The number of frames GGRS calculates that the local client is behind the remote client at this instant in time.
     /// For example, if at this instant the current game client is running frame 1002 and the remote game client is running frame 1009,
     /// this value will mostly likely roughly equal 7.

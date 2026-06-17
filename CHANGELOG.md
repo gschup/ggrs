@@ -4,6 +4,9 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ## Unreleased
 
+### Breaking changes
+- breaking: `NetworkStats::kbps_sent` has been removed; `network_stats()` now reports queue length, RTT, and frame-advantage data only
+
 ### Bug fixes
 - fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, frame gaps, compressed payloads, or decoded player input shapes are invalid
 - fix: increasing input delay mid-session now sends generated gap-fill inputs to remote peers, preventing sessions from freezing after the delay change
