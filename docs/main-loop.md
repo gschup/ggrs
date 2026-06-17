@@ -62,7 +62,7 @@ last_tick = Instant::now();
 while time_since_last_frame >= fps_delta {
     time_since_last_frame -= fps_delta;
 
-    // add input for each local player handle
+    // add input once for each local player handle
     session.add_local_input(local_handle, current_input)?;
 
     match session.advance_frame() {
@@ -110,6 +110,7 @@ match session.advance_frame() {
 match session.network_stats(player_handle) {
     Ok(stats) => { /* display ping, bandwidth, etc. */ }
     Err(GgrsError::NotEnoughData) => { /* still warming up — try again next tick */ }
+    Err(GgrsError::NotSynchronized) => { /* endpoint is not connected yet */ }
     Err(e) => return Err(e),
 }
 ```

@@ -67,14 +67,16 @@ let mut session = SessionBuilder::<GgrsConfig>::new()
 
 | Method | Default | Description |
 |---|---|---|
-| `with_num_players(n)` | 2 | Total number of players (not counting spectators). |
+| `with_num_players(n)` | 2 | Total number of players (not counting spectators). Must be at least 1. Revalidates already-added handles. |
 | `with_fps(fps)` | 60 | Expected update frequency. Used for frame synchronization heuristics. |
 | `with_input_delay(n)` | 0 | Frames of artificial delay applied to local input. Reduces rollbacks at the cost of added latency. |
 | `with_max_prediction_window(n)` | 8 | Maximum frames GGRS will predict ahead. Set to `0` for lockstep mode (no rollbacks, no prediction). |
 | `with_sparse_saving_mode(bool)` | false | Only save state at the last confirmed frame. See [Sparse Saving](sparse-saving.md). |
-| `with_desync_detection_mode(mode)` | Off | Enable checksum-based desync detection. See [`DesyncDetection`](https://docs.rs/ggrs/latest/ggrs/enum.DesyncDetection.html). |
+| `with_desync_detection_mode(mode)` | Off | Enable checksum-based desync detection. `DesyncDetection::On` requires an interval higher than 0. See [`DesyncDetection`](https://docs.rs/ggrs/latest/ggrs/enum.DesyncDetection.html). |
 | `with_disconnect_timeout(duration)` | 2s | How long without packets before a remote peer is disconnected. |
 | `with_disconnect_notify_delay(duration)` | 500ms | How long before a `NetworkInterrupted` event is sent. |
+| `with_max_frames_behind(n)` | 10 | Spectator catch-up threshold. If a spectator is more than this many confirmed frames behind the host, it catches up faster. |
+| `with_catchup_speed(n)` | 1 | Maximum spectator frames advanced per `advance_frame()` call during catch-up. Must be at least 1. |
 
 ---
 
@@ -92,6 +94,12 @@ let session = SessionBuilder::<GgrsConfig>::new()
 ```
 
 Call `add_local_input` once per local handle before calling `advance_frame`.
+
+---
+
+## Runtime Input Delay
+
+Input delay can also be adjusted during a running `P2PSession` with `set_input_delay(local_handle, delay)`. Decreasing delay may drop inputs that now land before the newest queued frame. Increasing delay fills the gap by repeating the last known input so remote peers still receive consecutive frames.
 
 ---
 

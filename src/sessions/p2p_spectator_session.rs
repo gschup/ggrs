@@ -11,7 +11,7 @@ use crate::{
     SessionState, NULL_FRAME,
 };
 
-// The amount of frames the spectator advances in a single step if not too far behind
+// The amount of frames the spectator advances in a normal step.
 const NORMAL_SPEED: usize = 1;
 
 /// Connects to a remote host in a peer-to-peer fashion without contributing input.

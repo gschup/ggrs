@@ -4,8 +4,23 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ## Unreleased
 
+### Bug fixes
+- fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, frame gaps, compressed payloads, or decoded player input shapes are invalid
+- fix: increasing input delay mid-session now sends generated gap-fill inputs to remote peers, preventing sessions from freezing after the delay change
+- fix: input delay changes now work when multiple local players share one endpoint; outgoing local inputs are queued by effective frame until every local player has input for that frame
+- fix: `SessionBuilder::with_num_players()` now revalidates already-registered handles, so changing the player count after adding players cannot leave invalid local, remote, or spectator handles in the builder
+- fix: `SessionBuilder::start_p2p_session()` now rejects `DesyncDetection::On { interval: 0 }`, which cannot produce a valid checksum reporting cadence
+- fix: spectator catch-up now caps the number of frames advanced to the number of confirmed frames available from the host, so `catchup_speed` can safely exceed `max_frames_behind`
+
 ### Improvements
 - feat: `P2PSession::set_input_delay()` allows changing the input delay for a local player mid-session (closes [#106](https://github.com/gschup/ggrs/issues/106))
+
+### Documentation
+- docs: refreshed session setup and runtime guidance for builder validation, runtime input-delay changes, spectator catch-up settings, network stats warmup errors, and checksum-based desync detection
+- docs: corrected the setup guide to use `ggrs = "0.12"` and removed stale wording that implied GGRS computes an automatic Fletcher checksum when no checksum is provided
+
+### Tests
+- tests: stabilized P2P and spectator session tests on macOS by replacing fixed busy-wait loops with deadline-based polling
 
 ## 0.12.0
 

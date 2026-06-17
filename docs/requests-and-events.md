@@ -20,14 +20,14 @@ GGRS asks you to save the current game state so it can be restored during a roll
 
 ```rust
 GgrsRequest::SaveGameState { cell, frame } => {
-    assert_eq!(cell.frame(), frame); // sanity check
+    assert_eq!(game.current_frame(), frame); // sanity check
     let state = game.serialize_state();
     let checksum = game.compute_checksum(); // optional, used for desync detection
     cell.save(frame, Some(state), Some(checksum));
 }
 ```
 
-The `frame` argument is a sanity check — the state you save should correspond to that frame. Providing a checksum enables desync detection; if you skip it, GGRS computes a basic Fletcher-16 checksum automatically.
+The `frame` argument is a sanity check — the state you save should correspond to that frame. The checksum is optional for rollback itself, but it is required if you want `SyncTestSession` or P2P desync detection to catch divergent state for that frame. Passing `None` means GGRS can still save/load the state, but there is no checksum value to compare.
 
 ### `LoadGameState`
 
