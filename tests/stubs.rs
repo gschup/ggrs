@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use ggrs::{
     Config, Frame, GameStateCell, GgrsError, GgrsRequest, InputStatus, P2PSession, PlayerType,
@@ -190,6 +192,9 @@ impl StateStub {
 
 // ── Shared session helpers ────────────────────────────────────────────────────
 
+const SYNC_TIMEOUT: Duration = Duration::from_secs(2);
+const SYNC_POLL_INTERVAL: Duration = Duration::from_millis(5);
+
 /// Shorthand for a loopback `SocketAddr` on the given port.
 #[allow(dead_code)]
 pub fn localhost(port: u16) -> SocketAddr {
@@ -219,15 +224,43 @@ pub fn make_p2p_sessions(
     (s1, s2)
 }
 
-/// Poll both sessions until they reach `Running` state (up to 50 rounds).
+/// Poll both sessions until they reach `Running` state or the sync timeout expires.
 #[allow(dead_code)]
 pub fn sync_p2p_sessions(s1: &mut P2PSession<StubConfig>, s2: &mut P2PSession<StubConfig>) {
-    for _ in 0..50 {
+    let deadline = Instant::now() + SYNC_TIMEOUT;
+    while Instant::now() < deadline {
         s1.poll_remote_clients();
         s2.poll_remote_clients();
+        if s1.current_state() == SessionState::Running
+            && s2.current_state() == SessionState::Running
+        {
+            return;
+        }
+        thread::sleep(SYNC_POLL_INTERVAL);
     }
     assert_eq!(s1.current_state(), SessionState::Running);
     assert_eq!(s2.current_state(), SessionState::Running);
+}
+
+/// Poll host and spectator until they reach `Running` state.
+#[allow(dead_code)]
+pub fn sync_host_and_spectator(
+    host_sess: &mut P2PSession<StubConfig>,
+    spec_sess: &mut SpectatorSession<StubConfig>,
+) {
+    let deadline = Instant::now() + SYNC_TIMEOUT;
+    while Instant::now() < deadline {
+        host_sess.poll_remote_clients();
+        spec_sess.poll_remote_clients();
+        if host_sess.current_state() == SessionState::Running
+            && spec_sess.current_state() == SessionState::Running
+        {
+            return;
+        }
+        thread::sleep(SYNC_POLL_INTERVAL);
+    }
+    assert_eq!(host_sess.current_state(), SessionState::Running);
+    assert_eq!(spec_sess.current_state(), SessionState::Running);
 }
 
 /// Build a synced host (1 local player + 1 spectator) and spectator session.
@@ -249,13 +282,7 @@ pub fn make_host_and_spectator(
             UdpNonBlockingSocket::bind_to_port(spec_port).unwrap(),
         );
 
-    for _ in 0..50 {
-        host_sess.poll_remote_clients();
-        spec_sess.poll_remote_clients();
-    }
-
-    assert_eq!(host_sess.current_state(), SessionState::Running);
-    assert_eq!(spec_sess.current_state(), SessionState::Running);
+    sync_host_and_spectator(&mut host_sess, &mut spec_sess);
 
     Ok((host_sess, spec_sess))
 }

@@ -85,10 +85,7 @@ fn test_synchronize_p2p_sessions() -> Result<(), GgrsError> {
     assert!(sess1.current_state() == SessionState::Synchronizing);
     assert!(sess2.current_state() == SessionState::Synchronizing);
 
-    for _ in 0..50 {
-        sess1.poll_remote_clients();
-        sess2.poll_remote_clients();
-    }
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     assert!(sess1.current_state() == SessionState::Running);
     assert!(sess2.current_state() == SessionState::Running);
@@ -117,10 +114,7 @@ fn test_advance_frame_p2p_sessions() -> Result<(), GgrsError> {
     assert!(sess1.current_state() == SessionState::Synchronizing);
     assert!(sess2.current_state() == SessionState::Synchronizing);
 
-    for _ in 0..50 {
-        sess1.poll_remote_clients();
-        sess2.poll_remote_clients();
-    }
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     assert!(sess1.current_state() == SessionState::Running);
     assert!(sess2.current_state() == SessionState::Running);

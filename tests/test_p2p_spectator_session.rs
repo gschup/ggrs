@@ -1,10 +1,31 @@
 mod stubs;
 
 use ggrs::{
-    GgrsError, GgrsRequest, PlayerType, SessionBuilder, SessionState, UdpNonBlockingSocket,
+    GgrsError, GgrsRequest, PlayerType, SessionBuilder, SessionState, SpectatorSession,
+    UdpNonBlockingSocket,
 };
 use serial_test::serial;
+use std::thread;
+use std::time::{Duration, Instant};
 use stubs::{StubConfig, StubInput};
+
+const TEST_TIMEOUT: Duration = Duration::from_secs(2);
+const POLL_INTERVAL: Duration = Duration::from_millis(5);
+
+fn advance_spectator_when_ready(
+    spec_sess: &mut SpectatorSession<StubConfig>,
+) -> Result<Vec<GgrsRequest<StubConfig>>, GgrsError> {
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    loop {
+        match spec_sess.advance_frame() {
+            Ok(requests) => return Ok(requests),
+            Err(GgrsError::PredictionThreshold) if Instant::now() < deadline => {
+                thread::sleep(POLL_INTERVAL);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
 
 #[test]
 #[serial]
@@ -32,10 +53,7 @@ fn test_synchronize_with_host() -> Result<(), GgrsError> {
     assert_eq!(spec_sess.current_state(), SessionState::Synchronizing);
     assert_eq!(host_sess.current_state(), SessionState::Synchronizing);
 
-    for _ in 0..50 {
-        spec_sess.poll_remote_clients();
-        host_sess.poll_remote_clients();
-    }
+    stubs::sync_host_and_spectator(&mut host_sess, &mut spec_sess);
 
     assert_eq!(spec_sess.current_state(), SessionState::Running);
     assert_eq!(host_sess.current_state(), SessionState::Running);
@@ -60,7 +78,7 @@ fn test_spectator_observes_frames() -> Result<(), GgrsError> {
 
         if i > 0 {
             // inputs for frame i-1 are now confirmed and have been sent; spectator can advance
-            let spec_requests = spec_sess.advance_frame().unwrap();
+            let spec_requests = advance_spectator_when_ready(&mut spec_sess)?;
             assert!(
                 spec_requests
                     .iter()
@@ -96,22 +114,21 @@ fn test_spectator_catches_up_after_lag() -> Result<(), GgrsError> {
             UdpNonBlockingSocket::bind_to_port(7807).unwrap(),
         );
 
-    for _ in 0..50 {
-        host_sess.poll_remote_clients();
-        spec_sess.poll_remote_clients();
-    }
+    stubs::sync_host_and_spectator(&mut host_sess, &mut spec_sess);
     assert_eq!(spec_sess.current_state(), SessionState::Running);
 
     let mut host_stub = stubs::GameStub1P::new();
 
     // confirmed_frame is computed before local inputs are registered, so inputs for frame N are
-    // only confirmed (and sent to the spectator) during frame N+1. After 6 host advances the
-    // spectator has received frames 0-4 → last_recv_frame=4, current_frame=-1 → 5 frames behind.
-    for _ in 0..6 {
+    // only confirmed (and sent to the spectator) during frame N+1. Drive the host until the
+    // spectator has definitely received enough confirmed frames to enter catch-up mode.
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while spec_sess.frames_behind_host() <= 4 && Instant::now() < deadline {
         host_sess.add_local_input(0, StubInput { inp: 1 }).unwrap();
         let requests = host_sess.advance_frame().unwrap();
         host_stub.handle_requests(requests);
         spec_sess.poll_remote_clients(); // receive packets (but don't advance)
+        thread::sleep(POLL_INTERVAL);
     }
 
     // spectator should now be more than max_frames_behind=4 frames behind the host
@@ -123,7 +140,7 @@ fn test_spectator_catches_up_after_lag() -> Result<(), GgrsError> {
 
     // one advance_frame call should advance 2 frames (catchup_speed=2)
     let mut spec_stub = stubs::GameStub1P::new();
-    let requests = spec_sess.advance_frame().unwrap();
+    let requests = advance_spectator_when_ready(&mut spec_sess)?;
     let advance_count = requests
         .iter()
         .filter(|r| matches!(r, GgrsRequest::AdvanceFrame { .. }))
