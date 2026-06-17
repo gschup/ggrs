@@ -14,6 +14,9 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - fix: `SessionBuilder::with_num_players()` now revalidates already-registered handles, so changing the player count after adding players cannot leave invalid local, remote, or spectator handles in the builder
 - fix: `SessionBuilder::start_p2p_session()` now rejects `DesyncDetection::On { interval: 0 }`, which cannot produce a valid checksum reporting cadence
 - fix: spectator catch-up now caps the number of frames advanced to the number of confirmed frames available from the host, so `catchup_speed` can safely exceed `max_frames_behind`
+- fix: spectator catch-up no longer attempts to read past `SPECTATOR_BUFFER_SIZE` frames when the spectator is very far behind; `frames_to_advance` is now also bounded by the buffer capacity
+- fix: `P2PSession` no longer leaks memory in all-local-player sessions; outgoing inputs were queued into an unbounded buffer that was never drained when there were no remote peers
+- fix: `P2PSession` with multiple local players at different input delays no longer stalls on the first frame; the outgoing queue now scans for the first complete frame rather than assuming the earliest buffered frame has inputs from all players
 
 ### Improvements
 - feat: `P2PSession::set_input_delay()` allows changing the input delay for a local player mid-session (closes [#106](https://github.com/gschup/ggrs/issues/106))
