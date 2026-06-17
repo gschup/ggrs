@@ -1107,28 +1107,35 @@ impl<T: Config> P2PSession<T> {
                     self.last_sent_checksum_frame + interval as i32
                 };
 
-                if frame_to_send <= self.sync_layer.last_confirmed_frame()
-                    && frame_to_send <= self.sync_layer.last_saved_frame()
-                {
-                    let cell = self
-                        .sync_layer
-                        .saved_state_by_frame(frame_to_send)
-                        .unwrap_or_else(|| panic!("cell not found!: frame {frame_to_send}"));
+                if frame_to_send <= self.sync_layer.last_confirmed_frame() {
+                    let Some(cell) =
+                        self.sync_layer
+                            .saved_state_by_frame(frame_to_send)
+                            .or_else(|| {
+                                self.sync_layer.latest_saved_state_in_range(
+                                    frame_to_send,
+                                    self.sync_layer.last_confirmed_frame(),
+                                )
+                            })
+                    else {
+                        return;
+                    };
 
                     if let Some(checksum) = cell.checksum() {
+                        let checksum_frame = cell.frame();
                         for remote in self.player_reg.remotes.values_mut() {
-                            remote.send_checksum_report(frame_to_send, checksum);
+                            remote.send_checksum_report(checksum_frame, checksum);
                         }
-                        self.last_sent_checksum_frame = frame_to_send;
+                        self.last_sent_checksum_frame = checksum_frame;
                         // collect locally for later comparison
-                        self.local_checksum_history.insert(frame_to_send, checksum);
-                    }
+                        self.local_checksum_history.insert(checksum_frame, checksum);
 
-                    if self.local_checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
-                        let oldest_frame_to_keep = frame_to_send
-                            - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
-                        self.local_checksum_history
-                            .retain(|&frame, _| frame >= oldest_frame_to_keep);
+                        if self.local_checksum_history.len() > MAX_CHECKSUM_HISTORY_SIZE {
+                            let oldest_frame_to_keep = checksum_frame
+                                - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
+                            self.local_checksum_history
+                                .retain(|&frame, _| frame >= oldest_frame_to_keep);
+                        }
                     }
                 }
             }

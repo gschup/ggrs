@@ -302,6 +302,51 @@ fn test_desyncs_and_input_delay_no_panic() -> Result<(), GgrsError> {
     Ok(())
 }
 
+#[test]
+#[serial]
+fn test_desync_detection_with_sparse_saving_no_panic() -> Result<(), GgrsError> {
+    let addr1 = stubs::localhost(7731);
+    let addr2 = stubs::localhost(7732);
+    let desync_mode = DesyncDetection::On { interval: 6 };
+
+    let socket1 = UdpNonBlockingSocket::bind_to_port(7731).unwrap();
+    let mut sess1 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Remote(addr2), 1)?
+        .with_sparse_saving_mode(true)
+        .with_desync_detection_mode(desync_mode)
+        .start_p2p_session(socket1)?;
+
+    let socket2 = UdpNonBlockingSocket::bind_to_port(7732).unwrap();
+    let mut sess2 = SessionBuilder::<StubConfig>::new()
+        .add_player(PlayerType::Remote(addr1), 0)?
+        .add_player(PlayerType::Local, 1)?
+        .with_sparse_saving_mode(true)
+        .with_desync_detection_mode(desync_mode)
+        .start_p2p_session(socket2)?;
+
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    let mut stub1 = stubs::GameStub::new();
+    let mut stub2 = stubs::GameStub::new();
+
+    for i in 0..40 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: i }).unwrap();
+        sess2.add_local_input(1, StubInput { inp: i }).unwrap();
+
+        let requests1 = sess1.advance_frame().unwrap();
+        let requests2 = sess2.advance_frame().unwrap();
+
+        stub1.handle_requests(requests1);
+        stub2.handle_requests(requests2);
+    }
+
+    Ok(())
+}
+
 // ── set_input_delay ───────────────────────────────────────────────────────────
 
 #[test]

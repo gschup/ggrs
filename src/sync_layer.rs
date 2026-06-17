@@ -363,6 +363,27 @@ impl<T: Config> SyncLayer<T> {
         }
     }
 
+    /// Returns the latest saved state whose frame falls within the given inclusive range.
+    pub(crate) fn latest_saved_state_in_range(
+        &self,
+        start: Frame,
+        end: Frame,
+    ) -> Option<GameStateCell<T::State>> {
+        if start > end {
+            return None;
+        }
+
+        self.saved_states
+            .states
+            .iter()
+            .filter_map(|cell| {
+                let frame = cell.frame();
+                (frame >= start && frame <= end).then_some((frame, cell.clone()))
+            })
+            .max_by_key(|(frame, _)| *frame)
+            .map(|(_, cell)| cell)
+    }
+
     /// Returns the latest saved frame
     pub(crate) fn last_saved_frame(&self) -> Frame {
         self.last_saved_frame
@@ -526,6 +547,29 @@ mod sync_layer_tests {
             cell.save(frame, Some(7u8), None);
         }
         assert!(sync_layer.saved_state_by_frame(0).is_some());
+    }
+
+    #[test]
+    fn test_latest_saved_state_in_range_returns_latest_matching_frame() {
+        let mut sync_layer = SyncLayer::<TestConfig>::new(1, 8);
+        for target_frame in [0, 4, 7] {
+            while sync_layer.current_frame() < target_frame {
+                sync_layer.advance_frame();
+            }
+
+            let req = sync_layer.save_current_state();
+            if let GgrsRequest::SaveGameState { cell, frame } = req {
+                cell.save(frame, Some(frame as u8), None);
+            }
+        }
+
+        let cell = sync_layer.latest_saved_state_in_range(1, 6).unwrap();
+        assert_eq!(cell.frame(), 4);
+
+        let cell = sync_layer.latest_saved_state_in_range(0, 3).unwrap();
+        assert_eq!(cell.frame(), 0);
+
+        assert!(sync_layer.latest_saved_state_in_range(1, 3).is_none());
     }
 
     #[test]
