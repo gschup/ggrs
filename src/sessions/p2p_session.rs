@@ -386,71 +386,12 @@ impl<T: Config> P2PSession<T> {
          * ADVANCE THE STATE
          */
 
-        // Two modes, two advance strategies:
-        //
-        // Lockstep: the input pipeline (sync_layer.current_frame) advances unconditionally every
-        // call so that local inputs are queued and packets are sent even while the game is stalled.
-        // This breaks the bootstrap deadlock that would arise if neither side sent packets until
-        // the other had already advanced: with input_delay D ≥ one-way latency L, side A queues
-        // input for frame D before the game reaches frame 0, the packet arrives at side B after
-        // L frames, and both sides can confirm frame 0 together.  The game frame only advances
-        // when confirmed_frame reaches it; we use confirmed_inputs (which panics rather than
-        // predicting) so no rollback machinery is ever engaged.
-        //
-        // Rollback: inputs are predicted and corrected on mismatch. We allow up to max_prediction
-        // frames ahead. NULL_FRAME is treated as 0 frames ahead so prediction can start immediately
-        // from frame 0 without any prior confirmation.
+        // Lockstep and rollback use completely different advance strategies; each is
+        // handled in its own method below.
         if lockstep {
-            // Always advance the input pipeline so packets keep flowing.
-            self.sync_layer.advance_frame();
-            self.pending_local_inputs.clear();
-
-            // lockstep_game_frame is the next game frame that needs all players confirmed.
-            let game_frame = self.lockstep_game_frame;
-            if confirmed_frame >= game_frame {
-                let player_inputs = self
-                    .sync_layer
-                    .confirmed_inputs(game_frame, &self.local_connect_status);
-                let inputs = player_inputs
-                    .into_iter()
-                    .map(|pi| {
-                        if pi.frame == NULL_FRAME {
-                            (pi.input, InputStatus::Disconnected)
-                        } else {
-                            (pi.input, InputStatus::Confirmed)
-                        }
-                    })
-                    .collect();
-                self.lockstep_game_frame += 1;
-                requests.push(GgrsRequest::AdvanceFrame { inputs });
-            } else {
-                debug!(
-                    "Lockstep stall: waiting for confirmation of frame {} (confirmed up to {})",
-                    game_frame, confirmed_frame,
-                );
-            }
+            self.advance_lockstep_frame(confirmed_frame, &mut requests);
         } else {
-            let frames_ahead = if self.sync_layer.last_confirmed_frame() == NULL_FRAME {
-                self.sync_layer.current_frame()
-            } else {
-                self.sync_layer.current_frame() - self.sync_layer.last_confirmed_frame()
-            };
-            if frames_ahead < self.max_prediction as i32 {
-                // get correct inputs for the current frame
-                let inputs = self
-                    .sync_layer
-                    .synchronized_inputs(&self.local_connect_status);
-                // advance the frame count
-                self.sync_layer.advance_frame();
-                // clear the local inputs after advancing the frame to allow new inputs to be ingested
-                self.pending_local_inputs.clear();
-                requests.push(GgrsRequest::AdvanceFrame { inputs });
-            } else {
-                debug!(
-                    "Prediction Threshold reached. Skipping on frame {}",
-                    self.sync_layer.current_frame()
-                );
-            }
+            self.advance_rollback_frame(&mut requests);
         }
 
         Ok(requests)
@@ -826,6 +767,71 @@ impl<T: Config> P2PSession<T> {
 
         // everyone is synchronized, so we can change state and accept input
         self.state = SessionState::Running;
+    }
+
+    /// Lockstep advance: the input pipeline always moves forward so packets keep flowing, but
+    /// the game frame only steps when every player's input for it has been confirmed.
+    ///
+    /// The pipeline counter (`sync_layer.current_frame`) advances unconditionally every call.
+    /// This breaks the bootstrap deadlock: with input_delay D ≥ one-way latency L, side A
+    /// commits frame D on its first call; the packet reaches side B after L frames, so both
+    /// sides can confirm game frame 0 after a single round-trip.  `confirmed_inputs` is used
+    /// instead of `synchronized_inputs` so no prediction ever occurs and no rollback is needed.
+    fn advance_lockstep_frame(
+        &mut self,
+        confirmed_frame: Frame,
+        requests: &mut Vec<GgrsRequest<T>>,
+    ) {
+        self.sync_layer.advance_frame();
+        self.pending_local_inputs.clear();
+
+        let game_frame = self.lockstep_game_frame;
+        if confirmed_frame >= game_frame {
+            let inputs = self
+                .sync_layer
+                .confirmed_inputs(game_frame, &self.local_connect_status)
+                .into_iter()
+                .map(|pi| {
+                    if pi.frame == NULL_FRAME {
+                        (pi.input, InputStatus::Disconnected)
+                    } else {
+                        (pi.input, InputStatus::Confirmed)
+                    }
+                })
+                .collect();
+            self.lockstep_game_frame += 1;
+            requests.push(GgrsRequest::AdvanceFrame { inputs });
+        } else {
+            debug!(
+                "Lockstep stall: waiting for confirmation of frame {} (confirmed up to {})",
+                game_frame, confirmed_frame,
+            );
+        }
+    }
+
+    /// Rollback advance: inputs are predicted and corrected on mismatch. The session may run
+    /// up to `max_prediction` frames ahead of the last confirmed frame.
+    /// NULL_FRAME for `last_confirmed_frame` is treated as 0 frames ahead so prediction can
+    /// start immediately from frame 0 without any prior confirmation.
+    fn advance_rollback_frame(&mut self, requests: &mut Vec<GgrsRequest<T>>) {
+        let frames_ahead = if self.sync_layer.last_confirmed_frame() == NULL_FRAME {
+            self.sync_layer.current_frame()
+        } else {
+            self.sync_layer.current_frame() - self.sync_layer.last_confirmed_frame()
+        };
+        if frames_ahead < self.max_prediction as i32 {
+            let inputs = self
+                .sync_layer
+                .synchronized_inputs(&self.local_connect_status);
+            self.sync_layer.advance_frame();
+            self.pending_local_inputs.clear();
+            requests.push(GgrsRequest::AdvanceFrame { inputs });
+        } else {
+            debug!(
+                "Prediction Threshold reached. Skipping on frame {}",
+                self.sync_layer.current_frame()
+            );
+        }
     }
 
     /// Roll back to `min_confirmed` frame and resimulate the game with most up-to-date input data.
