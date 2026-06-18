@@ -68,6 +68,10 @@ impl<T: Config> InputQueue<T> {
         self.first_incorrect_frame
     }
 
+    pub(crate) fn frame_delay(&self) -> usize {
+        self.frame_delay
+    }
+
     /// Changes the frame delay and returns any fill inputs that were implicitly added to bridge the
     /// gap. The caller is responsible for sending these to remote peers so they see consecutive
     /// frame numbers.

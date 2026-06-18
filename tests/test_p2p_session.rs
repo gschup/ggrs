@@ -898,15 +898,13 @@ fn test_lockstep_advances_with_input_delay() -> Result<(), GgrsError> {
     Ok(())
 }
 
-// Test 4: with input_delay >= 1 the input pipeline can run ahead, but the game
-// frame must not advance past the point where remote inputs are actually confirmed.
-// This is the crash scenario from issue #116: with the old code, synchronized_inputs
-// entered prediction mode for the remote player, first_incorrect_frame was set when
-// the real input arrived, and set_last_confirmed_frame then panicked because no
-// rollback had cleared the prediction error.  With the new architecture the gate
-// uses confirmed_inputs (no prediction) and the game frame only moves when remote
-// inputs are confirmed, so many pipeline-only advance_frame calls with no cross-poll
-// must never emit AdvanceFrame beyond what has actually been confirmed.
+// Test 4: with input_delay >= 1 the input pipeline runs ahead, but two invariants
+// must hold when the remote is silent:
+//   a) No AdvanceFrame is ever emitted — the game must not advance without confirmed inputs.
+//   b) The input queue must not overflow — the pipeline is capped at input_delay frames
+//      ahead of the game frame, so the 128-slot queue is never exhausted.
+// This covers both the original crash (prediction + assertion in set_last_confirmed_frame)
+// and the subsequent overflow crash reported after the initial fix.
 #[test]
 #[serial]
 fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), GgrsError> {
@@ -914,12 +912,11 @@ fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), Ggr
     let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7739, 7740, input_delay);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
-    // Drive sess1 through several advance_frame calls without ever polling for sess2's
-    // packets.  The input pipeline will advance (sess1 is committing frames ahead via
-    // input delay), but game frame 0 should never be confirmed because sess2's input
-    // has not arrived.
+    // Drive sess1 well past 128 iterations (the input queue length) without ever
+    // polling for sess2's packets.  The pipeline cap must prevent a queue overflow,
+    // and the gate must prevent any game advancement.
     let mut game_frames_advanced = 0usize;
-    for _ in 0..input_delay + 5 {
+    for _ in 0..200 {
         sess1.add_local_input(0, StubInput { inp: 0 })?;
         let requests = sess1.advance_frame()?;
         if requests
@@ -935,6 +932,74 @@ fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), Ggr
         "sess1 should not advance any game frames without remote input, \
          even though the input pipeline is running ahead with input_delay={input_delay}"
     );
+
+    // The pipeline should have advanced exactly input_delay+1 frames before hitting the cap
+    // (game_frame=0 is unconfirmed, so pipeline stops at depth input_delay+1).
+    // If min_local_input_delay() incorrectly included remote queues (always delay=0) the
+    // pipeline would stop at depth 1 regardless of input_delay, and current_frame() would
+    // be 1 instead of input_delay+1.
+    assert_eq!(
+        sess1.current_frame(),
+        input_delay as i32 + 1,
+        "pipeline should advance to input_delay+1 frames before capping, \
+         got current_frame={} with input_delay={input_delay}",
+        sess1.current_frame(),
+    );
+
+    Ok(())
+}
+
+// Test 5: after the pipeline cap is hit, the session recovers correctly once the
+// remote starts confirming frames again.  Both sessions spin for many frames with no
+// cross-poll (cap reached, no AdvanceFrame), then cross-poll and both should be able
+// to advance the game frame normally.
+#[test]
+#[serial]
+fn test_lockstep_recovers_after_pipeline_cap() -> Result<(), GgrsError> {
+    let input_delay = 2;
+    let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7741, 7742, input_delay);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    // Spin both sessions well past the cap without any cross-poll.
+    for _ in 0..input_delay + 10 {
+        sess1.add_local_input(0, StubInput { inp: 0 })?;
+        sess2.add_local_input(1, StubInput { inp: 0 })?;
+        sess1.advance_frame()?;
+        sess2.advance_frame()?;
+    }
+
+    // Now cross-poll and advance — both should eventually emit AdvanceFrame.
+    let deadline = std::time::Instant::now() + stubs::SYNC_TIMEOUT;
+    let mut advanced1 = false;
+    let mut advanced2 = false;
+
+    while !advanced1 || !advanced2 {
+        sess1.poll_remote_clients();
+        sess2.poll_remote_clients();
+
+        sess1.add_local_input(0, StubInput { inp: 0 })?;
+        sess2.add_local_input(1, StubInput { inp: 0 })?;
+        let r1 = sess1.advance_frame()?;
+        let r2 = sess2.advance_frame()?;
+
+        if r1
+            .iter()
+            .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }))
+        {
+            advanced1 = true;
+        }
+        if r2
+            .iter()
+            .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }))
+        {
+            advanced2 = true;
+        }
+
+        assert!(
+            std::time::Instant::now() < deadline,
+            "session did not recover after pipeline cap was hit"
+        );
+    }
 
     Ok(())
 }
