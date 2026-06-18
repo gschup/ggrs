@@ -791,8 +791,17 @@ impl<T: Config> P2PSession<T> {
                 .sync_layer
                 .confirmed_inputs(game_frame, &self.local_connect_status)
                 .into_iter()
-                .map(|pi| {
-                    if pi.frame == NULL_FRAME {
+                .enumerate()
+                .map(|(handle, pi)| {
+                    let disconnected = self.local_connect_status[handle].disconnected
+                        && self.local_connect_status[handle].last_frame < game_frame;
+                    debug_assert_eq!(
+                        pi.frame == NULL_FRAME,
+                        disconnected,
+                        "confirmed_inputs returned NULL_FRAME for a connected player or \
+                         a real frame for a disconnected player (handle {handle})"
+                    );
+                    if disconnected {
                         (pi.input, InputStatus::Disconnected)
                     } else {
                         (pi.input, InputStatus::Confirmed)
