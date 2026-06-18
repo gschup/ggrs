@@ -360,27 +360,38 @@ impl<T: Config> P2PSession<T> {
          *  INPUTS
          */
 
-        // register local inputs in the system and send them
-        for handle in self.player_reg.local_player_handles() {
-            // we have checked that these all exist
-            let queued_input = {
-                let player_input = self
-                    .pending_local_inputs
-                    .get_mut(&handle)
-                    .expect("Missing local input while calling advance_frame().");
-                // send the input into the sync layer
-                let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
-                player_input.frame = actual_frame;
-                *player_input
-            };
-            // if the input has not been dropped
-            if queued_input.frame != NULL_FRAME {
-                self.local_connect_status[handle].last_frame = queued_input.frame;
-                self.queue_outgoing_local_input(handle, queued_input);
-            }
-        }
+        // In lockstep mode the pipeline may be capped (remote unresponsive): if so, skip
+        // input queuing entirely so the user re-submits next call with the same frame number,
+        // matching rollback behaviour when the prediction threshold is reached.
+        let pipeline_will_advance = !lockstep || {
+            let depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
+            let local_handles = self.player_reg.local_player_handles();
+            depth <= self.sync_layer.min_local_input_delay(&local_handles) as i32
+        };
 
-        self.send_ready_outgoing_inputs_to_remotes();
+        if pipeline_will_advance {
+            // register local inputs in the system and send them
+            for handle in self.player_reg.local_player_handles() {
+                // we have checked that these all exist
+                let queued_input = {
+                    let player_input = self
+                        .pending_local_inputs
+                        .get_mut(&handle)
+                        .expect("Missing local input while calling advance_frame().");
+                    // send the input into the sync layer
+                    let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
+                    player_input.frame = actual_frame;
+                    *player_input
+                };
+                // if the input has not been dropped
+                if queued_input.frame != NULL_FRAME {
+                    self.local_connect_status[handle].last_frame = queued_input.frame;
+                    self.queue_outgoing_local_input(handle, queued_input);
+                }
+            }
+
+            self.send_ready_outgoing_inputs_to_remotes();
+        }
 
         /*
          * ADVANCE THE STATE
@@ -389,7 +400,7 @@ impl<T: Config> P2PSession<T> {
         // Lockstep and rollback use completely different advance strategies; each is
         // handled in its own method below.
         if lockstep {
-            self.advance_lockstep_frame(confirmed_frame, &mut requests);
+            self.advance_lockstep_frame(confirmed_frame, pipeline_will_advance, &mut requests);
         } else {
             self.advance_rollback_frame(&mut requests);
         }
@@ -780,10 +791,20 @@ impl<T: Config> P2PSession<T> {
     fn advance_lockstep_frame(
         &mut self,
         confirmed_frame: Frame,
+        pipeline_advancing: bool,
         requests: &mut Vec<GgrsRequest<T>>,
     ) {
-        self.sync_layer.advance_frame();
-        self.pending_local_inputs.clear();
+        if pipeline_advancing {
+            self.sync_layer.advance_frame();
+            self.pending_local_inputs.clear();
+        } else {
+            let pipeline_depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
+            warn!(
+                "Lockstep pipeline cap reached: remote has not confirmed frame {} \
+                 after {} pipeline frames. Remote may be unresponsive.",
+                self.lockstep_game_frame, pipeline_depth,
+            );
+        }
 
         let game_frame = self.lockstep_game_frame;
         if confirmed_frame >= game_frame {
@@ -793,15 +814,16 @@ impl<T: Config> P2PSession<T> {
                 .into_iter()
                 .enumerate()
                 .map(|(handle, pi)| {
-                    let disconnected = self.local_connect_status[handle].disconnected
-                        && self.local_connect_status[handle].last_frame < game_frame;
+                    // confirmed_inputs returns blank_input(NULL_FRAME) for disconnected players
+                    // and a real PlayerInput for connected ones — assert the invariant holds.
                     debug_assert_eq!(
                         pi.frame == NULL_FRAME,
-                        disconnected,
+                        self.local_connect_status[handle].disconnected
+                            && self.local_connect_status[handle].last_frame < game_frame,
                         "confirmed_inputs returned NULL_FRAME for a connected player or \
                          a real frame for a disconnected player (handle {handle})"
                     );
-                    if disconnected {
+                    if pi.frame == NULL_FRAME {
                         (pi.input, InputStatus::Disconnected)
                     } else {
                         (pi.input, InputStatus::Confirmed)
