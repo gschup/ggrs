@@ -750,3 +750,191 @@ fn test_desync_detection_off_by_default() -> Result<(), GgrsError> {
 
     Ok(())
 }
+
+// ── Lockstep mode ─────────────────────────────────────────────────────────────
+
+// Test 1: lockstep stalls when the remote session has not been cross-polled.
+// With input_delay=0 and no cross-polling, neither side has received the other's
+// input, so confirmed_frame stays at NULL_FRAME and no AdvanceFrame is issued.
+#[test]
+#[serial]
+fn test_lockstep_stalls_without_remote_input() -> Result<(), GgrsError> {
+    let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7733, 7734, 0);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    // add local inputs but do NOT cross-poll — remote input never arrives
+    sess1.add_local_input(0, StubInput { inp: 0 })?;
+    sess2.add_local_input(1, StubInput { inp: 0 })?;
+
+    let requests1 = sess1.advance_frame()?;
+    let requests2 = sess2.advance_frame()?;
+
+    let advanced1 = requests1
+        .iter()
+        .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }));
+    let advanced2 = requests2
+        .iter()
+        .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }));
+
+    assert!(
+        !advanced1,
+        "sess1 should stall when remote input has not arrived"
+    );
+    assert!(
+        !advanced2,
+        "sess2 should stall when remote input has not arrived"
+    );
+
+    Ok(())
+}
+
+// Test 2: lockstep advances every frame with zero latency and zero input delay.
+// With input_delay=0, each session must have the other's frame confirmed before it
+// can advance. advance_frame sends the local input packet unconditionally before
+// evaluating the gate, but poll_remote_clients is what delivers the other side's
+// packet and updates confirmed_frame. So the required sequence per frame is:
+//   1. Both sessions queue input and call advance_frame — input packets are sent,
+//      but the gate stalls because the remote input is not yet confirmed.
+//   2. Both sessions cross-poll — each now has the other's input confirmed.
+//   3. Both sessions call advance_frame again — gate passes, AdvanceFrame emitted.
+#[test]
+#[serial]
+fn test_lockstep_advances_with_zero_latency_zero_delay() -> Result<(), GgrsError> {
+    let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7735, 7736, 0);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    let reps = 20;
+    for i in 0..reps {
+        // first advance: queues and sends the local input, stalls (remote not confirmed yet)
+        sess1.add_local_input(0, StubInput { inp: i })?;
+        sess2.add_local_input(1, StubInput { inp: i })?;
+        sess1.advance_frame()?;
+        sess2.advance_frame()?;
+
+        // poll until both sessions have confirmed the other's input, then advance.
+        // a single poll is not reliable under load (packets may arrive late on loopback),
+        // so we retry up to the sync timeout.
+        let deadline = std::time::Instant::now() + stubs::SYNC_TIMEOUT;
+        let mut advanced1;
+        let mut advanced2;
+        loop {
+            sess1.poll_remote_clients();
+            sess2.poll_remote_clients();
+
+            sess1.add_local_input(0, StubInput { inp: i })?;
+            sess2.add_local_input(1, StubInput { inp: i })?;
+            let r1 = sess1.advance_frame()?;
+            let r2 = sess2.advance_frame()?;
+
+            advanced1 = r1
+                .iter()
+                .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }));
+            advanced2 = r2
+                .iter()
+                .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }));
+
+            if advanced1 && advanced2 {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "sess stalled on frame {i} — did not advance within timeout"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+// Test 3: lockstep with input_delay=1 advances without stalling after the first exchange.
+// With input_delay D, each side commits a "D frames ahead" packet on its first call.
+// After a single round-trip both sides see confirmed_frame >= game_frame for every game
+// frame up to D, so no additional per-frame stall is needed beyond the first exchange.
+// This verifies the two-counter architecture: the input pipeline (sync_layer.current_frame)
+// advances unconditionally while the game frame only moves when confirmed.
+#[test]
+#[serial]
+fn test_lockstep_advances_with_input_delay() -> Result<(), GgrsError> {
+    let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7737, 7738, 1);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    let reps = 20;
+    for i in 0..reps {
+        // Retry loop: with input_delay=1 both sides committed one pipeline frame ahead on
+        // first call, so after one cross-poll the gate should pass immediately.
+        let deadline = std::time::Instant::now() + stubs::SYNC_TIMEOUT;
+        let mut advanced1 = false;
+        let mut advanced2 = false;
+
+        while !advanced1 || !advanced2 {
+            sess1.poll_remote_clients();
+            sess2.poll_remote_clients();
+
+            sess1.add_local_input(0, StubInput { inp: i })?;
+            sess2.add_local_input(1, StubInput { inp: i })?;
+            let r1 = sess1.advance_frame()?;
+            let r2 = sess2.advance_frame()?;
+
+            if r1
+                .iter()
+                .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }))
+            {
+                advanced1 = true;
+            }
+            if r2
+                .iter()
+                .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }))
+            {
+                advanced2 = true;
+            }
+
+            assert!(
+                std::time::Instant::now() < deadline,
+                "sess stalled on iteration {i} — did not advance within timeout"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+// Test 4: with input_delay >= 1 the input pipeline can run ahead, but the game
+// frame must not advance past the point where remote inputs are actually confirmed.
+// This is the crash scenario from issue #116: with the old code, synchronized_inputs
+// entered prediction mode for the remote player, first_incorrect_frame was set when
+// the real input arrived, and set_last_confirmed_frame then panicked because no
+// rollback had cleared the prediction error.  With the new architecture the gate
+// uses confirmed_inputs (no prediction) and the game frame only moves when remote
+// inputs are confirmed, so many pipeline-only advance_frame calls with no cross-poll
+// must never emit AdvanceFrame beyond what has actually been confirmed.
+#[test]
+#[serial]
+fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), GgrsError> {
+    let input_delay = 3;
+    let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7739, 7740, input_delay);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    // Drive sess1 through several advance_frame calls without ever polling for sess2's
+    // packets.  The input pipeline will advance (sess1 is committing frames ahead via
+    // input delay), but game frame 0 should never be confirmed because sess2's input
+    // has not arrived.
+    let mut game_frames_advanced = 0usize;
+    for _ in 0..input_delay + 5 {
+        sess1.add_local_input(0, StubInput { inp: 0 })?;
+        let requests = sess1.advance_frame()?;
+        if requests
+            .iter()
+            .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }))
+        {
+            game_frames_advanced += 1;
+        }
+    }
+
+    assert_eq!(
+        game_frames_advanced, 0,
+        "sess1 should not advance any game frames without remote input, \
+         even though the input pipeline is running ahead with input_delay={input_delay}"
+    );
+
+    Ok(())
+}

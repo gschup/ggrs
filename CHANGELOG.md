@@ -8,17 +8,15 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - breaking: `NetworkStats::kbps_sent` has been removed; `network_stats()` now reports queue length, RTT, and frame-advantage data only
 
 ### Bug fixes
+- fix: lockstep mode (`max_prediction = 0`) now requires only one-way latency worth of input delay instead of round-trip; `advance_frame` now unconditionally advances the input pipeline (keeping packets flowing) while the game frame only steps forward when all players have confirmed inputs, so a single network round-trip is sufficient to confirm and advance each game frame (fixes [#116](https://github.com/gschup/ggrs/issues/116))
+- fix: desync detection no longer panics with sparse saving when the configured checksum interval frame was not saved exactly (fixes [#107](https://github.com/gschup/ggrs/issues/107))
 - fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, compressed payloads, or decoded player input shapes are invalid
-- fix: input packets with a start frame ahead of the last received frame are no longer rejected; the gap check was incorrectly blocking the first packet from a peer using input delay, freezing the session
-- fix: increasing input delay mid-session now sends generated gap-fill inputs to remote peers, preventing sessions from freezing after the delay change
-- fix: input delay changes now work when multiple local players share one endpoint; outgoing local inputs are queued by effective frame until every local player has input for that frame
+- fix: increasing input delay mid-session now sends generated gap-fill inputs to remote peers, and the first outgoing packet from a peer using input delay is no longer incorrectly rejected; both issues would freeze the session
+- fix: input delay changes now work when multiple local players share one endpoint; outgoing local inputs are queued by effective frame until every local player has input for that frame, and the queue correctly finds the first complete frame rather than assuming the earliest buffered frame is complete
 - fix: `SessionBuilder::with_num_players()` now revalidates already-registered handles, so changing the player count after adding players cannot leave invalid local, remote, or spectator handles in the builder
 - fix: `SessionBuilder::start_p2p_session()` now rejects `DesyncDetection::On { interval: 0 }`, which cannot produce a valid checksum reporting cadence
-- fix: spectator catch-up no longer attempts to read past `SPECTATOR_BUFFER_SIZE` frames when the spectator is very far behind; `frames_to_advance` is now also bounded by the buffer capacity
-- fix: spectator catch-up now caps the number of frames advanced to the number of confirmed frames available from the host, so `catchup_speed` can safely exceed `max_frames_behind`
+- fix: spectator catch-up no longer attempts to read past `SPECTATOR_BUFFER_SIZE` frames when the spectator is very far behind, and now caps the number of frames advanced to the number of confirmed frames available from the host so `catchup_speed` can safely exceed `max_frames_behind`
 - fix: `P2PSession` no longer leaks memory in all-local-player sessions; outgoing inputs were queued into an unbounded buffer that was never drained when there were no remote peers
-- fix: `P2PSession` with multiple local players at different input delays no longer stalls on the first frame; the outgoing queue now scans for the first complete frame rather than assuming the earliest buffered frame has inputs from all players
-- fix: desync detection no longer panics with sparse saving when the configured checksum interval frame was not saved exactly (fixes [#107](https://github.com/gschup/ggrs/issues/107))
 
 ### Improvements
 - feat: `P2PSession::set_input_delay()` allows changing the input delay for a local player mid-session (closes [#106](https://github.com/gschup/ggrs/issues/106))
