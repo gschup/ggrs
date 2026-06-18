@@ -224,6 +224,34 @@ pub fn make_p2p_sessions(
     (s1, s2)
 }
 
+/// Build two connected lockstep `P2PSession`s (`max_prediction = 0`) with the given input delay.
+#[allow(dead_code)]
+pub fn make_lockstep_sessions(
+    port1: u16,
+    port2: u16,
+    input_delay: usize,
+) -> (P2PSession<StubConfig>, P2PSession<StubConfig>) {
+    let s1 = SessionBuilder::<StubConfig>::new()
+        .with_max_prediction_window(0)
+        .with_input_delay(input_delay)
+        .add_player(PlayerType::Local, 0)
+        .unwrap()
+        .add_player(PlayerType::Remote(localhost(port2)), 1)
+        .unwrap()
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(port1).unwrap())
+        .unwrap();
+    let s2 = SessionBuilder::<StubConfig>::new()
+        .with_max_prediction_window(0)
+        .with_input_delay(input_delay)
+        .add_player(PlayerType::Remote(localhost(port1)), 0)
+        .unwrap()
+        .add_player(PlayerType::Local, 1)
+        .unwrap()
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(port2).unwrap())
+        .unwrap();
+    (s1, s2)
+}
+
 /// Poll both sessions until they reach `Running` state or the sync timeout expires.
 #[allow(dead_code)]
 pub fn sync_p2p_sessions<C: Config>(s1: &mut P2PSession<C>, s2: &mut P2PSession<C>) {
