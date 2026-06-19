@@ -360,48 +360,20 @@ impl<T: Config> P2PSession<T> {
          *  INPUTS
          */
 
-        // In lockstep mode the pipeline may be capped (remote unresponsive): if so, skip
-        // input queuing entirely so the user re-submits next call with the same frame number,
-        // matching rollback behaviour when the prediction threshold is reached.
-        let pipeline_will_advance = !lockstep || {
+        if lockstep {
+            // In lockstep mode the input queue may be capped (remote unresponsive): only
+            // register inputs when the queue has room, so the user re-submits next call with
+            // the same frame number — matching rollback behaviour at the prediction threshold.
             let depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
             let local_handles = self.player_reg.local_player_handles();
-            depth <= self.sync_layer.min_local_input_delay(&local_handles) as i32
-        };
-
-        if pipeline_will_advance {
-            // register local inputs in the system and send them
-            for handle in self.player_reg.local_player_handles() {
-                // we have checked that these all exist
-                let queued_input = {
-                    let player_input = self
-                        .pending_local_inputs
-                        .get_mut(&handle)
-                        .expect("Missing local input while calling advance_frame().");
-                    // send the input into the sync layer
-                    let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
-                    player_input.frame = actual_frame;
-                    *player_input
-                };
-                // if the input has not been dropped
-                if queued_input.frame != NULL_FRAME {
-                    self.local_connect_status[handle].last_frame = queued_input.frame;
-                    self.queue_outgoing_local_input(handle, queued_input);
-                }
+            let input_queue_will_advance =
+                depth <= self.sync_layer.min_local_input_delay(&local_handles) as i32;
+            if input_queue_will_advance {
+                self.register_local_inputs();
             }
-
-            self.send_ready_outgoing_inputs_to_remotes();
-        }
-
-        /*
-         * ADVANCE THE STATE
-         */
-
-        // Lockstep and rollback use completely different advance strategies; each is
-        // handled in its own method below.
-        if lockstep {
-            self.advance_lockstep_frame(confirmed_frame, pipeline_will_advance, &mut requests);
+            self.advance_lockstep_frame(confirmed_frame, input_queue_will_advance, &mut requests);
         } else {
+            self.register_local_inputs();
             self.advance_rollback_frame(&mut requests);
         }
 
@@ -616,6 +588,25 @@ impl<T: Config> P2PSession<T> {
         self.player_reg.num_spectators()
     }
 
+    fn register_local_inputs(&mut self) {
+        for handle in self.player_reg.local_player_handles() {
+            let queued_input = {
+                let player_input = self
+                    .pending_local_inputs
+                    .get_mut(&handle)
+                    .expect("Missing local input while calling advance_frame().");
+                let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
+                player_input.frame = actual_frame;
+                *player_input
+            };
+            if queued_input.frame != NULL_FRAME {
+                self.local_connect_status[handle].last_frame = queued_input.frame;
+                self.queue_outgoing_local_input(handle, queued_input);
+            }
+        }
+        self.send_ready_outgoing_inputs_to_remotes();
+    }
+
     fn queue_outgoing_local_input(
         &mut self,
         player_handle: PlayerHandle,
@@ -780,29 +771,29 @@ impl<T: Config> P2PSession<T> {
         self.state = SessionState::Running;
     }
 
-    /// Lockstep advance: the input pipeline always moves forward so packets keep flowing, but
+    /// Lockstep advance: the input queue always moves forward so packets keep flowing, but
     /// the game frame only steps when every player's input for it has been confirmed.
     ///
-    /// The pipeline counter (`sync_layer.current_frame`) advances unconditionally every call.
+    /// `sync_layer.current_frame` (the input queue frame) advances unconditionally every call.
     /// This breaks the bootstrap deadlock: with input_delay D ≥ one-way latency L, side A
     /// commits frame D on its first call; the packet reaches side B after L frames, so both
-    /// sides can confirm game frame 0 after a single round-trip.  `confirmed_inputs` is used
+    /// sides can confirm game frame 0 after a single one-way trip.  `confirmed_inputs` is used
     /// instead of `synchronized_inputs` so no prediction ever occurs and no rollback is needed.
     fn advance_lockstep_frame(
         &mut self,
         confirmed_frame: Frame,
-        pipeline_advancing: bool,
+        input_queue_advancing: bool,
         requests: &mut Vec<GgrsRequest<T>>,
     ) {
-        if pipeline_advancing {
+        if input_queue_advancing {
             self.sync_layer.advance_frame();
             self.pending_local_inputs.clear();
         } else {
-            let pipeline_depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
+            let queue_depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
             warn!(
-                "Lockstep pipeline cap reached: remote has not confirmed frame {} \
-                 after {} pipeline frames. Remote may be unresponsive.",
-                self.lockstep_game_frame, pipeline_depth,
+                "Lockstep input queue cap reached: remote has not confirmed frame {} \
+                 after {} queued frames. Remote may be unresponsive.",
+                self.lockstep_game_frame, queue_depth,
             );
         }
 
