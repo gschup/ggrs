@@ -8,7 +8,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - breaking: `NetworkStats::kbps_sent` has been removed; `network_stats()` now reports queue length, RTT, and frame-advantage data only
 
 ### Bug fixes
-- fix: lockstep mode (`max_prediction = 0`) now requires only one-way latency worth of input delay instead of round-trip; `advance_frame` now unconditionally advances the input pipeline (keeping packets flowing) while the game frame only steps forward when all players have confirmed inputs, so a single network round-trip is sufficient to confirm and advance each game frame (fixes [#116](https://github.com/gschup/ggrs/issues/116))
+- fix: lockstep mode (`max_prediction = 0`) now requires only one-way latency worth of input delay instead of round-trip; `advance_frame` now unconditionally advances the input queue (keeping packets flowing) while the game frame only steps forward when all players have confirmed inputs, so a single network one-way trip is sufficient to confirm and advance each game frame (fixes [#116](https://github.com/gschup/ggrs/issues/116))
 - fix: desync detection no longer panics with sparse saving when the configured checksum interval frame was not saved exactly (fixes [#107](https://github.com/gschup/ggrs/issues/107))
 - fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, compressed payloads, or decoded player input shapes are invalid
 - fix: increasing input delay mid-session now sends generated gap-fill inputs to remote peers, and the first outgoing packet from a peer using input delay is no longer incorrectly rejected; both issues would freeze the session
