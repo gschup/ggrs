@@ -263,17 +263,27 @@ impl<T: Config> P2PSession<T> {
         Ok(())
     }
 
-    /// You should call this to notify GGRS that you are ready to advance your gamestate by a single frame.
-    /// Returns an order-sensitive [`Vec<GgrsRequest>`]. You should fulfill all requests in the exact order they are provided.
-    /// Failure to do so will cause panics later.
+    /// Advance the session by one frame. Returns an order-sensitive [`Vec<GgrsRequest>`] that
+    /// must be fulfilled in exact order.
+    ///
+    /// Internally calls [`poll_remote_clients`] before doing anything else, so you do not need to
+    /// call it separately on the same tick.
+    ///
+    /// In **lockstep mode** (`max_prediction = 0`), the returned vec may contain no
+    /// `AdvanceFrame` request if remote inputs have not yet arrived — the session stalls until
+    /// all peers confirm the current frame. Call [`poll_remote_clients`] and retry on the next
+    /// tick. Unlike rollback mode this is not an error; it is the normal wait behaviour.
     ///
     /// # Errors
-    /// - Returns [`InvalidRequest`] if the provided player handle refers to a remote player.
-    /// - Returns [`NotSynchronized`] if the session is not yet ready to accept input. In this case, you either need to start the session or wait for synchronization between clients.
+    /// - Returns [`InvalidRequest`] if a local input is missing for any registered local player.
+    /// - Returns [`NotSynchronized`] if the session is not yet synchronized with remote peers.
+    /// - Returns [`PredictionThreshold`] (rollback mode only) if the remote peer is too far behind.
     ///
+    /// [`poll_remote_clients`]: Self::poll_remote_clients
     /// [`Vec<GgrsRequest>`]: GgrsRequest
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     /// [`NotSynchronized`]: GgrsError::NotSynchronized
+    /// [`PredictionThreshold`]: GgrsError::PredictionThreshold
     pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
