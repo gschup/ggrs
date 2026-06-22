@@ -364,14 +364,10 @@ impl<T: Config> P2PSession<T> {
             // In lockstep mode the input queue may be capped (remote unresponsive): only
             // register inputs when the queue has room, so the user re-submits next call with
             // the same frame number — matching rollback behaviour at the prediction threshold.
-            let depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
-            let local_handles = self.player_reg.local_player_handles();
-            let input_queue_will_advance =
-                depth <= self.sync_layer.min_local_input_delay(&local_handles) as i32;
-            if input_queue_will_advance {
+            if !self.lockstep_input_queue_at_cap() {
                 self.register_local_inputs();
             }
-            self.advance_lockstep_frame(confirmed_frame, input_queue_will_advance, &mut requests);
+            self.advance_lockstep_frame(&mut requests);
         } else {
             self.register_local_inputs();
             self.advance_rollback_frame(&mut requests);
@@ -548,6 +544,32 @@ impl<T: Config> P2PSession<T> {
 
         assert!(confirmed_frame < i32::MAX);
         confirmed_frame
+    }
+
+    /// Returns true if the lockstep input queue has reached its maximum depth and should not
+    /// accept more inputs until the remote catches up.
+    fn lockstep_input_queue_at_cap(&self) -> bool {
+        let depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
+        let local_handles = self.player_reg.local_player_handles();
+        depth > self.sync_layer.min_local_input_delay(&local_handles) as i32
+    }
+
+    /// Returns the highest frame confirmed by all remote players only.
+    /// In lockstep mode this is the gate for advancing a game frame: the local player's
+    /// status is excluded because local inputs are always registered unconditionally,
+    /// so including them in the min would cause a deadlock.
+    fn remote_confirmed_frame(&self) -> Frame {
+        let remote_handles = self.player_reg.remote_player_handles();
+        if remote_handles.is_empty() {
+            // all-local session: every frame is trivially confirmed
+            return self.sync_layer.current_frame();
+        }
+        remote_handles
+            .iter()
+            .filter(|&&h| !self.local_connect_status[h].disconnected)
+            .map(|&h| self.local_connect_status[h].last_frame)
+            .min()
+            .unwrap_or(NULL_FRAME)
     }
 
     /// Returns the current frame of a session.
@@ -772,41 +794,35 @@ impl<T: Config> P2PSession<T> {
     }
 
     /// Lockstep advance: the input queue always moves forward so packets keep flowing, but
-    /// the game frame only steps when every player's input for it has been confirmed.
+    /// the game frame only steps when all remote players have confirmed it.
     ///
     /// `sync_layer.current_frame` (the input queue frame) advances unconditionally every call.
     /// This breaks the bootstrap deadlock: with input_delay D ≥ one-way latency L, side A
     /// commits frame D on its first call; the packet reaches side B after L frames, so both
     /// sides can confirm game frame 0 after a single one-way trip.  `confirmed_inputs` is used
     /// instead of `synchronized_inputs` so no prediction ever occurs and no rollback is needed.
-    fn advance_lockstep_frame(
-        &mut self,
-        confirmed_frame: Frame,
-        input_queue_advancing: bool,
-        requests: &mut Vec<GgrsRequest<T>>,
-    ) {
-        if input_queue_advancing {
-            self.sync_layer.advance_frame();
-            self.pending_local_inputs.clear();
-        } else {
+    fn advance_lockstep_frame(&mut self, requests: &mut Vec<GgrsRequest<T>>) {
+        if self.lockstep_input_queue_at_cap() {
             let queue_depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
             warn!(
                 "Lockstep input queue cap reached: remote has not confirmed frame {} \
                  after {} queued frames. Remote may be unresponsive.",
                 self.lockstep_game_frame, queue_depth,
             );
+        } else {
+            self.sync_layer.advance_frame();
+            self.pending_local_inputs.clear();
         }
 
         let game_frame = self.lockstep_game_frame;
-        if confirmed_frame >= game_frame {
+        let remote_confirmed = self.remote_confirmed_frame();
+        if remote_confirmed >= game_frame {
             let inputs = self
                 .sync_layer
                 .confirmed_inputs(game_frame, &self.local_connect_status)
                 .into_iter()
                 .enumerate()
                 .map(|(handle, pi)| {
-                    // confirmed_inputs returns blank_input(NULL_FRAME) for disconnected players
-                    // and a real PlayerInput for connected ones — assert the invariant holds.
                     debug_assert_eq!(
                         pi.frame == NULL_FRAME,
                         self.local_connect_status[handle].disconnected
@@ -826,7 +842,7 @@ impl<T: Config> P2PSession<T> {
         } else {
             debug!(
                 "Lockstep stall: waiting for confirmation of frame {} (confirmed up to {})",
-                game_frame, confirmed_frame,
+                game_frame, remote_confirmed,
             );
         }
     }
