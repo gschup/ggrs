@@ -69,8 +69,8 @@ let mut session = SessionBuilder::<GgrsConfig>::new()
 |---|---|---|
 | `with_num_players(n)` | 2 | Total number of players (not counting spectators). Must be at least 1. Revalidates already-added handles. |
 | `with_fps(fps)` | 60 | Expected update frequency. Used for frame synchronization heuristics. |
-| `with_input_delay(n)` | 0 | Frames of artificial delay applied to local input. Reduces rollbacks at the cost of added latency. |
-| `with_max_prediction_window(n)` | 8 | Maximum frames GGRS will predict ahead. Set to `0` for lockstep mode (no rollbacks, no prediction). |
+| `with_input_delay(n)` | 0 | Frames of artificial delay applied to local input. Reduces rollbacks in rollback mode. In lockstep mode, set this to at least `ceil(one_way_latency_in_frames)` so remote inputs arrive before they are needed. |
+| `with_max_prediction_window(n)` | 8 | Maximum frames GGRS will predict ahead. Set to `0` for lockstep mode: no prediction, no rollbacks, game stalls until all remote inputs are confirmed. |
 | `with_sparse_saving_mode(bool)` | false | Only save state at the last confirmed frame. See [Sparse Saving](sparse-saving.md). |
 | `with_desync_detection_mode(mode)` | Off | Enable checksum-based desync detection. `DesyncDetection::On` requires an interval higher than 0. See [`DesyncDetection`](https://docs.rs/ggrs/latest/ggrs/enum.DesyncDetection.html). |
 | `with_disconnect_timeout(duration)` | 2s | How long without packets before a remote peer is disconnected. |

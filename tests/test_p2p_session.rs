@@ -753,26 +753,25 @@ fn test_desync_detection_off_by_default() -> Result<(), GgrsError> {
 
 // ── Lockstep mode ─────────────────────────────────────────────────────────────
 
-// Lockstep stalls when the remote session has not been cross-polled.
-// With input_delay=0 and no cross-polling, neither side has received the other's
-// input, so confirmed_frame stays at NULL_FRAME and no AdvanceFrame is issued.
+// Lockstep stalls when the remote's input has not been received.
+// When sess1 calls advance_frame first its internal poll finds nothing (sess2 has not
+// sent yet), so sess1 stalls. Only sess1's stall is asserted: sess2 calls advance_frame
+// second and its internal poll may already find sess1's just-sent packet (depending on
+// OS loopback timing), so sess2's outcome is deliberately not asserted here.
+// The full stall→poll→advance round-trip is covered by
+// test_lockstep_advances_with_zero_latency_zero_delay.
 #[test]
 #[serial]
 fn test_lockstep_stalls_without_remote_input() -> Result<(), GgrsError> {
     let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7733, 7734, 0);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
-    // add local inputs but do NOT cross-poll — remote input never arrives
+    // sess1 calls advance_frame before sess2 has sent anything — its internal poll
+    // finds no remote input, so it must stall.
     sess1.add_local_input(0, StubInput { inp: 0 })?;
-    sess2.add_local_input(1, StubInput { inp: 0 })?;
-
     let requests1 = sess1.advance_frame()?;
-    let requests2 = sess2.advance_frame()?;
 
     let advanced1 = requests1
-        .iter()
-        .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }));
-    let advanced2 = requests2
         .iter()
         .any(|r| matches!(r, ggrs::GgrsRequest::AdvanceFrame { .. }));
 
@@ -780,10 +779,10 @@ fn test_lockstep_stalls_without_remote_input() -> Result<(), GgrsError> {
         !advanced1,
         "sess1 should stall when remote input has not arrived"
     );
-    assert!(
-        !advanced2,
-        "sess2 should stall when remote input has not arrived"
-    );
+
+    // sess2 is not called here; its stall behaviour is covered by
+    // test_lockstep_advances_with_zero_latency_zero_delay (first iteration).
+    let _ = sess2;
 
     Ok(())
 }

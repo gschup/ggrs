@@ -144,16 +144,14 @@ impl<T: Config> SessionBuilder<T> {
     ///
     /// ## Lockstep mode
     ///
-    /// As a special case, if you set this to 0, GGRS will run in lockstep mode:
-    /// * ggrs will only request that you advance the gamestate if the current frame has inputs
-    ///   confirmed from all other clients.
-    /// * ggrs will never request you to save or roll back the gamestate.
+    /// Setting this to 0 enables lockstep mode:
+    /// - `AdvanceFrame` is only emitted once all remote inputs for the current frame are confirmed.
+    /// - `SaveGameState` and `LoadGameState` are never emitted — no rollback occurs.
     ///
-    /// Lockstep mode can significantly reduce the (GGRS) framerate of your game, but may be
-    /// appropriate for games where a GGRS frame does not correspond to a rendered frame, such as a
-    /// game where GGRS frames are only advanced once a second; with input delay set to zero, the
-    /// framerate impact is approximately equivalent to taking the highest latency client and adding
-    /// its latency to the current time to tick a frame.
+    /// In lockstep mode the game stalls until remote inputs arrive, so smooth playback requires
+    /// enough input delay to cover the one-way network trip. Set
+    /// `with_input_delay(ceil(one_way_latency_in_frames))` — roughly half the round-trip time.
+    /// The semantics match rollback mode: input pressed on frame `F` takes effect on frame `F + D`.
     pub fn with_max_prediction_window(mut self, window: usize) -> Self {
         self.max_prediction = window;
         self
@@ -161,10 +159,13 @@ impl<T: Config> SessionBuilder<T> {
 
     /// Change the amount of frames GGRS will delay the inputs for local players. Default is 0.
     ///
-    /// Adding a small amount of input delay (typically 2–4 frames) reduces the number of rollbacks
-    /// by giving remote inputs time to arrive before they are needed. The trade-off is a small
-    /// but constant increase in perceived input latency. This is usually preferable to frequent
-    /// rollbacks at higher network latencies.
+    /// In rollback mode, input delay (typically 2–4 frames) reduces rollbacks by letting remote
+    /// inputs arrive before they are needed, at the cost of constant perceived latency.
+    ///
+    /// In lockstep mode, input delay determines how far ahead the input queue runs relative to
+    /// the confirmed game frame. Set this to at least `ceil(one_way_latency_in_frames)` —
+    /// roughly half the round-trip time — so remote inputs arrive before the game needs them
+    /// and the session can advance without stalling.
     ///
     /// There is no enforced upper bound, but values above ~8 frames will produce noticeable
     /// input lag. Setting this higher than `max_prediction_window` is not recommended —
