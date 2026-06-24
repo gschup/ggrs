@@ -148,10 +148,13 @@ impl<T: Config> SessionBuilder<T> {
     /// - `AdvanceFrame` is only emitted once all remote inputs for the current frame are confirmed.
     /// - `SaveGameState` and `LoadGameState` are never emitted — no rollback occurs.
     ///
-    /// In lockstep mode the game stalls until remote inputs arrive, so smooth playback requires
-    /// enough input delay to cover the one-way network trip. Set
-    /// `with_input_delay(ceil(one_way_latency_in_frames))` — roughly half the round-trip time.
-    /// The semantics match rollback mode: input pressed on frame `F` takes effect on frame `F + D`.
+    /// Plain lockstep mode is conservative: the game stalls until remote inputs are observed by
+    /// the next call to [`P2PSession::advance_frame`]. Smooth playback may therefore require input
+    /// delay that covers network latency plus polling/scheduling jitter. For a bounded wait that
+    /// polls during the current tick, use [`P2PSession::advance_frame_with_wait`].
+    ///
+    /// Input-delay semantics match rollback mode: input pressed on frame `F` takes effect on frame
+    /// `F + D`.
     pub fn with_max_prediction_window(mut self, window: usize) -> Self {
         self.max_prediction = window;
         self
@@ -162,14 +165,14 @@ impl<T: Config> SessionBuilder<T> {
     /// In rollback mode, input delay (typically 2–4 frames) reduces rollbacks by letting remote
     /// inputs arrive before they are needed, at the cost of constant perceived latency.
     ///
-    /// In lockstep mode, input delay determines how far ahead the input queue runs relative to
-    /// the confirmed game frame. Set this to at least `ceil(one_way_latency_in_frames)` —
-    /// roughly half the round-trip time — so remote inputs arrive before the game needs them
-    /// and the session can advance without stalling.
+    /// In lockstep mode, input delay determines how far ahead local input is scheduled, but the
+    /// public session frame remains the game frame. Without [`P2PSession::advance_frame_with_wait`],
+    /// smooth playback may require enough delay to cover network latency plus polling/scheduling
+    /// jitter.
     ///
     /// There is no enforced upper bound, but values above ~8 frames will produce noticeable
-    /// input lag. Setting this higher than `max_prediction_window` is not recommended —
-    /// inputs delayed beyond the prediction window will stall the session.
+    /// input lag. In rollback mode, setting this higher than `max_prediction_window` is not
+    /// recommended because inputs delayed beyond the prediction window will stall the session.
     pub fn with_input_delay(mut self, delay: usize) -> Self {
         self.input_delay = delay;
         self
@@ -372,6 +375,7 @@ impl<T: Config> SessionBuilder<T> {
             self.sparse_saving,
             self.desync_detection,
             self.input_delay,
+            self.fps,
         ))
     }
 

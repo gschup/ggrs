@@ -119,7 +119,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // if enough time is accumulated, we run a frame
         while accumulator.as_secs_f64() > fps_delta {
             // decrease accumulator
-            accumulator = accumulator.saturating_sub(Duration::from_secs_f64(fps_delta));
+            let frame_duration = Duration::from_secs_f64(fps_delta);
+            accumulator = accumulator.saturating_sub(frame_duration);
 
             // frames are only happening if the sessions are synchronized
             if sess.current_state() == SessionState::Running {
@@ -129,7 +130,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 match sess.advance_frame() {
-                    Ok(requests) => game.handle_requests(requests),
+                    Ok(requests) => {
+                        if requests.is_empty() && sess.in_lockstep_mode() {
+                            accumulator = accumulator.saturating_add(frame_duration);
+                            break;
+                        }
+                        game.handle_requests(requests);
+                    }
                     Err(e) => return Err(Box::new(e)),
                 }
             }

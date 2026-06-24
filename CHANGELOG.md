@@ -8,7 +8,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - breaking: `NetworkStats::kbps_sent` has been removed; `network_stats()` now reports queue length, RTT, and frame-advantage data only
 
 ### Bug fixes
-- fix: lockstep mode (`max_prediction = 0`) now requires only one-way latency worth of input delay instead of round-trip; `advance_frame` now unconditionally advances the input queue (keeping packets flowing) while the game frame only steps forward when all players have confirmed inputs, so a single network one-way trip is sufficient to confirm and advance each game frame (fixes [#116](https://github.com/gschup/ggrs/issues/116))
+- fix: lockstep mode (`max_prediction = 0`) now keeps `current_frame()` aligned with emitted game frames and no longer advances an internal input queue on stalls; `advance_frame` remains conservative and may require enough input delay to cover polling/scheduling jitter, while the new `P2PSession::advance_frame_with_wait` helper can poll briefly before returning an empty request list (follow-up for [#116](https://github.com/gschup/ggrs/issues/116))
 - fix: desync detection no longer panics with sparse saving when the configured checksum interval frame was not saved exactly (fixes [#107](https://github.com/gschup/ggrs/issues/107))
 - fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, compressed payloads, or decoded player input shapes are invalid
 - fix: increasing input delay mid-session now sends generated gap-fill inputs to remote peers, and the first outgoing packet from a peer using input delay is no longer incorrectly rejected; both issues would freeze the session
@@ -20,6 +20,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ### Improvements
 - feat: `P2PSession::set_input_delay()` allows changing the input delay for a local player mid-session (closes [#106](https://github.com/gschup/ggrs/issues/106))
+- feat: `P2PSession::advance_frame_with_wait()` and `advance_frame_with_wait_timeout()` provide an explicit bounded wait for lockstep stalls, reducing the need for users to hand-roll a busy polling loop
 
 ### Documentation
 - docs: refreshed session setup and runtime guidance for builder validation, runtime input-delay changes, spectator catch-up settings, network stats warmup errors, and checksum-based desync detection

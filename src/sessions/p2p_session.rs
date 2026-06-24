@@ -12,6 +12,7 @@ use crate::{
 };
 use tracing::{debug, trace, warn};
 
+use instant::{Duration, Instant};
 use std::collections::vec_deque::Drain;
 use std::collections::VecDeque;
 use std::collections::{BTreeMap, HashMap};
@@ -124,13 +125,10 @@ where
     /// If we receive a disconnect from another client, we have to rollback from that frame on in order to prevent wrong predictions
     disconnect_frame: Frame,
 
-    /// In lockstep mode, the game frame that still needs to be confirmed and emitted.
-    /// Starts at 0 and increments each time an AdvanceFrame request is pushed to the user.
-    /// Separate from sync_layer.current_frame(), which advances unconditionally every call.
-    lockstep_game_frame: Frame,
-
     /// Internal State of the Session.
     state: SessionState,
+    /// Expected update frequency. Used to bound the optional lockstep wait helper.
+    fps: usize,
 
     /// The [`P2PSession`] uses this socket to send and receive all messages for remote players.
     socket: Box<dyn NonBlockingSocket<T::Address>>,
@@ -166,6 +164,7 @@ where
 impl<T: Config> P2PSession<T> {
     /// Creates a new [`P2PSession`] for players who participate on the game input. After creating the session, add local and remote players,
     /// set input delay for local players and then start the session. The session will use the provided socket.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         num_players: usize,
         max_prediction: usize,
@@ -174,6 +173,7 @@ impl<T: Config> P2PSession<T> {
         sparse_saving: bool,
         desync_detection: DesyncDetection,
         input_delay: usize,
+        fps: usize,
     ) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
@@ -213,6 +213,7 @@ impl<T: Config> P2PSession<T> {
             state,
             num_players,
             max_prediction,
+            fps,
             sparse_saving,
             socket,
             local_connect_status,
@@ -221,7 +222,6 @@ impl<T: Config> P2PSession<T> {
             frames_ahead: 0,
             sync_layer,
             disconnect_frame: NULL_FRAME,
-            lockstep_game_frame: 0,
             player_reg: players,
             event_queue: VecDeque::new(),
             pending_local_inputs: HashMap::new(),
@@ -270,9 +270,10 @@ impl<T: Config> P2PSession<T> {
     /// call it separately on the same tick.
     ///
     /// In **lockstep mode** (`max_prediction = 0`), the returned vec may contain no
-    /// `AdvanceFrame` request if remote inputs have not yet arrived — the session stalls until
-    /// all peers confirm the current frame. Call [`poll_remote_clients`] and retry on the next
-    /// tick. Unlike rollback mode this is not an error; it is the normal wait behaviour.
+    /// `AdvanceFrame` request if remote inputs have not yet arrived — the session stalls without
+    /// consuming a game frame. Call [`poll_remote_clients`] and retry on the next tick, or use
+    /// [`advance_frame_with_wait`] to poll for a bounded amount of time before returning. Unlike
+    /// rollback mode this is not an error; it is the normal wait behaviour.
     ///
     /// # Errors
     /// - Returns [`InvalidRequest`] if a local input is missing for any registered local player.
@@ -280,6 +281,7 @@ impl<T: Config> P2PSession<T> {
     /// - Returns [`PredictionThreshold`] (rollback mode only) if the remote peer is too far behind.
     ///
     /// [`poll_remote_clients`]: Self::poll_remote_clients
+    /// [`advance_frame_with_wait`]: Self::advance_frame_with_wait
     /// [`Vec<GgrsRequest>`]: GgrsRequest
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     /// [`NotSynchronized`]: GgrsError::NotSynchronized
@@ -287,7 +289,56 @@ impl<T: Config> P2PSession<T> {
     pub fn advance_frame(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // receive info from remote players, trigger events and send messages
         self.poll_remote_clients();
+        self.advance_frame_after_poll()
+    }
 
+    /// Advance the session by one frame, waiting briefly for lockstep confirmation before
+    /// returning an empty request list.
+    ///
+    /// This is only different from [`advance_frame`] in lockstep mode (`max_prediction = 0`).
+    /// If the first advance attempt stalls because the current game frame is not confirmed yet,
+    /// GGRS keeps polling the non-blocking socket until either the frame becomes confirmed or one
+    /// frame duration (derived from the session's configured FPS) has elapsed.
+    ///
+    /// In rollback mode this behaves exactly like [`advance_frame`].
+    ///
+    /// [`advance_frame`]: Self::advance_frame
+    pub fn advance_frame_with_wait(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
+        let micros = (1_000_000_u64 / self.fps as u64).max(1);
+        self.advance_frame_with_wait_timeout(Duration::from_micros(micros))
+    }
+
+    /// Advance the session by one frame, waiting up to `timeout` for lockstep confirmation.
+    ///
+    /// This helper makes the lockstep wait explicit. It may spin-poll for up to `timeout`, so use
+    /// it only when a short bounded wait is appropriate for your platform and game loop. Passing a
+    /// zero timeout is equivalent to [`advance_frame`].
+    ///
+    /// [`advance_frame`]: Self::advance_frame
+    pub fn advance_frame_with_wait_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
+        self.poll_remote_clients();
+        let requests = self.advance_frame_after_poll()?;
+
+        if !self.in_lockstep_mode() || !requests.is_empty() || timeout == Duration::from_micros(0) {
+            return Ok(requests);
+        }
+
+        let deadline = Instant::now() + timeout;
+        while Instant::now() < deadline {
+            self.poll_remote_clients();
+            if self.lockstep_current_frame_confirmed() {
+                return self.advance_frame_after_poll();
+            }
+            Self::yield_lockstep_wait();
+        }
+
+        Ok(requests)
+    }
+
+    fn advance_frame_after_poll(&mut self) -> Result<Vec<GgrsRequest<T>>, GgrsError> {
         // session is not running and synchronized
         if self.state != SessionState::Running {
             trace!("Session not synchronized; returning error");
@@ -340,24 +391,11 @@ impl<T: Config> P2PSession<T> {
         // propagate disconnects to multiple players
         self.update_player_disconnects();
 
-        // find the confirmed frame for which we received all inputs
-        let confirmed_frame = self.confirmed_frame();
-
-        // check game consistency and roll back, if necessary
-        if !lockstep {
-            self.handle_rollback_and_save(confirmed_frame, &mut requests);
+        if lockstep {
+            self.advance_lockstep_frame(&mut requests);
+        } else {
+            self.advance_rollback_frame(&mut requests);
         }
-
-        /*
-         *  SEND OFF AND THROW AWAY INPUTS BEFORE THE CONFIRMED FRAME
-         */
-
-        // send confirmed inputs to spectators before throwing them away
-        self.send_confirmed_inputs_to_spectators(confirmed_frame);
-
-        // set the last confirmed frame and discard all saved inputs before that frame
-        self.sync_layer
-            .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
 
         /*
          *  WAIT RECOMMENDATION
@@ -365,23 +403,6 @@ impl<T: Config> P2PSession<T> {
 
         // check time sync between clients and send wait recommendation, if appropriate
         self.check_wait_recommendation();
-
-        /*
-         *  INPUTS
-         */
-
-        if lockstep {
-            // In lockstep mode the input queue may be capped (remote unresponsive): only
-            // register inputs when the queue has room, so the user re-submits next call with
-            // the same frame number — matching rollback behaviour at the prediction threshold.
-            if !self.lockstep_input_queue_at_cap() {
-                self.register_local_inputs();
-            }
-            self.advance_lockstep_frame(&mut requests);
-        } else {
-            self.register_local_inputs();
-            self.advance_rollback_frame(&mut requests);
-        }
 
         Ok(requests)
     }
@@ -556,30 +577,13 @@ impl<T: Config> P2PSession<T> {
         confirmed_frame
     }
 
-    /// Returns true if the lockstep input queue has reached its maximum depth and should not
-    /// accept more inputs until the remote catches up.
-    fn lockstep_input_queue_at_cap(&self) -> bool {
-        let depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
-        let local_handles = self.player_reg.local_player_handles();
-        depth > self.sync_layer.min_local_input_delay(&local_handles) as i32
+    fn lockstep_current_frame_confirmed(&self) -> bool {
+        self.confirmed_frame() >= self.sync_layer.current_frame()
     }
 
-    /// Returns the highest frame confirmed by all remote players only.
-    /// In lockstep mode this is the gate for advancing a game frame: the local player's
-    /// status is excluded because local inputs are always registered unconditionally,
-    /// so including them in the min would cause a deadlock.
-    fn remote_confirmed_frame(&self) -> Frame {
-        let remote_handles = self.player_reg.remote_player_handles();
-        if remote_handles.is_empty() {
-            // all-local session: every frame is trivially confirmed
-            return self.sync_layer.current_frame();
-        }
-        remote_handles
-            .iter()
-            .filter(|&&h| !self.local_connect_status[h].disconnected)
-            .map(|&h| self.local_connect_status[h].last_frame)
-            .min()
-            .unwrap_or(NULL_FRAME)
+    fn yield_lockstep_wait() {
+        #[cfg(not(target_arch = "wasm32"))]
+        std::thread::yield_now();
     }
 
     /// Returns the current frame of a session.
@@ -596,7 +600,7 @@ impl<T: Config> P2PSession<T> {
     ///
     /// In lockstep mode, a session will only advance if the current frame has inputs confirmed from
     /// all other players.
-    pub fn in_lockstep_mode(&mut self) -> bool {
+    pub fn in_lockstep_mode(&self) -> bool {
         self.max_prediction == 0
     }
 
@@ -803,30 +807,14 @@ impl<T: Config> P2PSession<T> {
         self.state = SessionState::Running;
     }
 
-    /// Lockstep advance: the input queue always moves forward so packets keep flowing, but
-    /// the game frame only steps when all remote players have confirmed it.
-    ///
-    /// `sync_layer.current_frame` (the input queue frame) advances unconditionally every call.
-    /// This breaks the bootstrap deadlock: with input_delay D ≥ one-way latency L, side A
-    /// commits frame D on its first call; the packet reaches side B after L frames, so both
-    /// sides can confirm game frame 0 after a single one-way trip.  `confirmed_inputs` is used
-    /// instead of `synchronized_inputs` so no prediction ever occurs and no rollback is needed.
+    /// Lockstep advance: local delayed input is sent, but the game frame only steps when all
+    /// players have confirmed the current game frame. No prediction occurs, and the sync frame
+    /// remains the public game frame.
     fn advance_lockstep_frame(&mut self, requests: &mut Vec<GgrsRequest<T>>) {
-        if self.lockstep_input_queue_at_cap() {
-            let queue_depth = self.sync_layer.current_frame() - self.lockstep_game_frame;
-            warn!(
-                "Lockstep input queue cap reached: remote has not confirmed frame {} \
-                 after {} queued frames. Remote may be unresponsive.",
-                self.lockstep_game_frame, queue_depth,
-            );
-        } else {
-            self.sync_layer.advance_frame();
-            self.pending_local_inputs.clear();
-        }
+        self.register_local_inputs();
 
-        let game_frame = self.lockstep_game_frame;
-        let remote_confirmed = self.remote_confirmed_frame();
-        if remote_confirmed >= game_frame {
+        let game_frame = self.sync_layer.current_frame();
+        if self.lockstep_current_frame_confirmed() {
             let inputs = self
                 .sync_layer
                 .confirmed_inputs(game_frame, &self.local_connect_status)
@@ -847,14 +835,22 @@ impl<T: Config> P2PSession<T> {
                     }
                 })
                 .collect();
-            self.lockstep_game_frame += 1;
+            self.sync_layer.advance_frame();
+            self.pending_local_inputs.clear();
             requests.push(GgrsRequest::AdvanceFrame { inputs });
         } else {
             debug!(
                 "Lockstep stall: waiting for confirmation of frame {} (confirmed up to {})",
-                game_frame, remote_confirmed,
+                game_frame,
+                self.confirmed_frame(),
             );
         }
+
+        let consumed_frame = self.sync_layer.current_frame() - 1;
+        let bookkeeping_frame = std::cmp::min(self.confirmed_frame(), consumed_frame);
+        self.send_confirmed_inputs_to_spectators(bookkeeping_frame);
+        self.sync_layer
+            .set_last_confirmed_frame(bookkeeping_frame, self.sparse_saving);
     }
 
     /// Rollback advance: inputs are predicted and corrected on mismatch. The session may run
@@ -862,6 +858,21 @@ impl<T: Config> P2PSession<T> {
     /// NULL_FRAME for `last_confirmed_frame` is treated as 0 frames ahead so prediction can
     /// start immediately from frame 0 without any prior confirmation.
     fn advance_rollback_frame(&mut self, requests: &mut Vec<GgrsRequest<T>>) {
+        // find the confirmed frame for which we received all inputs
+        let confirmed_frame = self.confirmed_frame();
+
+        // check game consistency and roll back, if necessary
+        self.handle_rollback_and_save(confirmed_frame, requests);
+
+        // send confirmed inputs to spectators before throwing them away
+        self.send_confirmed_inputs_to_spectators(confirmed_frame);
+
+        // set the last confirmed frame and discard all saved inputs before that frame
+        self.sync_layer
+            .set_last_confirmed_frame(confirmed_frame, self.sparse_saving);
+
+        self.register_local_inputs();
+
         let frames_ahead = if self.sync_layer.last_confirmed_frame() == NULL_FRAME {
             self.sync_layer.current_frame()
         } else {

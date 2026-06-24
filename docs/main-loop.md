@@ -60,27 +60,33 @@ time_since_last_frame += last_tick.elapsed();
 last_tick = Instant::now();
 
 while time_since_last_frame >= fps_delta {
-    time_since_last_frame -= fps_delta;
-
     // add input once for each local player handle
     session.add_local_input(local_handle, current_input)?;
 
     match session.advance_frame() {
         Ok(requests) => {
+            if requests.is_empty() && session.in_lockstep_mode() {
+                // lockstep stall: no game frame was emitted, so keep the
+                // accumulated time and retry after more network polling
+                break;
+            }
+
+            time_since_last_frame -= fps_delta;
             for request in requests {
                 handle_ggrs_request(request);
             }
-            // In lockstep mode, requests may be empty — remote inputs have not
-            // arrived yet. This is not an error; the session will advance on the
-            // next tick once poll_remote_clients delivers the missing inputs.
         }
         Err(GgrsError::PredictionThreshold) => {
+            time_since_last_frame -= fps_delta;
             // remote peer is too far behind; skip this frame (rollback mode only)
         }
         Err(e) => return Err(e),
     }
 }
 ```
+
+For lockstep mode, `P2PSession::advance_frame_with_wait()` can reduce poll-phase stalls by polling
+for a bounded amount of time before returning an empty request list.
 
 ## Time Synchronization
 
