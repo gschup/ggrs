@@ -4,6 +4,7 @@ use ggrs::{
     DesyncDetection, GgrsError, GgrsEvent, PlayerType, SessionBuilder, SessionState,
     UdpNonBlockingSocket,
 };
+use instant::Duration;
 use serial_test::serial;
 use stubs::{StubConfig, StubInput};
 
@@ -787,6 +788,30 @@ fn test_lockstep_stalls_without_remote_input() -> Result<(), GgrsError> {
     Ok(())
 }
 
+#[test]
+#[serial]
+fn test_lockstep_wait_helper_stalls_without_remote_input() -> Result<(), GgrsError> {
+    let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7743, 7744, 1);
+    stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
+
+    sess1.add_local_input(0, StubInput { inp: 0 })?;
+    let requests = sess1.advance_frame_with_wait_timeout(Duration::from_millis(1))?;
+
+    assert!(
+        requests.is_empty(),
+        "bounded wait helper should still stall when no remote input arrives"
+    );
+    assert_eq!(
+        sess1.current_frame(),
+        0,
+        "bounded wait helper must not consume a game frame on lockstep stalls"
+    );
+
+    let _ = sess2;
+
+    Ok(())
+}
+
 // Lockstep advances every frame with zero latency and zero input delay.
 // With input_delay=0, each session must have the other's frame confirmed before it
 // can advance. advance_frame sends the local input packet unconditionally before
@@ -845,9 +870,9 @@ fn test_lockstep_advances_with_zero_latency_zero_delay() -> Result<(), GgrsError
     Ok(())
 }
 
-// Lockstep with input_delay=1 advances without stalling after the first exchange.
-// With input_delay D, each side queues D frames ahead on its first call, so a single
-// one-way trip is enough for both sides to confirm and advance every game frame up to D.
+// Lockstep with input_delay=1 advances once both peers have exchanged their delayed inputs.
+// The session frame remains the game frame; input delay affects the effective input frame, not an
+// internal game-frame lead.
 #[test]
 #[serial]
 fn test_lockstep_advances_with_input_delay() -> Result<(), GgrsError> {
@@ -896,8 +921,7 @@ fn test_lockstep_advances_with_input_delay() -> Result<(), GgrsError> {
 
 // With input_delay >= 1 and a silent remote, two invariants must hold:
 //   a) No AdvanceFrame is ever emitted — the game must not advance without confirmed inputs.
-//   b) The input queue must not overflow — it is capped at input_delay frames ahead of the
-//      game frame, so the 128-slot queue is never exhausted.
+//   b) The public current frame remains the game frame and does not advance on stalls.
 #[test]
 #[serial]
 fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), GgrsError> {
@@ -906,8 +930,7 @@ fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), Ggr
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
     // Drive sess1 well past 128 iterations (the input queue length) without ever
-    // polling for sess2's packets.  The input queue cap must prevent an overflow,
-    // and the gate must prevent any game advancement.
+    // polling for sess2's packets. Duplicate stalled attempts must not consume game frames.
     let mut game_frames_advanced = 0usize;
     for _ in 0..200 {
         sess1.add_local_input(0, StubInput { inp: 0 })?;
@@ -923,15 +946,13 @@ fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), Ggr
     assert_eq!(
         game_frames_advanced, 0,
         "sess1 should not advance any game frames without remote input, \
-         even though the input queue is running ahead with input_delay={input_delay}"
+         even with input_delay={input_delay}"
     );
 
-    // The input queue should have advanced exactly input_delay+1 frames before hitting the
-    // cap (game_frame=0 is unconfirmed, so the queue stops at depth input_delay+1).
     assert_eq!(
         sess1.current_frame(),
-        input_delay as i32 + 1,
-        "input queue should advance to input_delay+1 frames before capping, \
+        0,
+        "lockstep current_frame should remain the game frame on stalls, \
          got current_frame={} with input_delay={input_delay}",
         sess1.current_frame(),
     );
@@ -939,18 +960,16 @@ fn test_lockstep_stalls_with_input_delay_and_no_remote_input() -> Result<(), Ggr
     Ok(())
 }
 
-// After the input queue cap is hit, the session recovers correctly once the remote
-// starts confirming frames again.  Both sessions spin for many frames with no
-// cross-poll (cap reached, no AdvanceFrame), then cross-poll and both should be able
-// to advance the game frame normally.
+// After repeated lockstep stalls, the session recovers correctly once the remote starts confirming
+// frames again.
 #[test]
 #[serial]
-fn test_lockstep_recovers_after_input_queue_cap() -> Result<(), GgrsError> {
+fn test_lockstep_recovers_after_repeated_stalls() -> Result<(), GgrsError> {
     let input_delay = 2;
     let (mut sess1, mut sess2) = stubs::make_lockstep_sessions(7741, 7742, input_delay);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);
 
-    // Spin both sessions well past the cap without any cross-poll.
+    // Spin both sessions for many attempts without any cross-poll.
     for _ in 0..input_delay + 10 {
         sess1.add_local_input(0, StubInput { inp: 0 })?;
         sess2.add_local_input(1, StubInput { inp: 0 })?;
@@ -987,7 +1006,7 @@ fn test_lockstep_recovers_after_input_queue_cap() -> Result<(), GgrsError> {
 
         assert!(
             std::time::Instant::now() < deadline,
-            "session did not recover after input queue cap was hit"
+            "session did not recover after repeated lockstep stalls"
         );
     }
 

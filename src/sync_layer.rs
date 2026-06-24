@@ -219,17 +219,6 @@ impl<T: Config> SyncLayer<T> {
         self.input_queues[player_handle].set_frame_delay(delay)
     }
 
-    /// Returns the minimum input delay across the given local player handles.
-    /// Remote queues always have delay 0 and must be excluded; only local queues
-    /// have a meaningful delay configured by the user.
-    pub(crate) fn min_local_input_delay(&self, local_handles: &[PlayerHandle]) -> usize {
-        local_handles
-            .iter()
-            .map(|&h| self.input_queues[h].frame_delay())
-            .min()
-            .unwrap_or(0)
-    }
-
     pub(crate) fn reset_prediction(&mut self) {
         for i in 0..self.num_players {
             self.input_queues[i].reset_prediction();
