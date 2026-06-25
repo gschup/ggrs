@@ -626,16 +626,13 @@ impl<T: Config> P2PSession<T> {
 
     fn register_local_inputs(&mut self) {
         for handle in self.player_reg.local_player_handles() {
-            let queued_input = {
-                let player_input = self
-                    .pending_local_inputs
-                    .get_mut(&handle)
-                    .expect("Missing local input while calling advance_frame().");
-                let actual_frame = self.sync_layer.add_local_input(handle, *player_input);
-                player_input.frame = actual_frame;
-                *player_input
-            };
-            if queued_input.frame != NULL_FRAME {
+            let player_input = *self
+                .pending_local_inputs
+                .get(&handle)
+                .expect("Missing local input while calling advance_frame().");
+            let actual_frame = self.sync_layer.add_local_input(handle, player_input);
+            if actual_frame != NULL_FRAME {
+                let queued_input = PlayerInput::new(actual_frame, player_input.input);
                 self.local_connect_status[handle].last_frame = queued_input.frame;
                 self.queue_outgoing_local_input(handle, queued_input);
             }

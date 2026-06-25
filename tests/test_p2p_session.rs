@@ -807,6 +807,18 @@ fn test_lockstep_wait_helper_stalls_without_remote_input() -> Result<(), GgrsErr
         "bounded wait helper must not consume a game frame on lockstep stalls"
     );
 
+    let requests = sess1.advance_frame_with_wait_timeout(Duration::from_millis(1))?;
+
+    assert!(
+        requests.is_empty(),
+        "bounded wait helper should be safe to retry after a lockstep stall"
+    );
+    assert_eq!(
+        sess1.current_frame(),
+        0,
+        "retrying the bounded wait helper must not consume a game frame on lockstep stalls"
+    );
+
     let _ = sess2;
 
     Ok(())
