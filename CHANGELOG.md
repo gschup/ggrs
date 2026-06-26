@@ -2,7 +2,7 @@
 
 In this document, all notable changes are listed, including bug fixes, breaking changes, and improvements to behaviour or documentation.
 
-## Unreleased
+## 0.13.0
 
 ### Breaking changes
 - breaking: `NetworkStats::kbps_sent` has been removed; `network_stats()` now reports queue length, RTT, and frame-advantage data only
