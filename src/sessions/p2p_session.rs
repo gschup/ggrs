@@ -760,7 +760,7 @@ impl<T: Config> P2PSession<T> {
                 }
                 endpoint.disconnect();
 
-                if self.sync_layer.current_frame() > last_frame {
+                if self.sync_layer.current_frame() > last_frame + 1 {
                     // remember to adjust simulation to account for the fact that the player disconnected a few frames ago,
                     // resimulating with correct disconnect flags (to account for user having some AI kick in).
                     self.disconnect_frame = last_frame + 1;
