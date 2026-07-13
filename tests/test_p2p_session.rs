@@ -1,8 +1,8 @@
 mod stubs;
 
 use ggrs::{
-    DesyncDetection, GgrsError, GgrsEvent, PlayerType, SessionBuilder, SessionState,
-    UdpNonBlockingSocket,
+    DesyncDetection, GgrsError, GgrsEvent, GgrsRequest, InputStatus, PlayerType, SessionBuilder,
+    SessionState, UdpNonBlockingSocket,
 };
 use instant::Duration;
 use serial_test::serial;
@@ -62,6 +62,28 @@ fn test_disconnect_player() -> Result<(), GgrsError> {
     assert!(sess.disconnect_player(1).is_err()); // already disconnected
     assert!(sess.disconnect_player(2).is_ok());
 
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_caught_up_disconnect_does_not_rollback_to_current_frame() -> Result<(), GgrsError> {
+    let (mut session, mut peer) = stubs::make_p2p_sessions(7745, 7746);
+    stubs::sync_p2p_sessions(&mut session, &mut peer);
+
+    assert_eq!(session.current_frame(), 0);
+    session.disconnect_player(1)?;
+    session.add_local_input(0, StubInput { inp: 1 })?;
+    let requests = session.advance_frame()?;
+
+    assert!(requests
+        .iter()
+        .all(|request| !matches!(request, GgrsRequest::LoadGameState { .. })));
+    assert!(requests.iter().any(|request| matches!(
+        request,
+        GgrsRequest::AdvanceFrame { inputs }
+            if inputs[1].1 == InputStatus::Disconnected
+    )));
     Ok(())
 }
 
