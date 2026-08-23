@@ -2,7 +2,7 @@ use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
-use crate::network::protocol::{UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
+use crate::network::protocol::{InputBytes, UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
 use crate::sessions::builder::MAX_EVENT_QUEUE_SIZE;
 use crate::sync_layer::SyncLayer;
 use crate::DesyncDetection;
@@ -20,6 +20,8 @@ use std::convert::TryInto;
 
 const RECOMMENDATION_INTERVAL: Frame = 60;
 const MIN_RECOMMENDATION: u32 = 3;
+
+const SPECTATOR_SEND_WINDOW: usize = 64;
 
 pub(crate) struct PlayerRegistry<T>
 where
@@ -129,6 +131,10 @@ where
     state: SessionState,
     /// Expected update frequency. Used to bound the optional lockstep wait helper.
     fps: usize,
+    /// The time until a remote player gets disconnected (endpoints created mid-session).
+    disconnect_timeout: Duration,
+    /// The time until the client is notified about a pending disconnect (endpoints created mid-session).
+    disconnect_notify_start: Duration,
 
     /// The [`P2PSession`] uses this socket to send and receive all messages for remote players.
     socket: Box<dyn NonBlockingSocket<T::Address>>,
@@ -139,6 +145,12 @@ where
 
     /// notes which inputs have already been sent to the spectators
     next_spectator_frame: Frame,
+    /// If enabled, all confirmed inputs since frame 0 are retained so spectators can be added mid-session and catch up by replaying the whole input history.
+    late_spectators: bool,
+    /// Encoded confirmed inputs for every frame since session start, indexed by frame (only filled when `late_spectators` is enabled).
+    input_history: Vec<InputBytes>,
+    /// The next history frame to send to each spectator(only used when `late_spectators` is enabled).
+    spectator_cursors: HashMap<T::Address, Frame>,
     /// The soonest frame on which the session can send a [`GgrsEvent::WaitRecommendation`] again.
     next_recommended_sleep: Frame,
     /// How many frames we estimate we are ahead of every remote client
@@ -174,6 +186,9 @@ impl<T: Config> P2PSession<T> {
         desync_detection: DesyncDetection,
         input_delay: usize,
         fps: usize,
+        late_spectators: bool,
+        disconnect_timeout: Duration,
+        disconnect_notify_start: Duration,
     ) -> Self {
         // local connection status
         let mut local_connect_status = Vec::new();
@@ -219,6 +234,11 @@ impl<T: Config> P2PSession<T> {
             local_connect_status,
             next_recommended_sleep: 0,
             next_spectator_frame: 0,
+            late_spectators,
+            input_history: Vec::new(),
+            spectator_cursors: HashMap::new(),
+            disconnect_timeout,
+            disconnect_notify_start,
             frames_ahead: 0,
             sync_layer,
             disconnect_frame: NULL_FRAME,
@@ -455,6 +475,73 @@ impl<T: Config> P2PSession<T> {
         for endpoint in self.player_reg.spectators.values_mut() {
             endpoint.send_all_messages(&mut self.socket);
         }
+
+        if self.late_spectators {
+            self.stream_history_to_spectators();
+        }
+    }
+
+    /// Adds a spectator to the session after it has been started.
+    /// This requires [`SessionBuilder::with_late_spectators`] enabled.
+    /// The new spectator receives the entire retained input history starting at frame 0 once its endpoint has synchronized,
+    /// and catches up to the running session from there.
+    /// Returns the handle assigned to the new spectator.
+    ///
+    /// The spectator side needs a regular session created with
+    /// [`SessionBuilder::start_spectator_session`].
+    /// Connecting to this session's address will synchronize and replay the session from the beginning.
+    ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if the session was built without late spectators.
+    /// - Returns [`InvalidRequest`] if the address is already registered in this session.
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    /// [`SessionBuilder::with_late_spectators`]: crate::SessionBuilder::with_late_spectators
+    /// [`SessionBuilder::start_spectator_session`]: crate::SessionBuilder::start_spectator_session
+    pub fn add_spectator(&mut self, addr: T::Address) -> Result<PlayerHandle, GgrsError> {
+        if !self.late_spectators {
+            return Err(GgrsError::InvalidRequest {
+                info: "Adding spectators to a running session requires with_late_spectators on the session builder.".to_owned(),
+            });
+        }
+
+        if self.player_reg.remotes.contains_key(&addr)
+            || self.player_reg.spectators.contains_key(&addr)
+        {
+            return Err(GgrsError::InvalidRequest {
+                info: "The given address is already registered.".to_owned(),
+            });
+        }
+
+        let handle = self
+            .player_reg
+            .handles
+            .keys()
+            .max()
+            .map_or(self.num_players, |max| (max + 1).max(self.num_players));
+
+        let mut endpoint = UdpProtocol::new(
+            vec![handle],
+            addr.clone(),
+            self.num_players,
+            self.num_players,
+            self.max_prediction,
+            self.disconnect_timeout,
+            self.disconnect_notify_start,
+            self.fps,
+            self.desync_detection,
+        );
+
+        endpoint.synchronize();
+
+        self.player_reg
+            .handles
+            .insert(handle, PlayerType::Spectator(addr.clone()));
+
+        self.player_reg.spectators.insert(addr.clone(), endpoint);
+        self.spectator_cursors.insert(addr, 0);
+
+        Ok(handle)
     }
 
     /// Disconnects a remote player and all other remote players with the same address from the session.
@@ -972,7 +1059,7 @@ impl<T: Config> P2PSession<T> {
 
     /// For each spectator, send all confirmed input up until the minimum confirmed frame.
     fn send_confirmed_inputs_to_spectators(&mut self, confirmed_frame: Frame) {
-        if self.num_spectators() == 0 {
+        if self.num_spectators() == 0 && !self.late_spectators {
             return;
         }
 
@@ -988,16 +1075,58 @@ impl<T: Config> P2PSession<T> {
                 input_map.insert(handle, *input);
             }
 
-            // send it to all spectators
-            for endpoint in self.player_reg.spectators.values_mut() {
-                if endpoint.is_running() {
-                    endpoint.send_input(&input_map, &self.local_connect_status);
-                    endpoint.send_all_messages(&mut self.socket);
+            if self.late_spectators {
+                debug_assert_eq!(self.input_history.len(), self.next_spectator_frame as usize);
+                self.input_history
+                    .push(InputBytes::from_inputs::<T>(self.num_players, &input_map));
+            } else {
+                // send it to all spectators
+                for endpoint in self.player_reg.spectators.values_mut() {
+                    if endpoint.is_running() {
+                        endpoint.send_input(&input_map, &self.local_connect_status);
+                        endpoint.send_all_messages(&mut self.socket);
+                    }
                 }
             }
 
             // onto the next frame
             self.next_spectator_frame += 1;
+        }
+
+        if self.late_spectators {
+            self.stream_history_to_spectators();
+        }
+    }
+
+    /// Sends retained input history to each spectator, keeping at most [`SPECTATOR_SEND_WINDOW`] unacknowledged frames in flight per endpoint.
+    /// Up to date Spectators receive newly confirmed inputs.
+    /// Spectators added mid-session start at frame 0 and catch up (acknowledgements free up their window).
+    fn stream_history_to_spectators(&mut self) {
+        for (addr, endpoint) in self.player_reg.spectators.iter_mut() {
+            if !endpoint.is_running() {
+                continue;
+            }
+
+            let cursor = self.spectator_cursors.entry(addr.clone()).or_insert(0);
+            let head = SPECTATOR_SEND_WINDOW.saturating_sub(endpoint.pending_output_len());
+            let goal = std::cmp::min(
+                self.next_spectator_frame,
+                cursor.saturating_add(head as Frame),
+            );
+
+            if *cursor >= goal {
+                continue;
+            }
+
+            while *cursor < goal {
+                endpoint.send_input_bytes(
+                    self.input_history[*cursor as usize].clone(),
+                    &self.local_connect_status,
+                );
+                *cursor += 1;
+            }
+
+            endpoint.send_all_messages(&mut self.socket);
         }
     }
 

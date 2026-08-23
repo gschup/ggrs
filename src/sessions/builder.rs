@@ -8,9 +8,6 @@ use crate::{
     SyncTestSession,
 };
 
-// The amount of inputs a spectator can buffer (a second worth of inputs at 60 FPS)
-pub(crate) const SPECTATOR_BUFFER_SIZE: usize = 60;
-
 const DEFAULT_PLAYERS: usize = 2;
 const DEFAULT_SAVE_MODE: bool = false;
 const DEFAULT_DETECTION_MODE: DesyncDetection = DesyncDetection::Off;
@@ -51,6 +48,7 @@ where
     check_dist: usize,
     max_frames_behind: usize,
     catchup_speed: usize,
+    late_spectators: bool,
 }
 
 impl<T: Config> Default for SessionBuilder<T> {
@@ -76,6 +74,7 @@ impl<T: Config> SessionBuilder<T> {
             check_dist: DEFAULT_CHECK_DISTANCE,
             max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
             catchup_speed: DEFAULT_CATCHUP_SPEED,
+            late_spectators: false,
         }
     }
 
@@ -272,7 +271,7 @@ impl<T: Config> SessionBuilder<T> {
     /// it will advance up to `catchup_speed` frames per step.
     ///
     /// # Errors
-    /// - Returns [`InvalidRequest`] if `max_frames_behind` is 0 or `>= SPECTATOR_BUFFER_SIZE`.
+    /// - Returns [`InvalidRequest`] if `max_frames_behind` is 0.
     ///
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn with_max_frames_behind(mut self, max_frames_behind: usize) -> Result<Self, GgrsError> {
@@ -282,13 +281,6 @@ impl<T: Config> SessionBuilder<T> {
             });
         }
 
-        if max_frames_behind >= SPECTATOR_BUFFER_SIZE {
-            return Err(GgrsError::InvalidRequest {
-                info: format!(
-                    "Max frames behind cannot be larger or equal than the Spectator buffer size ({SPECTATOR_BUFFER_SIZE})"
-                ),
-            });
-        }
         self.max_frames_behind = max_frames_behind;
         Ok(self)
     }
@@ -310,6 +302,14 @@ impl<T: Config> SessionBuilder<T> {
 
         self.catchup_speed = catchup_speed;
         Ok(self)
+    }
+
+    /// Sets whether the session retains all confirmed inputs since frame 0, allowing spectators
+    /// to be added while the session is running.
+    /// Such spectators receive the whole input history and can catch up to the live session.
+    pub fn with_late_spectators(mut self, late_spectators: bool) -> Self {
+        self.late_spectators = late_spectators;
+        self
     }
 
     /// Consumes the builder to construct a [`P2PSession`] and starts synchronization of endpoints.
@@ -376,6 +376,9 @@ impl<T: Config> SessionBuilder<T> {
             self.desync_detection,
             self.input_delay,
             self.fps,
+            self.late_spectators,
+            self.disconnect_timeout,
+            self.disconnect_notify_start,
         ))
     }
 

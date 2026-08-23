@@ -208,3 +208,187 @@ fn test_spectator_caps_catchup_speed_to_available_frames() -> Result<(), GgrsErr
 
     Ok(())
 }
+
+#[test]
+#[serial]
+fn test_late_spectators_flag_preserves_live_spectating() -> Result<(), GgrsError> {
+    // with_late_spectators reroutes spectator sends through the retained input history;
+    // a spectator present from the start must observe the exact same frames and inputs.
+
+    let mut host_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Spectator(stubs::localhost(7811)), 1)?
+        .with_late_spectators(true)
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7810).unwrap())?;
+
+    let mut spec_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .start_spectator_session(
+            stubs::localhost(7810),
+            UdpNonBlockingSocket::bind_to_port(7811).unwrap(),
+        );
+
+    stubs::sync_host_and_spectator(&mut host_sess, &mut spec_sess);
+
+    let mut host_stub = stubs::GameStub1P::new();
+    let mut spec_stub = stubs::GameStub1P::new();
+
+    let mut host_states = Vec::new();
+
+    for i in 0..11 {
+        host_sess
+            .add_local_input(0, StubInput { inp: i as u32 })
+            .unwrap();
+        let host_requests = host_sess.advance_frame().unwrap();
+        host_stub.handle_requests(host_requests);
+        host_states.push(host_stub.gs.state);
+
+        if i > 0 {
+            let spec_requests = advance_spectator_when_ready(&mut spec_sess)?;
+            spec_stub.handle_requests(spec_requests);
+        }
+    }
+
+    assert_eq!(host_stub.gs.frame, 11);
+    assert_eq!(spec_stub.gs.frame, 10);
+    assert_eq!(spec_stub.gs.state, host_states[9]);
+
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_late_spectators_streams_backlog() -> Result<(), GgrsError> {
+    // A spectator can stop watching while the host plays continue, keep buffering and later replay it perfectly.
+
+    let mut host_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Spectator(stubs::localhost(7813)), 1)?
+        .with_late_spectators(true)
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7812).unwrap())?;
+
+    let mut spec_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .with_max_frames_behind(4)?
+        .with_catchup_speed(4)?
+        .start_spectator_session(
+            stubs::localhost(7812),
+            UdpNonBlockingSocket::bind_to_port(7813).unwrap(),
+        );
+
+    stubs::sync_host_and_spectator(&mut host_sess, &mut spec_sess);
+
+    let mut host_stub = stubs::GameStub1P::new();
+    let mut host_states = Vec::new();
+
+    // drive the host 31 frames while the spectator only receives
+    for i in 0..31 {
+        host_sess
+            .add_local_input(0, StubInput { inp: i as u32 })
+            .unwrap();
+        let requests = host_sess.advance_frame().unwrap();
+        host_stub.handle_requests(requests);
+        host_states.push(host_stub.gs.state);
+        spec_sess.poll_remote_clients();
+        thread::sleep(Duration::from_millis(1));
+    }
+
+    // inputs for frame N confirm during frame N+1, so 30 frames are available to the spectator
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while spec_sess.frames_behind_host() < 30 && Instant::now() < deadline {
+        host_sess.poll_remote_clients();
+        spec_sess.poll_remote_clients();
+        thread::sleep(POLL_INTERVAL);
+    }
+    assert_eq!(spec_sess.frames_behind_host(), 30);
+
+    // spectator catcing up
+    let mut spec_stub = stubs::GameStub1P::new();
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while spec_stub.gs.frame < 30 && Instant::now() < deadline {
+        host_sess.poll_remote_clients();
+        let requests = advance_spectator_when_ready(&mut spec_sess)?;
+        spec_stub.handle_requests(requests);
+    }
+
+    assert_eq!(spec_stub.gs.frame, 30);
+    assert_eq!(spec_stub.gs.state, host_states[29]);
+
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_add_spectator_requires_late_spectators_flag() -> Result<(), GgrsError> {
+    let mut host_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .add_player(PlayerType::Local, 0)?
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7816).unwrap())?;
+
+    assert!(matches!(
+        host_sess.add_spectator(stubs::localhost(7817)),
+        Err(GgrsError::InvalidRequest { .. })
+    ));
+
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_add_spectator_mid_session_catches_up() -> Result<(), GgrsError> {
+    // a host runs 200 frames alone, a mid spectator join must replay the whole
+    // session from frame 0 and should end in the exact same state.
+
+    let mut host_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .add_player(PlayerType::Local, 0)?
+        .with_late_spectators(true)
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7814).unwrap())?;
+    assert_eq!(host_sess.current_state(), SessionState::Running);
+
+    let mut host_stub = stubs::GameStub1P::new();
+    let mut host_states = Vec::new();
+    for i in 0..200 {
+        host_sess
+            .add_local_input(0, StubInput { inp: i as u32 })
+            .unwrap();
+        let requests = host_sess.advance_frame().unwrap();
+        host_stub.handle_requests(requests);
+        host_states.push(host_stub.gs.state);
+    }
+    assert_eq!(host_stub.gs.frame, 200);
+
+    let handle = host_sess.add_spectator(stubs::localhost(7815))?;
+    assert_eq!(handle, 1);
+
+    assert!(host_sess.add_spectator(stubs::localhost(7815)).is_err());
+
+    let mut spec_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(1)?
+        .with_max_frames_behind(4)?
+        .with_catchup_speed(8)?
+        .start_spectator_session(
+            stubs::localhost(7814),
+            UdpNonBlockingSocket::bind_to_port(7815).unwrap(),
+        );
+
+    stubs::sync_host_and_spectator(&mut host_sess, &mut spec_sess);
+
+    let mut spec_stub = stubs::GameStub1P::new();
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while spec_stub.gs.frame < 199 && Instant::now() < deadline {
+        host_sess.poll_remote_clients();
+        match spec_sess.advance_frame() {
+            Ok(requests) => spec_stub.handle_requests(requests),
+            Err(GgrsError::PredictionThreshold) => thread::sleep(POLL_INTERVAL),
+            Err(e) => return Err(e),
+        }
+    }
+
+    assert_eq!(spec_stub.gs.frame, 199);
+    assert_eq!(spec_stub.gs.state, host_states[198]);
+
+    Ok(())
+}

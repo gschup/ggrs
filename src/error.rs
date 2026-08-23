@@ -28,6 +28,9 @@ pub enum GgrsError {
     /// The Session is not synchronized yet. Please start the session and wait a few ms to let the clients synchronize.
     NotSynchronized,
     /// The spectator got so far behind the host that catching up is impossible.
+    ///
+    /// Note: this is Deprecated ? the spectator input buffer now grows with the backlog, so this is no longer returned.
+    /// Kept for API compatibility.
     SpectatorTooFarBehind,
     /// Not enough data has been collected yet to compute the requested statistics.
     /// This is returned by [`network_stats`] when less than one second has elapsed since the

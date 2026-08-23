@@ -55,7 +55,7 @@ fn millis_since_epoch() -> u128 {
 
 // byte-encoded data representing the inputs of a client, possibly for multiple players at the same time
 #[derive(Clone)]
-struct InputBytes {
+pub(crate) struct InputBytes {
     /// The frame to which this info belongs to. -1/[`NULL_FRAME`] represents an invalid frame
     pub frame: Frame,
     /// An input buffer that will hold input data
@@ -73,7 +73,7 @@ impl InputBytes {
         }
     }
 
-    fn from_inputs<T: Config>(
+    pub(crate) fn from_inputs<T: Config>(
         num_players: usize,
         inputs: &HashMap<PlayerHandle, PlayerInput<T::Input>>,
     ) -> Self {
@@ -328,6 +328,10 @@ impl<T: Config> UdpProtocol<T> {
         &self.handles
     }
 
+    pub(crate) fn pending_output_len(&self) -> usize {
+        self.pending_output.len()
+    }
+
     pub(crate) fn is_synchronized(&self) -> bool {
         self.state == ProtocolState::Running
             || self.state == ProtocolState::Disconnected
@@ -483,6 +487,17 @@ impl<T: Config> UdpProtocol<T> {
         }
 
         let endpoint_data = InputBytes::from_inputs::<T>(self.num_players, inputs);
+        self.send_input_bytes(endpoint_data, connect_status);
+    }
+
+    pub(crate) fn send_input_bytes(
+        &mut self,
+        endpoint_data: InputBytes,
+        connect_status: &[ConnectionStatus],
+    ) {
+        if self.state != ProtocolState::Running {
+            return;
+        }
 
         // register the input and advantages in the time sync layer
         self.time_sync_layer.advance_frame(
