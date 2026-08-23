@@ -1,4 +1,4 @@
-use std::collections::{vec_deque::Drain, VecDeque};
+use std::collections::{vec_deque::Drain, BTreeMap, VecDeque};
 
 use crate::{
     frame_info::PlayerInput,
@@ -6,7 +6,7 @@ use crate::{
         messages::ConnectionStatus,
         protocol::{Event, UdpProtocol},
     },
-    sessions::builder::{MAX_EVENT_QUEUE_SIZE, SPECTATOR_BUFFER_SIZE},
+    sessions::builder::MAX_EVENT_QUEUE_SIZE,
     Config, Frame, GgrsError, GgrsEvent, GgrsRequest, InputStatus, NetworkStats, NonBlockingSocket,
     SessionState, NULL_FRAME,
 };
@@ -24,7 +24,8 @@ where
 {
     state: SessionState,
     num_players: usize,
-    inputs: Vec<Vec<PlayerInput<T::Input>>>,
+    /// BTreeMap so it can grow and shrink as input confirmed get consumed
+    inputs: BTreeMap<Frame, Vec<PlayerInput<T::Input>>>,
     host_connect_status: Vec<ConnectionStatus>,
     socket: Box<dyn NonBlockingSocket<T::Address>>,
     host: UdpProtocol<T>,
@@ -55,10 +56,7 @@ impl<T: Config> SpectatorSession<T> {
         Self {
             state: SessionState::Synchronizing,
             num_players,
-            inputs: vec![
-                vec![PlayerInput::blank_input(NULL_FRAME); num_players];
-                SPECTATOR_BUFFER_SIZE
-            ],
+            inputs: BTreeMap::new(),
             host_connect_status,
             socket,
             host,
@@ -127,9 +125,7 @@ impl<T: Config> SpectatorSession<T> {
 
         let frames_behind = self.frames_behind_host();
         let frames_to_advance = if frames_behind > self.max_frames_behind {
-            self.catchup_speed
-                .min(frames_behind)
-                .min(SPECTATOR_BUFFER_SIZE - 1)
+            self.catchup_speed.min(frames_behind)
         } else {
             NORMAL_SPEED
         };
@@ -177,6 +173,30 @@ impl<T: Config> SpectatorSession<T> {
         self.host.send_all_messages(&mut self.socket);
     }
 
+    /// Sets the catch-up speed at runtime (see [`SessionBuilder::with_catchup_speed`])
+    ///
+    /// A value above 1 makes [`advance_frame`] return multiple [`AdvanceFrame`] requests per call, all fulfilled within the same tick of your game loop.
+    /// Use wisely because depending on your engine/stack, it might make your simulation drift.
+    ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if `catchup_speed` is 0.
+    ///
+    /// [`advance_frame`]: Self::advance_frame
+    /// [`AdvanceFrame`]: crate::GgrsRequest::AdvanceFrame
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    /// [`SessionBuilder::with_catchup_speed`]: crate::SessionBuilder::with_catchup_speed
+    pub fn set_catchup_speed(&mut self, catchup_speed: usize) -> Result<(), GgrsError> {
+        if catchup_speed < 1 {
+            return Err(GgrsError::InvalidRequest {
+                info: "Catchup speed cannot be smaller than 1.".to_owned(),
+            });
+        }
+
+        self.catchup_speed = catchup_speed;
+        Ok(())
+    }
+
     /// Returns the current frame of a session.
     pub fn current_frame(&self) -> Frame {
         self.current_frame
@@ -188,20 +208,13 @@ impl<T: Config> SpectatorSession<T> {
     }
 
     fn inputs_at_frame(
-        &self,
+        &mut self,
         frame_to_grab: Frame,
     ) -> Result<Vec<(T::Input, InputStatus)>, GgrsError> {
-        let player_inputs = &self.inputs[frame_to_grab as usize % SPECTATOR_BUFFER_SIZE];
-
         // We haven't received the input from the host yet. Wait.
-        if player_inputs[0].frame < frame_to_grab {
+        let Some(player_inputs) = self.inputs.remove(&frame_to_grab) else {
             return Err(GgrsError::PredictionThreshold);
-        }
-
-        // The host is more than [`SPECTATOR_BUFFER_SIZE`] frames ahead of the spectator. The input we need is gone forever.
-        if player_inputs[0].frame > frame_to_grab {
-            return Err(GgrsError::SpectatorTooFarBehind);
-        }
+        };
 
         Ok(player_inputs
             .iter()
@@ -249,7 +262,12 @@ impl<T: Config> SpectatorSession<T> {
             // add the input and all associated information
             Event::Input { input, player } => {
                 // save the input
-                self.inputs[input.frame as usize % SPECTATOR_BUFFER_SIZE][player] = input;
+                let num_players = self.num_players;
+                let row = self
+                    .inputs
+                    .entry(input.frame)
+                    .or_insert_with(|| vec![PlayerInput::blank_input(NULL_FRAME); num_players]);
+                row[player] = input;
                 assert!(input.frame >= self.last_recv_frame);
                 self.last_recv_frame = input.frame;
 
