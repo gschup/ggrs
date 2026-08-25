@@ -2,6 +2,19 @@
 
 In this document, all notable changes are listed, including bug fixes, breaking changes, and improvements to behaviour or documentation.
 
+## Unreleased
+
+### Bug fixes
+- fix: rollback on caught-up player disconnect when the spectator has caught up (fixes issue with desync detection)
+- fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, compressed payloads, or decoded player input shapes are invalid
+
+### Improvements
+- feat: late spectators - spectators can now follow the game state even when significantly behind the host, catching up within the buffer limits
+
+### Documentation
+
+### Tests
+
 ## 0.13.0
 
 ### Breaking changes
