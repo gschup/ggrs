@@ -292,6 +292,15 @@ where
         /// Amount of frames recommended to be skipped in order to let other clients catch up.
         skip_frames: u32,
     },
+    /// A player joined: from `frame` on, the player in the slot `player` plays. Before it, their
+    /// input is that of a disconnected player. A player joining late (see
+    /// [`P2PSession::activate_player`]) is reported by every peer once it learns of them.
+    PlayerActivated {
+        /// The player's handle.
+        player: PlayerHandle,
+        /// The first frame they play.
+        frame: Frame,
+    },
     /// Sent whenever GGRS locally detected a discrepancy between local and remote checksums
     DesyncDetected {
         /// Frame of the checksums

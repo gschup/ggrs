@@ -1,8 +1,8 @@
 use crate::frame_info::PlayerInput;
 use crate::network::compression::{decode, encode};
 use crate::network::messages::{
-    ChecksumReport, ConnectionStatus, Input, InputAck, Message, MessageBody, MessageHeader,
-    QualityReply, QualityReport, SyncReply, SyncRequest,
+    ChecksumReport, ConnectionStatus, Input, InputAck, LateJoinInput, Message, MessageBody,
+    MessageHeader, QualityReply, QualityReport, SyncReply, SyncRequest,
 };
 use crate::time_sync::TimeSync;
 use crate::{
@@ -21,6 +21,9 @@ use super::network_stats::NetworkStats;
 const NUM_SYNC_PACKETS: u32 = 5;
 const UDP_SHUTDOWN_TIMER: u64 = 5000;
 const PENDING_OUTPUT_SIZE: usize = 128;
+/// How many frames of a backlog (inputs a late joiner missed) are in flight, unacknowledged,
+/// at once.
+const BACKLOG_SEND_WINDOW: usize = 64;
 /// How often to re-send handshake packets while waiting for the remote to respond.
 /// Only active during the synchronization phase (typically < 1 second).
 const SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(200);
@@ -185,12 +188,22 @@ where
 
     // input compression
     pending_output: VecDeque<InputBytes>,
+    /// Inputs to send after `pending_output`, held back to pace a long backlog by acks.
+    backlog: VecDeque<InputBytes>,
+    /// Whether every input goes through `backlog`: the peer joined late, and may take in our
+    /// inputs slower than we produce them while it catches up.
+    paced: bool,
     last_acked_input: InputBytes,
     max_prediction: usize,
     recv_inputs: HashMap<Frame, InputBytes>,
     /// The first frame we received input for. Until the peer hears our ack, it keeps sending
     /// from there, encoded against the blank input.
     first_recv_frame: Frame,
+    /// Inputs past this frame are not taken in (nor acknowledged) yet.
+    max_recv_frame: Frame,
+    /// Whether the session takes players who join late: our input goes out as a
+    /// [`LateJoinInput`], and an [`Input`] without activation frames is discarded.
+    late_join: bool,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -275,10 +288,14 @@ impl<T: Config> UdpProtocol<T> {
 
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
+            backlog: VecDeque::new(),
+            paced: false,
             last_acked_input: InputBytes::zeroed::<T>(local_players),
             max_prediction,
             recv_inputs,
             first_recv_frame: NULL_FRAME,
+            max_recv_frame: Frame::MAX,
+            late_join: false,
 
             // time sync
             time_sync_layer: TimeSync::new(),
@@ -296,6 +313,12 @@ impl<T: Config> UdpProtocol<T> {
             pending_checksums: HashMap::new(),
             desync_detection,
         }
+    }
+
+    /// How many frames old what the peer last told us is, by now: half the round trip.
+    pub(crate) fn one_way_frames(&self) -> Frame {
+        let ping = i32::try_from(self.round_trip_time / 2).unwrap_or(i32::MAX);
+        ping.saturating_mul(self.fps as i32) / 1000
     }
 
     pub(crate) fn update_local_frame_advantage(&mut self, local_frame: Frame) {
@@ -332,8 +355,56 @@ impl<T: Config> UdpProtocol<T> {
         &self.handles
     }
 
+    /// Has our input sent with each slot's activation frame (see [`LateJoinInput`]). Every
+    /// peer of a session with late join must do this.
+    pub(crate) fn enable_late_join(&mut self) {
+        self.late_join = true;
+        // until the peer reports which players it has seen join, we know nothing of its view
+        self.peer_connect_status.fill(ConnectionStatus::unknown());
+    }
+
+    /// Inputs for frames after `frame` are left for the peer to send again later.
+    pub(crate) fn set_max_recv_frame(&mut self, frame: Frame) {
+        self.max_recv_frame = frame;
+    }
+
     pub(crate) fn pending_output_len(&self) -> usize {
         self.pending_output.len()
+    }
+
+    /// Whether the endpoint has never been sent any input.
+    pub(crate) fn has_sent_no_input(&self) -> bool {
+        self.pending_output.is_empty()
+            && self.backlog.is_empty()
+            && self.last_acked_input.frame == NULL_FRAME
+    }
+
+    /// Queues inputs the peer missed (a player joining late gets the inputs from the frame its
+    /// session starts at), to be sent ahead of any later input, a window at a time.
+    pub(crate) fn send_backlog(
+        &mut self,
+        inputs: impl IntoIterator<Item = InputBytes>,
+        connect_status: &[ConnectionStatus],
+    ) {
+        self.paced = true;
+        self.backlog.extend(inputs);
+        self.pump_backlog(connect_status);
+    }
+
+    /// Moves backlog into the inputs in flight as acknowledgements make room.
+    fn pump_backlog(&mut self, connect_status: &[ConnectionStatus]) {
+        if self.state != ProtocolState::Running || self.backlog.is_empty() {
+            return;
+        }
+        while self.pending_output.len() < BACKLOG_SEND_WINDOW {
+            let Some(input) = self.backlog.pop_front() else {
+                break;
+            };
+            self.pending_output.push_back(input);
+        }
+        // The peer sends no input to answer while it catches up, so resend what is in flight
+        // with every frame, as with ordinary input.
+        self.send_pending_output(connect_status);
     }
 
     pub(crate) fn is_synchronized(&self) -> bool {
@@ -390,6 +461,8 @@ impl<T: Config> UdpProtocol<T> {
                 }
             }
             ProtocolState::Running => {
+                self.pump_backlog(connect_status);
+
                 // resend pending inputs, if some time has passed without sending or receiving inputs
                 if self.running_last_input_recv + RUNNING_RETRY_INTERVAL < now {
                     self.send_pending_output(connect_status);
@@ -510,6 +583,13 @@ impl<T: Config> UdpProtocol<T> {
             self.remote_frame_advantage,
         );
 
+        // inputs go after any backlog the peer has yet to receive
+        if self.paced {
+            self.backlog.push_back(endpoint_data);
+            self.pump_backlog(connect_status);
+            return;
+        }
+
         self.pending_output.push_back(endpoint_data);
 
         // we should never have so much pending input for a remote player (if they didn't ack, we should stop at MAX_PREDICTION_THRESHOLD)
@@ -553,7 +633,15 @@ impl<T: Config> UdpProtocol<T> {
             body.disconnect_requested = self.state == ProtocolState::Disconnected;
             connect_status.clone_into(&mut body.peer_connect_status);
 
-            self.queue_message(MessageBody::Input(body));
+            if self.late_join {
+                let active_from = connect_status.iter().map(|s| s.active_from).collect();
+                self.queue_message(MessageBody::LateJoinInput(LateJoinInput {
+                    input: body,
+                    active_from,
+                }));
+            } else {
+                self.queue_message(MessageBody::Input(body));
+            }
         }
     }
 
@@ -639,7 +727,16 @@ impl<T: Config> UdpProtocol<T> {
         match &msg.body {
             MessageBody::SyncRequest(body) => self.on_sync_request(*body),
             MessageBody::SyncReply(body) => self.on_sync_reply(msg.header, *body),
-            MessageBody::Input(body) => self.on_input(body),
+            MessageBody::Input(body) => {
+                if self.late_join {
+                    warn!("Discarding input packet without activation frames; does the peer have late join enabled?");
+                } else {
+                    self.on_input(body, None);
+                }
+            }
+            MessageBody::LateJoinInput(body) => {
+                self.on_input(&body.input, Some(&body.active_from));
+            }
             MessageBody::InputAck(body) => self.on_input_ack(*body),
             MessageBody::QualityReport(body) => self.on_quality_report(body),
             MessageBody::QualityReply(body) => self.on_quality_reply(body),
@@ -687,13 +784,17 @@ impl<T: Config> UdpProtocol<T> {
         }
     }
 
-    fn on_input(&mut self, body: &Input) {
+    fn on_input(&mut self, body: &Input, active_from: Option<&[Frame]>) {
         if !body.disconnect_requested && body.peer_connect_status.len() != self.num_players {
             warn!(
                 "Discarding input packet with {} connection statuses; expected {}",
                 body.peer_connect_status.len(),
                 self.num_players
             );
+            return;
+        }
+        if active_from.is_some_and(|a| a.len() != body.peer_connect_status.len()) {
+            warn!("Discarding input packet whose activation frames do not match its connection statuses");
             return;
         }
 
@@ -717,13 +818,17 @@ impl<T: Config> UdpProtocol<T> {
             }
         } else {
             // update the peer connection status
-            for i in 0..self.peer_connect_status.len() {
-                self.peer_connect_status[i].disconnected = body.peer_connect_status[i].disconnected
-                    || self.peer_connect_status[i].disconnected;
-                self.peer_connect_status[i].last_frame = std::cmp::max(
-                    self.peer_connect_status[i].last_frame,
-                    body.peer_connect_status[i].last_frame,
-                );
+            for (i, (mine, theirs)) in self
+                .peer_connect_status
+                .iter_mut()
+                .zip(&body.peer_connect_status)
+                .enumerate()
+            {
+                let mut theirs = *theirs;
+                if let Some(active_from) = active_from {
+                    theirs.active_from = active_from[i];
+                }
+                mine.merge(&theirs);
             }
         }
 
@@ -754,6 +859,10 @@ impl<T: Config> UdpProtocol<T> {
                 // skip inputs that we don't need
                 if inp_frame <= self.last_recv_frame() {
                     continue;
+                }
+                // and leave those we have no room for yet
+                if inp_frame > self.max_recv_frame {
+                    break;
                 }
 
                 let input_data = InputBytes {
@@ -950,6 +1059,86 @@ mod protocol_tests {
 
     fn test_input(inp: u8) -> Vec<u8> {
         bincode::serialize(&TestInput { inp }).unwrap()
+    }
+
+    fn sent_input_body(protocol: &mut UdpProtocol<TestConfig>) -> MessageBody {
+        let mut inputs = HashMap::new();
+        inputs.insert(0, PlayerInput::new(0, TestInput { inp: 1 }));
+        let statuses = vec![ConnectionStatus::default(); 2];
+        protocol.send_input(&inputs, &statuses);
+        protocol.send_queue.pop_back().unwrap().body
+    }
+
+    #[test]
+    fn input_is_sent_as_before_without_late_join() {
+        let mut protocol = running_protocol(vec![1], 2);
+        assert!(matches!(
+            sent_input_body(&mut protocol),
+            MessageBody::Input(_)
+        ));
+        // the activation frame stays off the wire
+        let status = ConnectionStatus {
+            disconnected: true,
+            last_frame: 7,
+            active_from: 3,
+        };
+        assert_eq!(
+            bincode::serialize(&status).unwrap(),
+            bincode::serialize(&(true, 7 as Frame)).unwrap()
+        );
+    }
+
+    #[test]
+    fn input_carries_activation_frames_with_late_join() {
+        let mut protocol = running_protocol(vec![1], 2);
+        protocol.enable_late_join();
+        match sent_input_body(&mut protocol) {
+            MessageBody::LateJoinInput(body) => assert_eq!(body.active_from, vec![0, 0]),
+            _ => panic!("expected a LateJoinInput"),
+        }
+    }
+
+    #[test]
+    fn late_join_input_is_taken_with_or_without_late_join() {
+        // e.g. by a spectator of a session with late join
+        let blank = blank_input(&running_protocol(vec![0], 1));
+        let msg = |active_from: Frame| Message {
+            header: MessageHeader { magic: 0 },
+            body: MessageBody::LateJoinInput(LateJoinInput {
+                input: Input {
+                    peer_connect_status: vec![ConnectionStatus::default(); 1],
+                    disconnect_requested: false,
+                    start_frame: 0,
+                    ack_frame: NULL_FRAME,
+                    bytes: encode(&blank, [test_input(5)].iter()),
+                },
+                active_from: vec![active_from],
+            }),
+        };
+        for late_join in [false, true] {
+            let mut protocol = running_protocol(vec![0], 1);
+            if late_join {
+                protocol.enable_late_join();
+            }
+            protocol.handle_message(&msg(12));
+            assert_eq!(protocol.last_recv_frame(), 0);
+            assert_eq!(protocol.peer_connect_status(0).active_from, 12);
+        }
+    }
+
+    #[test]
+    fn input_without_activation_frames_is_dropped_with_late_join() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.enable_late_join();
+        let blank = blank_input(&protocol);
+        protocol.handle_message(&input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 1],
+            disconnect_requested: false,
+            start_frame: 0,
+            ack_frame: NULL_FRAME,
+            bytes: encode(&blank, [test_input(5)].iter()),
+        }));
+        assert_eq!(protocol.last_recv_frame(), NULL_FRAME);
     }
 
     #[test]

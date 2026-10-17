@@ -220,9 +220,7 @@ impl<T: Config> SpectatorSession<T> {
             .iter()
             .enumerate()
             .map(|(handle, player_input)| {
-                if self.host_connect_status[handle].disconnected
-                    && self.host_connect_status[handle].last_frame < frame_to_grab
-                {
+                if !self.host_connect_status[handle].is_active_at(frame_to_grab) {
                     (player_input.input, InputStatus::Disconnected)
                 } else {
                     (player_input.input, InputStatus::Confirmed)

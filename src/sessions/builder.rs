@@ -4,7 +4,7 @@ use instant::Duration;
 
 use crate::{
     network::protocol::UdpProtocol, sessions::p2p_session::PlayerRegistry, Config, DesyncDetection,
-    GgrsError, NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession,
+    Frame, GgrsError, NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession,
     SyncTestSession,
 };
 
@@ -23,6 +23,18 @@ const DEFAULT_MAX_FRAMES_BEHIND: usize = 10;
 const DEFAULT_CATCHUP_SPEED: usize = 1;
 // The amount of events a spectator can buffer; should never be an issue if the user polls the events at every step
 pub(crate) const MAX_EVENT_QUEUE_SIZE: usize = 100;
+
+/// How a [`P2PSession`] takes players who join it after it started.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct LateJoin {
+    /// Slots nobody plays yet: open slots and local players waiting to be activated.
+    pub vacant: Vec<PlayerHandle>,
+    /// The frame the session starts at.
+    pub start_frame: Frame,
+    /// How many frames of local input to keep for players who join later, if the session takes
+    /// them at all.
+    pub window: Option<usize>,
+}
 
 /// The [`SessionBuilder`] builds all GGRS Sessions. After setting all appropriate values, use `SessionBuilder::start_yxz_session(...)`
 /// to consume the builder and create a Session of desired type.
@@ -49,6 +61,7 @@ where
     max_frames_behind: usize,
     catchup_speed: usize,
     late_spectators: bool,
+    late_join: LateJoin,
 }
 
 impl<T: Config> Default for SessionBuilder<T> {
@@ -75,6 +88,7 @@ impl<T: Config> SessionBuilder<T> {
             max_frames_behind: DEFAULT_MAX_FRAMES_BEHIND,
             catchup_speed: DEFAULT_CATCHUP_SPEED,
             late_spectators: false,
+            late_join: LateJoin::default(),
         }
     }
 
@@ -106,6 +120,76 @@ impl<T: Config> SessionBuilder<T> {
         }
         self.player_reg.handles.insert(player_handle, player_type);
         Ok(self)
+    }
+
+    /// Leaves a player slot open for someone to join the running session later (see
+    /// [`P2PSession::add_remote_player`] and [`P2PSession::activate_player`]). Until then, its
+    /// input is that of a disconnected player. The handle must be in `0..num_players`. Needs
+    /// [`with_late_join`](Self::with_late_join).
+    ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if the handle is in use or not a player handle.
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    pub fn add_open_slot(mut self, player_handle: PlayerHandle) -> Result<Self, GgrsError> {
+        if self.player_reg.handles.contains_key(&player_handle)
+            || self.late_join.vacant.contains(&player_handle)
+        {
+            return Err(GgrsError::InvalidRequest {
+                info: "Player handle already in use.".to_owned(),
+            });
+        }
+        Self::validate_player_handle(&PlayerType::Local, player_handle, self.num_players)?;
+        self.late_join.vacant.push(player_handle);
+        Ok(self)
+    }
+
+    /// Adds a local player who has joined a running session and does not play until a peer
+    /// activates their slot (with [`P2PSession::activate_player`]). Until then the session
+    /// takes, but ignores, their local input, and does not wait for anyone's input on them.
+    /// This is how the peer of a player joining late builds its session, together with
+    /// [`with_start_frame`](Self::with_start_frame). Needs [`with_late_join`](Self::with_late_join).
+    ///
+    /// # Errors
+    /// - Returns [`InvalidRequest`] if the handle is in use or not a player handle.
+    ///
+    /// [`InvalidRequest`]: GgrsError::InvalidRequest
+    pub fn add_joining_local_player(
+        mut self,
+        player_handle: PlayerHandle,
+    ) -> Result<Self, GgrsError> {
+        if self.late_join.vacant.contains(&player_handle) {
+            return Err(GgrsError::InvalidRequest {
+                info: "Player handle already in use.".to_owned(),
+            });
+        }
+        self = self.add_player(PlayerType::Local, player_handle)?;
+        self.late_join.vacant.push(player_handle);
+        Ok(self)
+    }
+
+    /// Starts the session at `frame` rather than 0. A player joining a running session loads
+    /// the game state of a frame every peer has confirmed, and starts their session there:
+    /// the other peers send it their inputs from that frame on (see
+    /// [`P2PSession::add_remote_player`]). The session asks to save the state of `frame` first,
+    /// and frame numbers then agree with the other peers'. Default is 0. Any other frame needs
+    /// [`with_late_join`](Self::with_late_join).
+    pub fn with_start_frame(mut self, frame: Frame) -> Self {
+        self.late_join.start_frame = frame;
+        self
+    }
+
+    /// Lets players join the session while it runs (see `docs/late-join.md`). Every peer of the
+    /// session must turn this on, including those who join late, and spectators of it must run
+    /// a version of GGRS that knows about late join.
+    ///
+    /// The session keeps the inputs of its local players for the last `window` frames, so that
+    /// a player can join from a state up to that many frames old (see
+    /// [`P2PSession::add_remote_player`]). Off by default: a session that does not take players
+    /// late keeps no input history for them.
+    pub fn with_late_join(mut self, window: usize) -> Self {
+        self.late_join.window = Some(window);
+        self
     }
 
     fn validate_player_handle(
@@ -177,7 +261,7 @@ impl<T: Config> SessionBuilder<T> {
         self
     }
 
-    /// Change number of total players. Default is 2.
+    /// Change number of total players (player slots). Default is 2.
     ///
     /// Must be at least 1. This value determines valid player handle ranges: local and remote
     /// player handles must be in `0..num_players`, and spectator handles must be `>= num_players`.
@@ -199,6 +283,9 @@ impl<T: Config> SessionBuilder<T> {
         }
         for (&player_handle, player_type) in &self.player_reg.handles {
             Self::validate_player_handle(player_type, player_handle, num_players)?;
+        }
+        for &player_handle in &self.late_join.vacant {
+            Self::validate_player_handle(&PlayerType::Local, player_handle, num_players)?;
         }
         self.num_players = num_players;
         Ok(self)
@@ -327,9 +414,29 @@ impl<T: Config> SessionBuilder<T> {
             });
         }
 
+        if self.late_join.start_frame < 0 {
+            return Err(GgrsError::InvalidRequest {
+                info: "The start frame cannot be negative.".to_owned(),
+            });
+        }
+        if self.late_join.window.is_none()
+            && (self.late_join.start_frame != 0 || !self.late_join.vacant.is_empty())
+        {
+            return Err(GgrsError::InvalidRequest {
+                info: "Open slots, joining players and a start frame need late join; see with_late_join.".to_owned(),
+            });
+        }
+        if self.late_join.start_frame > 0 && self.late_spectators {
+            return Err(GgrsError::InvalidRequest {
+                info: "A session that starts late cannot have late spectators.".to_owned(),
+            });
+        }
+
         // check if all players are added
         for player_handle in 0..self.num_players {
-            if !self.player_reg.handles.contains_key(&player_handle) {
+            if !self.player_reg.handles.contains_key(&player_handle)
+                && !self.late_join.vacant.contains(&player_handle)
+            {
                 return Err(GgrsError::InvalidRequest{
                     info: "Not enough players have been added. Keep registering players up to the defined player number.".to_owned(),
                 });
@@ -379,6 +486,7 @@ impl<T: Config> SessionBuilder<T> {
             self.late_spectators,
             self.disconnect_timeout,
             self.disconnect_notify_start,
+            self.late_join,
         ))
     }
 
@@ -464,6 +572,9 @@ impl<T: Config> SessionBuilder<T> {
             self.fps,
             self.desync_detection,
         );
+        if self.late_join.window.is_some() {
+            endpoint.enable_late_join();
+        }
         // start the synchronization
         endpoint.synchronize();
         endpoint
