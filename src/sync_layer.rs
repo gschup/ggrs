@@ -197,6 +197,31 @@ impl<T: Config> SyncLayer<T> {
         self.current_frame
     }
 
+    /// Starts the session at `frame` instead of 0: a player joining a running session loads
+    /// the state of `frame` and plays on from it. Every input queue expects `frame` next.
+    pub(crate) fn start_at(&mut self, frame: Frame) {
+        assert!(frame >= 0);
+        self.current_frame = frame;
+        self.last_confirmed_frame = frame - 1;
+        for queue in &mut self.input_queues {
+            queue.restart_at(frame);
+        }
+    }
+
+    /// Empties a player's input queue so that it expects input for `frame` next.
+    pub(crate) fn restart_input_queue(&mut self, player_handle: PlayerHandle, frame: Frame) {
+        self.input_queues[player_handle].restart_at(frame);
+    }
+
+    /// A confirmed input from a player's queue.
+    pub(crate) fn confirmed_input(
+        &self,
+        player_handle: PlayerHandle,
+        frame: Frame,
+    ) -> PlayerInput<T::Input> {
+        self.input_queues[player_handle].confirmed_input(frame)
+    }
+
     pub(crate) fn advance_frame(&mut self) {
         self.current_frame += 1;
     }
@@ -283,7 +308,7 @@ impl<T: Config> SyncLayer<T> {
     ) -> Vec<(T::Input, InputStatus)> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
-            if con_stat.disconnected && con_stat.last_frame < self.current_frame {
+            if !con_stat.is_active_at(self.current_frame) {
                 inputs.push((T::Input::default(), InputStatus::Disconnected));
             } else {
                 inputs.push(self.input_queues[i].input(self.current_frame));
@@ -300,7 +325,7 @@ impl<T: Config> SyncLayer<T> {
     ) -> Vec<PlayerInput<T::Input>> {
         let mut inputs = Vec::new();
         for (i, con_stat) in connect_status.iter().enumerate() {
-            if con_stat.disconnected && con_stat.last_frame < frame {
+            if !con_stat.is_active_at(frame) {
                 inputs.push(PlayerInput::blank_input(NULL_FRAME));
             } else {
                 inputs.push(self.input_queues[i].confirmed_input(frame));

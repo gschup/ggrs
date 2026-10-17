@@ -103,6 +103,13 @@ Input delay can also be adjusted during a running `P2PSession` with `set_input_d
 
 ---
 
+## Late Join
+
+A `P2PSession` can leave player slots open and take players into them while it runs, without any
+other peer restarting. See [Late Join](late-join.md).
+
+---
+
 ## Session State
 
 After construction, a `P2PSession` starts in `SessionState::Synchronizing`. During this phase, GGRS exchanges sync packets with remote peers. Once synchronized, the session moves to `SessionState::Running` and begins accepting inputs.

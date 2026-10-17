@@ -3,7 +3,7 @@ use crate::{Config, Frame, InputPredictor, InputStatus, NULL_FRAME};
 use std::cmp;
 
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
-const INPUT_QUEUE_LENGTH: usize = 128;
+pub(crate) const INPUT_QUEUE_LENGTH: usize = 128;
 
 /// `InputQueue` handles inputs for a single player and saves them in a circular array. Valid Inputs are between `head` and `tail`.
 #[derive(Debug, Clone)]
@@ -62,6 +62,28 @@ impl<T: Config> InputQueue<T> {
             prediction: PlayerInput::blank_input(NULL_FRAME),
             inputs: vec![PlayerInput::blank_input(NULL_FRAME); INPUT_QUEUE_LENGTH],
         }
+    }
+
+    /// Empties the queue so that the next input it takes is for `frame` (before input delay),
+    /// as if every earlier frame had held the default input. A player who starts playing
+    /// mid-session starts here, as does every player of a session that starts at `frame`.
+    pub(crate) fn restart_at(&mut self, frame: Frame) {
+        let frame_delay = self.frame_delay;
+        *self = Self::new();
+        self.frame_delay = frame_delay;
+        if frame <= 0 {
+            return;
+        }
+        // The default input of the frame before stands in for everything earlier. Inputs sit at
+        // `frame % INPUT_QUEUE_LENGTH`, which `confirmed_input` relies on.
+        let previous = frame - 1;
+        let pos = previous as usize % INPUT_QUEUE_LENGTH;
+        self.inputs[pos] = PlayerInput::blank_input(previous);
+        self.tail = pos;
+        self.head = (pos + 1) % INPUT_QUEUE_LENGTH;
+        self.length = 1;
+        self.first_frame = false;
+        self.last_added_frame = previous;
     }
 
     pub(crate) fn first_incorrect_frame(&self) -> Frame {
@@ -502,6 +524,69 @@ mod input_queue_tests {
         assert!(
             accepted > 0,
             "at least some inputs after delay decrease should be accepted"
+        );
+    }
+
+    #[test]
+    fn test_restart_at_takes_inputs_from_that_frame() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.restart_at(300);
+        // Frames before the restart are gone; the next frame is predicted from a default input.
+        let (predicted, status) = queue.input(300);
+        assert_eq!(status, InputStatus::Predicted);
+        assert_eq!(predicted.inp, 0);
+        assert_eq!(
+            queue.add_input(PlayerInput::new(300, TestInput { inp: 9 })),
+            300
+        );
+        assert_eq!(queue.first_incorrect_frame(), 300);
+        queue.reset_prediction();
+        let (input, status) = queue.input(300);
+        assert!(input.inp == 9 && status == InputStatus::Confirmed);
+        assert_eq!(queue.confirmed_input(300).input.inp, 9);
+        for i in 301..600 {
+            assert_eq!(
+                queue.add_input(PlayerInput::new(i, TestInput { inp: 1 })),
+                i
+            );
+            assert_eq!(queue.input(i).1, InputStatus::Confirmed);
+            if i % 50 == 0 {
+                queue.discard_confirmed_frames(i - 1);
+            }
+        }
+    }
+
+    #[test]
+    fn test_restart_at_with_delay_fills_the_gap_with_defaults() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.set_frame_delay(2);
+        for i in 0..10 {
+            queue.add_input(PlayerInput::new(i, TestInput { inp: 7 }));
+        }
+        // A player starting at frame 40 whose first local input arrives at frame 45: frames
+        // 40..47 are defaults, 47 the input.
+        queue.restart_at(40);
+        assert_eq!(
+            queue.add_input(PlayerInput::new(45, TestInput { inp: 3 })),
+            47
+        );
+        for f in 40..47 {
+            assert_eq!(queue.confirmed_input(f).input.inp, 0);
+        }
+        assert_eq!(queue.confirmed_input(47).input.inp, 3);
+        // Before the start, local input is dropped.
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.set_frame_delay(2);
+        queue.restart_at(40);
+        for i in 30..38 {
+            assert_eq!(
+                queue.add_input(PlayerInput::new(i, TestInput { inp: 3 })),
+                NULL_FRAME
+            );
+        }
+        assert_eq!(
+            queue.add_input(PlayerInput::new(38, TestInput { inp: 3 })),
+            40
         );
     }
 

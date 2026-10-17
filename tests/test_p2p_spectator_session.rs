@@ -392,3 +392,36 @@ fn test_add_spectator_mid_session_catches_up() -> Result<(), GgrsError> {
 
     Ok(())
 }
+
+#[test]
+#[serial]
+fn test_spectator_of_a_session_with_late_join() -> Result<(), GgrsError> {
+    // the host sends its inputs with activation frames; the spectator needs nothing set for it
+    let mut host_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(2)?
+        .add_player(PlayerType::Local, 0)?
+        .add_open_slot(1)?
+        .add_player(PlayerType::Spectator(stubs::localhost(7871)), 2)?
+        .with_late_join(60)
+        .start_p2p_session(UdpNonBlockingSocket::bind_to_port(7870).unwrap())?;
+    let mut spec_sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(2)?
+        .start_spectator_session(
+            stubs::localhost(7870),
+            UdpNonBlockingSocket::bind_to_port(7871).unwrap(),
+        );
+    stubs::sync_host_and_spectator(&mut host_sess, &mut spec_sess);
+
+    let mut host_stub = stubs::GameStub1P::new();
+    let mut spec_stub = stubs::GameStub1P::new();
+    for i in 0..11 {
+        host_sess.add_local_input(0, StubInput { inp: i }).unwrap();
+        host_stub.handle_requests(host_sess.advance_frame()?);
+        if i > 0 {
+            spec_stub.handle_requests(advance_spectator_when_ready(&mut spec_sess)?);
+        }
+    }
+    assert_eq!(spec_stub.gs.frame, 10);
+
+    Ok(())
+}

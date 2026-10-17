@@ -5,11 +5,16 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 ## Unreleased
 
 ### Bug fixes
+- fix: input packets are no longer thrown away when a peer resends from its first input before hearing an ack (with input delay above 0), or when it encodes against an input more than `2 * max_prediction` frames old (on slow connections)
 - fix: rollback on caught-up player disconnect when the spectator has caught up (fixes issue with desync detection)
 - fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, compressed payloads, or decoded player input shapes are invalid
 
 ### Improvements
 - feat: late spectators - spectators can now follow the game state even when significantly behind the host, catching up within the buffer limits
+- feat: late join - a `P2PSession` built with `SessionBuilder::with_late_join` can leave player slots open (`add_open_slot`) and take players into them while it runs, without any other peer restarting: the joiner starts from a confirmed state (`with_start_frame`, `add_joining_local_player`), every peer adds it (`P2PSession::add_remote_player`), and one peer activates the slot at a frame every peer learns in band (`activate_player`, `activate_player_at`, `GgrsEvent::PlayerActivated`). Sessions without late join keep no extra input history and send the same messages as before. See `docs/late-join.md`.
+
+### Breaking changes
+- breaking: `GgrsEvent` has a new `PlayerActivated` variant
 
 ### Documentation
 

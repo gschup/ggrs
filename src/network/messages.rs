@@ -2,10 +2,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Frame, NULL_FRAME};
 
+/// What a peer knows about one player slot: since when it is played, the last frame of input
+/// received for it, and whether its player has disconnected.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct ConnectionStatus {
     pub disconnected: bool,
     pub last_frame: Frame,
+    /// The first frame the slot's player plays: 0 for players present from the start,
+    /// [`NULL_FRAME`] for an open slot nobody has joined yet, and the activation frame for a
+    /// player who joined later. A newer activation replaces everything known about an older one.
+    ///
+    /// Only sessions with late join send it, in [`LateJoinInput`], so that the [`Input`] of
+    /// other sessions stays as it was. Received in an [`Input`], it is 0.
+    #[serde(skip)]
+    pub active_from: Frame,
 }
 
 impl Default for ConnectionStatus {
@@ -13,6 +23,61 @@ impl Default for ConnectionStatus {
         Self {
             disconnected: false,
             last_frame: NULL_FRAME,
+            active_from: 0,
+        }
+    }
+}
+
+impl ConnectionStatus {
+    /// A slot nobody plays (yet): its input is that of a disconnected player.
+    pub(crate) const fn vacant() -> Self {
+        Self {
+            disconnected: true,
+            last_frame: NULL_FRAME,
+            active_from: NULL_FRAME,
+        }
+    }
+
+    /// What an endpoint knows of a peer's view before the peer has said anything. It is older
+    /// than every real status, so the first one received replaces it.
+    pub(crate) const fn unknown() -> Self {
+        Self {
+            disconnected: false,
+            last_frame: NULL_FRAME,
+            active_from: Frame::MIN,
+        }
+    }
+
+    /// Whether this status is a real report rather than [`ConnectionStatus::unknown`].
+    pub(crate) fn is_known(&self) -> bool {
+        self.active_from != Frame::MIN
+    }
+
+    /// A player who starts playing at `frame`.
+    pub(crate) const fn active_from(frame: Frame) -> Self {
+        Self {
+            disconnected: false,
+            last_frame: frame - 1,
+            active_from: frame,
+        }
+    }
+
+    /// Whether the slot's player plays `frame`: they had joined by then and not yet left.
+    pub(crate) fn is_active_at(&self, frame: Frame) -> bool {
+        self.active_from != NULL_FRAME
+            && frame >= self.active_from
+            && !(self.disconnected && self.last_frame < frame)
+    }
+
+    /// Takes in another peer's view of the same slot. Views of the same activation merge (a
+    /// disconnect is never undone, and the newest frame wins); a newer activation replaces an
+    /// older one, and an older one is ignored.
+    pub(crate) fn merge(&mut self, other: &ConnectionStatus) {
+        if other.active_from > self.active_from {
+            *self = *other;
+        } else if other.active_from == self.active_from {
+            self.disconnected |= other.disconnected;
+            self.last_frame = std::cmp::max(self.last_frame, other.last_frame);
         }
     }
 }
@@ -69,6 +134,14 @@ impl std::fmt::Debug for BytesDebug<'_> {
         }
         Ok(())
     }
+}
+
+/// An [`Input`] from a session with late join, with each slot's
+/// [`ConnectionStatus::active_from`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct LateJoinInput {
+    pub input: Input,
+    pub active_from: Vec<Frame>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -128,6 +201,8 @@ pub(crate) enum MessageBody {
     QualityReply(QualityReply),
     ChecksumReport(ChecksumReport),
     KeepAlive,
+    // new variants go last, so that the others keep their encoding
+    LateJoinInput(LateJoinInput),
 }
 
 /// A messages that [`NonBlockingSocket`] sends and receives. When implementing [`NonBlockingSocket`],
