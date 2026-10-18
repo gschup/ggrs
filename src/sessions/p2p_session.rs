@@ -525,7 +525,6 @@ impl<T: Config> P2PSession<T> {
             addr.clone(),
             self.num_players,
             self.num_players,
-            self.max_prediction,
             self.disconnect_timeout,
             self.disconnect_notify_start,
             self.fps,

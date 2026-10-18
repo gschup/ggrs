@@ -397,7 +397,6 @@ impl<T: Config> SessionBuilder<T> {
             host_addr,
             self.num_players,
             1, //should not matter since the spectator is never sending
-            self.max_prediction,
             self.disconnect_timeout,
             self.disconnect_notify_start,
             self.fps,
@@ -458,7 +457,6 @@ impl<T: Config> SessionBuilder<T> {
             peer_addr,
             self.num_players,
             local_players,
-            self.max_prediction,
             self.disconnect_timeout,
             self.disconnect_notify_start,
             self.fps,
