@@ -4,6 +4,9 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 
 ## Unreleased
 
+### Breaking changes
+- breaking: input packets now carry the frame their inputs are encoded against. Peers and spectators must run the same GGRS version to connect
+
 ### Bug fixes
 - fix: input packets are no longer thrown away when a peer resends from its first input before hearing an ack (with input delay above 0), or when it encodes against an input more than `2 * max_prediction` frames old (on slow connections)
 - fix: rollback on caught-up player disconnect when the spectator has caught up (fixes issue with desync detection)

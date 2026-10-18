@@ -186,13 +186,9 @@ where
     // input compression
     pending_output: VecDeque<InputBytes>,
     last_acked_input: InputBytes,
-    max_prediction: usize,
     recv_inputs: HashMap<Frame, InputBytes>,
     /// The highest frame in `recv_inputs`, tracked so we don't scan the map for it.
     last_recv_frame: Frame,
-    /// The first frame we received input for. Until the peer hears our ack, it keeps sending
-    /// from there, encoded against the blank input.
-    first_recv_frame: Frame,
 
     // time sync
     time_sync_layer: TimeSync,
@@ -224,7 +220,6 @@ impl<T: Config> UdpProtocol<T> {
         peer_addr: T::Address,
         num_players: usize,
         local_players: usize,
-        max_prediction: usize,
         disconnect_timeout: Duration,
         disconnect_notify_start: Duration,
         fps: usize,
@@ -278,10 +273,8 @@ impl<T: Config> UdpProtocol<T> {
             // input compression
             pending_output: VecDeque::with_capacity(PENDING_OUTPUT_SIZE),
             last_acked_input: InputBytes::zeroed::<T>(local_players),
-            max_prediction,
             recv_inputs,
             last_recv_frame: NULL_FRAME,
-            first_recv_frame: NULL_FRAME,
 
             // time sync
             time_sync_layer: TimeSync::new(),
@@ -533,6 +526,7 @@ impl<T: Config> UdpProtocol<T> {
                     || self.last_acked_input.frame + 1 == input.frame
             );
             body.start_frame = input.frame;
+            body.base_frame = self.last_acked_input.frame;
 
             // encode all pending inputs to a byte buffer
             body.bytes = encode(
@@ -730,15 +724,16 @@ impl<T: Config> UdpProtocol<T> {
             }
         }
 
-        // if we did not receive any input yet, or the peer is still resending from its first
-        // input, we decode with the blank input, otherwise we use the input previous to the start
-        // of the encoded inputs
-        let decode_frame =
-            if self.first_recv_frame == NULL_FRAME || body.start_frame == self.first_recv_frame {
-                NULL_FRAME
-            } else {
-                body.start_frame - 1
-            };
+        // the peer encodes against the last input it knows we received, which directly precedes
+        // the encoded inputs, or against the blank input if it hasn't heard an ack yet
+        if body.base_frame != NULL_FRAME && body.base_frame != body.start_frame - 1 {
+            warn!(
+                "Discarding input packet starting at frame {} with invalid base frame {}",
+                body.start_frame, body.base_frame
+            );
+            return;
+        }
+        let decode_frame = body.base_frame;
 
         // if we have the necessary input saved, we decode
         if let Some(decode_inp) = self.recv_inputs.get(&decode_frame) {
@@ -771,9 +766,6 @@ impl<T: Config> UdpProtocol<T> {
                         return;
                     }
                 };
-                if self.first_recv_frame == NULL_FRAME {
-                    self.first_recv_frame = inp_frame;
-                }
                 self.recv_inputs.insert(input_data.frame, input_data);
                 self.last_recv_frame = inp_frame;
 
@@ -788,13 +780,14 @@ impl<T: Config> UdpProtocol<T> {
             // send an input ack
             self.send_input_ack();
 
-            // delete received inputs that are too old. The peer encodes against the last input
-            // it knows we received, which is a round trip old, so keep as many as it can have
-            // pending. The blank input stays for packets resent from the peer's first input.
-            let last_recv_frame = self.last_recv_frame;
-            let keep = std::cmp::max(2 * self.max_prediction, PENDING_OUTPUT_SIZE) as i32;
-            self.recv_inputs
-                .retain(|&k, _| k == NULL_FRAME || k >= last_recv_frame - keep);
+            // the peer only moves its base frame forward, so older inputs are never needed again.
+            // A well-behaved peer never has more than PENDING_OUTPUT_SIZE inputs pending, which
+            // bounds what we keep even if it never advances its base frame.
+            let oldest_kept = std::cmp::max(
+                body.base_frame,
+                self.last_recv_frame - PENDING_OUTPUT_SIZE as i32,
+            );
+            self.recv_inputs.retain(|&k, _| k >= oldest_kept);
         } else {
             trace!(
                 "Discarding input packet starting at frame {} without decode reference frame {} (last received frame {})",
@@ -888,7 +881,6 @@ mod protocol_tests {
             localhost(9000),
             num_players,
             1,
-            8,
             Duration::from_millis(2000),
             Duration::from_millis(500),
             60,
@@ -913,6 +905,7 @@ mod protocol_tests {
             disconnect_requested: false,
             start_frame: 0,
             ack_frame: NULL_FRAME,
+            base_frame: NULL_FRAME,
             bytes: Vec::new(),
         });
 
@@ -934,12 +927,12 @@ mod protocol_tests {
             },
         );
         protocol.last_recv_frame = 0;
-        protocol.first_recv_frame = 0;
         let msg = input_message(Input {
             peer_connect_status: vec![ConnectionStatus::default(); 2],
             disconnect_requested: false,
             start_frame: 2,
             ack_frame: NULL_FRAME,
+            base_frame: 1,
             bytes: Vec::new(),
         });
 
@@ -970,6 +963,7 @@ mod protocol_tests {
                 disconnect_requested: false,
                 start_frame: 2, // as if input_delay = 2
                 ack_frame: NULL_FRAME,
+                base_frame: NULL_FRAME,
                 bytes: encode(&blank, inputs[..n].iter()),
             });
             protocol.handle_message(&msg);
@@ -980,34 +974,58 @@ mod protocol_tests {
     #[test]
     fn inputs_encoded_against_an_old_ack_are_accepted() {
         // The sender encodes against the last input we acked that it has heard about, which is a
-        // round trip old. On a slow connection that is more than 2 * max_prediction frames back.
+        // round trip old. On a slow connection that is many frames back.
         let mut protocol = running_protocol(vec![0], 1);
         let mut previous = blank_input(&protocol);
-        for frame in 0..=40 {
+        for frame in 0..=20 {
             let input = test_input(frame as u8);
             let msg = input_message(Input {
                 peer_connect_status: vec![ConnectionStatus::default(); 1],
                 disconnect_requested: false,
                 start_frame: frame,
                 ack_frame: NULL_FRAME,
+                base_frame: frame - 1,
                 bytes: encode(&previous, [&input].into_iter()),
             });
             protocol.handle_message(&msg);
             previous = input;
         }
-        assert_eq!(protocol.last_recv_frame, 40);
 
-        // the sender last heard our ack for frame 20, and resends everything after it
+        // the sender last heard our ack for frame 20, and keeps sending everything after it
         let inputs: Vec<Vec<u8>> = (21..=41).map(test_input).collect();
+        for n in 1..=inputs.len() {
+            let msg = input_message(Input {
+                peer_connect_status: vec![ConnectionStatus::default(); 1],
+                disconnect_requested: false,
+                start_frame: 21,
+                ack_frame: NULL_FRAME,
+                base_frame: 20,
+                bytes: encode(&test_input(20), inputs[..n].iter()),
+            });
+            protocol.handle_message(&msg);
+        }
+        assert_eq!(protocol.last_recv_frame, 41);
+        // inputs before the sender's base frame are no longer needed
+        assert_eq!(protocol.recv_inputs.keys().min(), Some(&20));
+    }
+
+    #[test]
+    fn input_packet_with_invalid_base_frame_is_dropped() {
+        let mut protocol = running_protocol(vec![0], 1);
+        let blank = blank_input(&protocol);
         let msg = input_message(Input {
             peer_connect_status: vec![ConnectionStatus::default(); 1],
             disconnect_requested: false,
-            start_frame: 21,
+            start_frame: 2,
             ack_frame: NULL_FRAME,
-            bytes: encode(&test_input(20), inputs.iter()),
+            base_frame: 0,
+            bytes: encode(&blank, [test_input(1)].iter()),
         });
+
         protocol.handle_message(&msg);
-        assert_eq!(protocol.last_recv_frame, 41);
+
+        assert_eq!(protocol.last_recv_frame, NULL_FRAME);
+        assert!(protocol.event_queue.is_empty());
     }
 
     #[test]
@@ -1029,6 +1047,7 @@ mod protocol_tests {
             disconnect_requested: false,
             start_frame: 2, // as if input_delay = 2
             ack_frame: NULL_FRAME,
+            base_frame: NULL_FRAME,
             bytes: encoded,
         });
 
@@ -1054,6 +1073,7 @@ mod protocol_tests {
             disconnect_requested: false,
             start_frame: 0,
             ack_frame: NULL_FRAME,
+            base_frame: NULL_FRAME,
             bytes: encoded,
         });
 

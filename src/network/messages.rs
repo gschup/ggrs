@@ -33,6 +33,8 @@ pub(crate) struct Input {
     pub disconnect_requested: bool,
     pub start_frame: Frame,
     pub ack_frame: Frame,
+    /// The frame the inputs are delta-encoded against, or `NULL_FRAME` for the blank input.
+    pub base_frame: Frame,
     pub bytes: Vec<u8>,
 }
 
@@ -43,6 +45,7 @@ impl Default for Input {
             disconnect_requested: false,
             start_frame: NULL_FRAME,
             ack_frame: NULL_FRAME,
+            base_frame: NULL_FRAME,
             bytes: Vec::new(),
         }
     }
@@ -55,6 +58,7 @@ impl std::fmt::Debug for Input {
             .field("disconnect_requested", &self.disconnect_requested)
             .field("start_frame", &self.start_frame)
             .field("ack_frame", &self.ack_frame)
+            .field("base_frame", &self.base_frame)
             .field("bytes", &BytesDebug(&self.bytes))
             .finish()
     }
