@@ -3,6 +3,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
 };
 
+use bincode::Options as _;
 use tracing::warn;
 
 use crate::{network::messages::Message, NonBlockingSocket};
@@ -13,7 +14,11 @@ const RECV_BUFFER_SIZE: usize = 4096;
 /// Source: <https://stackoverflow.com/a/35697810/775982>
 const IDEAL_MAX_UDP_PACKET_SIZE: usize = 508;
 
-/// A simple non-blocking UDP socket tu use with GGRS Sessions. Listens to 0.0.0.0 on a given port.
+/// A simple non-blocking UDP socket to use with GGRS sessions.
+///
+/// [`UdpNonBlockingSocket::bind_to_port`] listens on `0.0.0.0`; use
+/// [`UdpNonBlockingSocket::bind`] when a specific interface or IPv6 address is
+/// required.
 #[derive(Debug)]
 pub struct UdpNonBlockingSocket {
     socket: UdpSocket,
@@ -26,13 +31,32 @@ impl UdpNonBlockingSocket {
     /// # Errors
     /// Returns an [`std::io::Error`] if the socket cannot be bound or set to non-blocking mode.
     pub fn bind_to_port(port: u16) -> Result<Self, std::io::Error> {
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
-        let socket = UdpSocket::bind(addr)?;
+        Self::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port))
+    }
+
+    /// Binds a non-blocking UDP socket to a specific address.
+    ///
+    /// This supports IPv4 and IPv6 endpoints and lets a host choose a specific
+    /// interface instead of the unspecified IPv4 address used by
+    /// [`Self::bind_to_port`].
+    ///
+    /// # Errors
+    /// Returns an [`std::io::Error`] if the socket cannot be bound or set to non-blocking mode.
+    pub fn bind(address: SocketAddr) -> Result<Self, std::io::Error> {
+        let socket = UdpSocket::bind(address)?;
         socket.set_nonblocking(true)?;
         Ok(Self {
             socket,
             buffer: [0; RECV_BUFFER_SIZE],
         })
+    }
+
+    /// Returns the local address the socket is bound to.
+    ///
+    /// # Errors
+    /// Returns an [`std::io::Error`] if the local address cannot be queried.
+    pub fn local_addr(&self) -> Result<SocketAddr, std::io::Error> {
+        self.socket.local_addr()
     }
 }
 
@@ -72,7 +96,12 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
             match self.socket.recv_from(&mut self.buffer) {
                 Ok((number_of_bytes, src_addr)) => {
                     assert!(number_of_bytes <= RECV_BUFFER_SIZE);
-                    if let Ok(msg) = bincode::deserialize(&self.buffer[0..number_of_bytes]) {
+                    // Bound allocations: a malicious datagram can declare huge
+                    // string/vector lengths before the payload is read.
+                    let decoder = bincode::DefaultOptions::new()
+                        .with_fixint_encoding()
+                        .with_limit(RECV_BUFFER_SIZE as u64);
+                    if let Ok(msg) = decoder.deserialize(&self.buffer[0..number_of_bytes]) {
                         received_messages.push((src_addr, msg));
                     }
                 }
@@ -87,5 +116,19 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bind_accepts_an_explicit_address_and_reports_it() {
+        let socket =
+            UdpNonBlockingSocket::bind("127.0.0.1:0".parse().expect("address")).expect("bind");
+        let local = socket.local_addr().expect("local address");
+        assert_eq!(local.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
+        assert_ne!(local.port(), 0);
     }
 }
