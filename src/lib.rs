@@ -28,6 +28,7 @@
 //! #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 //! pub struct Input { pub left: bool, pub right: bool, pub jump: bool }
 //!
+//! #[derive(Clone)]
 //! pub struct GameState { /* ... */ }
 //!
 //! pub struct GgrsConfig;
