@@ -313,11 +313,8 @@ impl<T: Config> SyncLayer<T> {
     pub(crate) fn set_last_confirmed_frame(&mut self, mut frame: Frame, sparse_saving: bool) {
         // don't set the last confirmed frame after the first incorrect frame before a rollback has happened
         let mut first_incorrect: Frame = NULL_FRAME;
-        for handle in 0..self.num_players {
-            first_incorrect = std::cmp::max(
-                first_incorrect,
-                self.input_queues[handle].first_incorrect_frame(),
-            );
+        for queue in self.input_queues.iter().take(self.num_players) {
+            first_incorrect = std::cmp::max(first_incorrect, queue.first_incorrect_frame());
         }
 
         // if sparse saving option is turned on, don't set the last confirmed frame after the last saved frame
@@ -333,16 +330,16 @@ impl<T: Config> SyncLayer<T> {
 
         self.last_confirmed_frame = frame;
         if self.last_confirmed_frame > 0 {
-            for i in 0..self.num_players {
-                self.input_queues[i].discard_confirmed_frames(frame - 1);
+            for queue in self.input_queues.iter_mut().take(self.num_players) {
+                queue.discard_confirmed_frames(frame - 1);
             }
         }
     }
 
     /// Finds the earliest incorrect frame detected by the individual input queues
     pub(crate) fn check_simulation_consistency(&self, mut first_incorrect: Frame) -> Frame {
-        for handle in 0..self.num_players {
-            let incorrect = self.input_queues[handle].first_incorrect_frame();
+        for queue in self.input_queues.iter().take(self.num_players) {
+            let incorrect = queue.first_incorrect_frame();
             if incorrect != NULL_FRAME
                 && (first_incorrect == NULL_FRAME || incorrect < first_incorrect)
             {
