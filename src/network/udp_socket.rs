@@ -3,6 +3,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
 };
 
+use bincode::Options as _;
 use tracing::warn;
 
 use crate::{network::messages::Message, NonBlockingSocket};
@@ -59,20 +60,6 @@ impl UdpNonBlockingSocket {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bind_accepts_an_explicit_address_and_reports_it() {
-        let socket =
-            UdpNonBlockingSocket::bind("127.0.0.1:0".parse().expect("address")).expect("bind");
-        let local = socket.local_addr().expect("local address");
-        assert_eq!(local.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
-        assert_ne!(local.port(), 0);
-    }
-}
-
 impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
     fn send_to(&mut self, msg: &Message, addr: &SocketAddr) {
         let buf = bincode::serialize(&msg).unwrap();
@@ -109,7 +96,12 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
             match self.socket.recv_from(&mut self.buffer) {
                 Ok((number_of_bytes, src_addr)) => {
                     assert!(number_of_bytes <= RECV_BUFFER_SIZE);
-                    if let Ok(msg) = bincode::deserialize(&self.buffer[0..number_of_bytes]) {
+                    // Bound allocations: a malicious datagram can declare huge
+                    // string/vector lengths before the payload is read.
+                    let decoder = bincode::DefaultOptions::new()
+                        .with_fixint_encoding()
+                        .with_limit(RECV_BUFFER_SIZE as u64);
+                    if let Ok(msg) = decoder.deserialize(&self.buffer[0..number_of_bytes]) {
                         received_messages.push((src_addr, msg));
                     }
                 }
@@ -124,5 +116,19 @@ impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bind_accepts_an_explicit_address_and_reports_it() {
+        let socket =
+            UdpNonBlockingSocket::bind("127.0.0.1:0".parse().expect("address")).expect("bind");
+        let local = socket.local_addr().expect("local address");
+        assert_eq!(local.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
+        assert_ne!(local.port(), 0);
     }
 }
