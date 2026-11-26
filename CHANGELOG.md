@@ -11,11 +11,22 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - fix: input packets are no longer thrown away when a peer resends from its first input before hearing an ack (with input delay above 0), or when it encodes against an input more than `2 * max_prediction` frames old (on slow connections)
 - fix: rollback on caught-up player disconnect when the spectator has caught up (fixes issue with desync detection)
 - fix: malformed input packets are now discarded with warnings instead of panicking when connection status lengths, start frames, compressed payloads, or decoded player input shapes are invalid
+- fix: input delays larger than the circular input queue are rejected at session start and by `set_input_delay` instead of panicking while filling the queue
+- fix: negative or `NULL_FRAME` time-sync samples are ignored, so a missing frame cannot overwrite an unrelated slot in the rolling window
+- fix: UDP send and RTT timestamping no longer panic on serialization failure or a system clock set before the Unix epoch
+- fix: input packets whose decoded frame numbers would overflow `i32` are discarded instead of panicking the network loop
+- fix: checksum reports received while desync detection is off are ignored instead of tripping a debug assertion, and old-checksum pruning saturates instead of overflowing on peer-controlled frames
+- fix: frame-advantage estimation saturates on absurd peer RTT values or FPS settings instead of overflowing the multiplication
+- fix: network stats tolerate a system clock that moved backwards between samples
+- fix: peer-claimed connection frames no longer overflow input-sequence, disconnect, or outgoing-frame arithmetic; mismatched inputs are ignored with a warning
+- fix: input packets that jump more than the bounded pending-output window ahead of the last received frame are discarded instead of pushing frame counters into the future
+- fix: time-sync averaging uses i64 sums so extreme peer RTT samples cannot overflow the frame-advantage average
 
 ### Improvements
 - feat: late spectators - spectators can now follow the game state even when significantly behind the host, catching up within the buffer limits
 
 ### Documentation
+- docs: the `Config` quick-start example now derives `Clone` for `GameState`, so the crate-level doctest compiles
 
 ### Tests
 

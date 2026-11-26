@@ -1,5 +1,6 @@
 use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
+use crate::input_queue::MAX_INPUT_DELAY;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
 use crate::network::protocol::{InputBytes, UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
@@ -580,9 +581,11 @@ impl<T: Config> P2PSession<T> {
     ///
     /// When decreasing delay, inputs that fall inside the now-removed frames are dropped.
     /// When increasing delay, the last known input is replicated to fill the created gap.
+    /// Delays larger than the internal input queue are rejected.
     ///
     /// # Errors
     /// - Returns [`InvalidRequest`] if the handle does not refer to a local player.
+    /// - Returns [`InvalidRequest`] if the delay exceeds the internal input queue.
     ///
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn set_input_delay(
@@ -592,6 +595,13 @@ impl<T: Config> P2PSession<T> {
     ) -> Result<(), GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             Some(PlayerType::Local) => {
+                if delay > MAX_INPUT_DELAY {
+                    return Err(GgrsError::InvalidRequest {
+                        info: format!(
+                            "Input delay {delay} exceeds the maximum of {MAX_INPUT_DELAY} frames."
+                        ),
+                    });
+                }
                 let fills = self.sync_layer.set_frame_delay(player_handle, delay);
 
                 // When delay increases, the InputQueue silently replicates the last input to fill
@@ -783,7 +793,7 @@ impl<T: Config> P2PSession<T> {
                 .map(|(&frame, _)| frame);
         }
 
-        let next_frame = self.last_sent_outgoing_input_frame + 1;
+        let next_frame = self.last_sent_outgoing_input_frame.checked_add(1)?;
         let inputs = self.outgoing_local_inputs.get(&next_frame)?;
         if local_handles
             .iter()
@@ -846,10 +856,10 @@ impl<T: Config> P2PSession<T> {
                 }
                 endpoint.disconnect();
 
-                if self.sync_layer.current_frame() > last_frame + 1 {
+                if self.sync_layer.current_frame() > last_frame.saturating_add(1) {
                     // remember to adjust simulation to account for the fact that the player disconnected a few frames ago,
                     // resimulating with correct disconnect flags (to account for user having some AI kick in).
-                    self.disconnect_frame = last_frame + 1;
+                    self.disconnect_frame = last_frame.saturating_add(1);
                 }
             }
             PlayerType::Spectator(addr) => {
@@ -1279,10 +1289,18 @@ impl<T: Config> P2PSession<T> {
                 if !self.local_connect_status[player].disconnected {
                     // check if the input comes in the correct sequence
                     let current_remote_frame = self.local_connect_status[player].last_frame;
-                    assert!(
-                        current_remote_frame == NULL_FRAME
-                            || current_remote_frame + 1 == input.frame
-                    );
+                    if current_remote_frame != NULL_FRAME
+                        && current_remote_frame.checked_add(1) != Some(input.frame)
+                    {
+                        // A peer can claim an arbitrary last frame in its
+                        // connection status. Discard a mismatched input rather
+                        // than overflowing or panicking.
+                        warn!(
+                            "Ignoring input for frame {} after peer-claimed frame {current_remote_frame}",
+                            input.frame
+                        );
+                        return;
+                    }
                     // update our info
                     self.local_connect_status[player].last_frame = input.frame;
                     // add the remote input

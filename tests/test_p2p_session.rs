@@ -374,6 +374,34 @@ fn test_desync_detection_with_sparse_saving_no_panic() -> Result<(), GgrsError> 
 
 #[test]
 #[serial]
+fn test_input_delay_beyond_queue_is_rejected() {
+    let socket = UdpNonBlockingSocket::bind_to_port(7780).unwrap();
+    let error = match SessionBuilder::<StubConfig>::new()
+        .with_input_delay(usize::MAX)
+        .add_player(PlayerType::Local, 0)
+        .unwrap()
+        .add_player(PlayerType::Remote(stubs::localhost(8880)), 1)
+        .unwrap()
+        .start_p2p_session(socket)
+    {
+        Ok(_) => panic!("oversized input delay must be rejected"),
+        Err(error) => error,
+    };
+    assert!(matches!(error, GgrsError::InvalidRequest { .. }));
+}
+
+#[test]
+#[serial]
+fn test_set_input_delay_beyond_queue_is_rejected() {
+    let (mut sess1, _sess2) = stubs::make_p2p_sessions(7781, 8881);
+    let error = sess1
+        .set_input_delay(0, usize::MAX)
+        .expect_err("oversized input delay must be rejected");
+    assert!(matches!(error, GgrsError::InvalidRequest { .. }));
+}
+
+#[test]
+#[serial]
 fn test_set_input_delay_mid_session() -> Result<(), GgrsError> {
     let (mut sess1, mut sess2) = stubs::make_p2p_sessions(7779, 8889);
     stubs::sync_p2p_sessions(&mut sess1, &mut sess2);

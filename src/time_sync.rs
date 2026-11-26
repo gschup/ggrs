@@ -23,16 +23,23 @@ impl TimeSync {
     }
 
     pub(crate) fn advance_frame(&mut self, frame: Frame, local_adv: i32, remote_adv: i32) {
+        // NULL_FRAME and other negative frames are not valid time-sync samples;
+        // casting them to usize would land on an unrelated window slot.
+        if frame < 0 {
+            return;
+        }
         self.local[frame as usize % self.local.len()] = local_adv;
         self.remote[frame as usize % self.remote.len()] = remote_adv;
     }
 
     pub(crate) fn average_frame_advantage(&self) -> i32 {
-        // average local and remote frame advantages
-        let local_sum: i32 = self.local.iter().sum();
-        let local_avg = local_sum as f32 / self.local.len() as f32;
-        let remote_sum: i32 = self.remote.iter().sum();
-        let remote_avg = remote_sum as f32 / self.remote.len() as f32;
+        // Average local and remote frame advantages. Sum in i64: each sample
+        // can be near i32::MAX after RTT saturation, and 30 of them overflow
+        // i32 in debug builds.
+        let local_sum: i64 = self.local.iter().map(|&value| value as i64).sum();
+        let local_avg = local_sum as f64 / self.local.len() as f64;
+        let remote_sum: i64 = self.remote.iter().map(|&value| value as i64).sum();
+        let remote_avg = remote_sum as f64 / self.remote.len() as f64;
 
         // meet in the middle
         ((remote_avg - local_avg) / 2.0) as i32
@@ -111,6 +118,24 @@ mod sync_layer_tests {
         }
 
         assert_eq!(time_sync.average_frame_advantage(), 40);
+    }
+
+    #[test]
+    fn test_extreme_advantages_do_not_overflow_average() {
+        let mut time_sync = TimeSync::default();
+        for frame in 0..FRAME_WINDOW_SIZE {
+            time_sync.advance_frame(frame as Frame, i32::MAX, i32::MIN);
+        }
+        // The exact value is not important; it must not panic or saturate
+        // unpredictably.
+        let _ = time_sync.average_frame_advantage();
+    }
+
+    #[test]
+    fn test_negative_frame_is_ignored() {
+        let mut time_sync = TimeSync::default();
+        time_sync.advance_frame(crate::NULL_FRAME, 100, 100);
+        assert_eq!(time_sync.average_frame_advantage(), 0);
     }
 
     #[test]

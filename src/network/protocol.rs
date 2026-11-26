@@ -44,7 +44,9 @@ fn millis_since_epoch() -> u128 {
     {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("Time went backwards")
+            // A clock set before the Unix epoch must not crash the network loop;
+            // a zero timestamp simply makes the peer's RTT sample stale.
+            .unwrap_or_default()
             .as_millis()
     }
     #[cfg(target_arch = "wasm32")]
@@ -299,10 +301,15 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
+        // RTT and FPS are both peer/config controlled. Use saturating
+        // arithmetic so an absurd pong value or FPS cannot overflow the
+        // frame-advantage estimate.
         let ping = i32::try_from(self.round_trip_time / 2).unwrap_or(i32::MAX);
-        let remote_frame = self.last_recv_frame + ((ping * self.fps as i32) / 1000);
+        let fps = i32::try_from(self.fps).unwrap_or(i32::MAX);
+        let ping_frames = ping.saturating_mul(fps) / 1000;
+        let remote_frame = self.last_recv_frame.saturating_add(ping_frames);
         // Our frame "advantage" is how many frames behind the remote client we are. (It's an advantage because they will have to predict more often)
-        self.local_frame_advantage = remote_frame - local_frame;
+        self.local_frame_advantage = remote_frame.saturating_sub(local_frame);
     }
 
     pub(crate) fn network_stats(&self) -> Result<NetworkStats, GgrsError> {
@@ -311,7 +318,7 @@ impl<T: Config> UdpProtocol<T> {
         }
 
         let now = millis_since_epoch();
-        let seconds = (now - self.stats_start_time) / 1000;
+        let seconds = now.saturating_sub(self.stats_start_time) / 1000;
         if seconds == 0 {
             return Err(GgrsError::NotEnoughData);
         }
@@ -523,7 +530,7 @@ impl<T: Config> UdpProtocol<T> {
         if let Some(input) = self.pending_output.front() {
             assert!(
                 self.last_acked_input.frame == NULL_FRAME
-                    || self.last_acked_input.frame + 1 == input.frame
+                    || self.last_acked_input.frame.saturating_add(1) == input.frame
             );
             body.start_frame = input.frame;
             body.base_frame = self.last_acked_input.frame;
@@ -702,6 +709,23 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
 
+        // A legitimate peer only has PENDING_OUTPUT_SIZE unacknowledged frames
+        // in flight. Reject absurd jumps so a hostile peer cannot push the
+        // session's frame counters far into the future.
+        let max_start_frame = if self.last_recv_frame == NULL_FRAME {
+            PENDING_OUTPUT_SIZE as Frame
+        } else {
+            self.last_recv_frame
+                .saturating_add(PENDING_OUTPUT_SIZE as Frame)
+        };
+        if body.start_frame > max_start_frame {
+            warn!(
+                "Discarding input packet starting at frame {} (last received {}, limit {})",
+                body.start_frame, self.last_recv_frame, max_start_frame
+            );
+            return;
+        }
+
         // drop pending outputs until the ack frame
         self.pop_pending_output(body.ack_frame);
 
@@ -746,6 +770,20 @@ impl<T: Config> UdpProtocol<T> {
                     return;
                 }
             };
+
+            // Frame numbers are i32. Reject a packet whose decoded input count
+            // would overflow past i32::MAX instead of panicking in the loop.
+            let last_offset = i32::try_from(recv_inputs.len())
+                .unwrap_or(i32::MAX)
+                .saturating_sub(1);
+            if body.start_frame.checked_add(last_offset).is_none() {
+                warn!(
+                    "Discarding input packet starting at frame {} with {} decoded inputs: frame overflow",
+                    body.start_frame,
+                    recv_inputs.len()
+                );
+                return;
+            }
 
             for (i, inp) in recv_inputs.into_iter().enumerate() {
                 let inp_frame = body.start_frame + i as i32;
@@ -820,20 +858,22 @@ impl<T: Config> UdpProtocol<T> {
 
     /// Upon receiving a `ChecksumReport`, add it to the checksum history
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
-        let interval = if let DesyncDetection::On { interval } = self.desync_detection {
-            interval
-        } else {
-            debug_assert!(
-                false,
-                "Received checksum report, but desync detection is off. Check
-                that configuration is consistent between peers."
-            );
-            1
+        let DesyncDetection::On { interval } = self.desync_detection else {
+            // Mismatched configuration or a stray/hostile packet. Ignoring is
+            // safer than a debug-build assertion panic in the network loop.
+            warn!("Received checksum report while desync detection is off; ignoring");
+            return;
         };
 
         if self.pending_checksums.len() >= MAX_CHECKSUM_HISTORY_SIZE {
-            let oldest_frame_to_keep =
-                body.frame - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
+            // Use i64 and saturating arithmetic: `body.frame` is peer-controlled
+            // and may be near i32::MIN, and `interval` may be large.
+            let window = (MAX_CHECKSUM_HISTORY_SIZE as i64 - 1)
+                .saturating_mul(i32::try_from(interval).unwrap_or(i32::MAX) as i64);
+            let oldest_frame_to_keep = (body.frame as i64)
+                .saturating_sub(window)
+                .clamp(i32::MIN as i64, i32::MAX as i64)
+                as i32;
             self.pending_checksums
                 .retain(|&frame, _| frame >= oldest_frame_to_keep);
         }
@@ -895,6 +935,51 @@ mod protocol_tests {
             header: MessageHeader { magic: 0 },
             body: MessageBody::Input(body),
         }
+    }
+
+    fn checksum_message(frame: Frame, checksum: u128) -> Message {
+        Message {
+            header: MessageHeader { magic: 0 },
+            body: MessageBody::ChecksumReport(ChecksumReport { frame, checksum }),
+        }
+    }
+
+    #[test]
+    fn checksum_report_while_detection_is_off_is_ignored() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.handle_message(&checksum_message(1, 0));
+        assert!(protocol.pending_checksums.is_empty());
+    }
+
+    #[test]
+    fn checksum_report_with_extreme_frame_does_not_overflow() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.desync_detection = DesyncDetection::On { interval: 1 };
+        for frame in 0..MAX_CHECKSUM_HISTORY_SIZE as Frame {
+            protocol.pending_checksums.insert(frame, 0);
+        }
+        protocol.handle_message(&checksum_message(i32::MIN, 0));
+        assert!(protocol.pending_checksums.contains_key(&i32::MIN));
+    }
+
+    #[test]
+    fn extreme_round_trip_time_does_not_overflow_frame_advantage() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.last_recv_frame = 1;
+        protocol.round_trip_time = u128::MAX;
+        protocol.update_local_frame_advantage(0);
+        assert!(protocol.local_frame_advantage > 0);
+        assert!(protocol.local_frame_advantage < i32::MAX);
+    }
+
+    #[test]
+    fn network_stats_survive_a_backward_clock() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.stats_start_time = u128::MAX;
+        assert!(matches!(
+            protocol.network_stats(),
+            Err(GgrsError::NotEnoughData)
+        ));
     }
 
     #[test]
@@ -1027,6 +1112,64 @@ mod protocol_tests {
         protocol.handle_message(&msg);
 
         assert_eq!(protocol.last_recv_frame, NULL_FRAME);
+        assert!(protocol.event_queue.is_empty());
+    }
+
+    #[test]
+    fn input_packet_jumping_far_ahead_is_dropped() {
+        let mut protocol = running_protocol(vec![0], 1);
+        let blank = blank_input(&protocol);
+        protocol.recv_inputs.insert(
+            0,
+            InputBytes {
+                frame: 0,
+                bytes: blank.clone(),
+            },
+        );
+        protocol.last_recv_frame = 0;
+
+        let msg = input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 1],
+            disconnect_requested: false,
+            start_frame: 100_000,
+            ack_frame: NULL_FRAME,
+            base_frame: 0,
+            bytes: encode(&blank, [test_input(1)].iter()),
+        });
+
+        protocol.handle_message(&msg);
+
+        assert_eq!(protocol.last_recv_frame, 0);
+        assert!(protocol.event_queue.is_empty());
+    }
+
+    #[test]
+    fn input_packet_that_overflows_frame_number_is_dropped() {
+        let mut protocol = running_protocol(vec![0], 1);
+        let blank = blank_input(&protocol);
+        let base_frame = i32::MAX - 1;
+        protocol.recv_inputs.insert(
+            base_frame,
+            InputBytes {
+                frame: base_frame,
+                bytes: blank.clone(),
+            },
+        );
+        protocol.last_recv_frame = base_frame;
+
+        let inputs: Vec<Vec<u8>> = (0..2).map(test_input).collect();
+        let msg = input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 1],
+            disconnect_requested: false,
+            start_frame: i32::MAX,
+            ack_frame: NULL_FRAME,
+            base_frame,
+            bytes: encode(&blank, inputs.iter()),
+        });
+
+        protocol.handle_message(&msg);
+
+        assert_eq!(protocol.last_recv_frame, base_frame);
         assert!(protocol.event_queue.is_empty());
     }
 

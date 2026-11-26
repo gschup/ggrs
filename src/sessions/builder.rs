@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use instant::Duration;
 
 use crate::{
-    network::protocol::UdpProtocol, sessions::p2p_session::PlayerRegistry, Config, DesyncDetection,
-    GgrsError, NonBlockingSocket, P2PSession, PlayerHandle, PlayerType, SpectatorSession,
-    SyncTestSession,
+    input_queue::MAX_INPUT_DELAY, network::protocol::UdpProtocol,
+    sessions::p2p_session::PlayerRegistry, Config, DesyncDetection, GgrsError, NonBlockingSocket,
+    P2PSession, PlayerHandle, PlayerType, SpectatorSession, SyncTestSession,
 };
 
 const DEFAULT_PLAYERS: usize = 2;
@@ -172,6 +172,7 @@ impl<T: Config> SessionBuilder<T> {
     /// There is no enforced upper bound, but values above ~8 frames will produce noticeable
     /// input lag. In rollback mode, setting this higher than `max_prediction_window` is not
     /// recommended because inputs delayed beyond the prediction window will stall the session.
+    /// Values larger than the internal input queue are rejected when the session starts.
     pub fn with_input_delay(mut self, delay: usize) -> Self {
         self.input_delay = delay;
         self
@@ -321,6 +322,14 @@ impl<T: Config> SessionBuilder<T> {
         mut self,
         socket: impl NonBlockingSocket<T::Address> + 'static,
     ) -> Result<P2PSession<T>, GgrsError> {
+        if self.input_delay > MAX_INPUT_DELAY {
+            return Err(GgrsError::InvalidRequest {
+                info: format!(
+                    "Input delay {} exceeds the maximum of {MAX_INPUT_DELAY} frames.",
+                    self.input_delay
+                ),
+            });
+        }
         if let DesyncDetection::On { interval: 0 } = self.desync_detection {
             return Err(GgrsError::InvalidRequest {
                 info: "Desync detection interval must be higher than 0.".to_owned(),
@@ -427,6 +436,14 @@ impl<T: Config> SessionBuilder<T> {
     ///
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn start_synctest_session(self) -> Result<SyncTestSession<T>, GgrsError> {
+        if self.input_delay > MAX_INPUT_DELAY {
+            return Err(GgrsError::InvalidRequest {
+                info: format!(
+                    "Input delay {} exceeds the maximum of {MAX_INPUT_DELAY} frames.",
+                    self.input_delay
+                ),
+            });
+        }
         if self.check_dist >= self.max_prediction {
             return Err(GgrsError::InvalidRequest {
                 info: "Check distance too big.".to_owned(),
