@@ -44,7 +44,9 @@ fn millis_since_epoch() -> u128 {
     {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("Time went backwards")
+            // A clock set before the Unix epoch must not crash the network loop;
+            // a zero timestamp simply makes the peer's RTT sample stale.
+            .unwrap_or_default()
             .as_millis()
     }
     #[cfg(target_arch = "wasm32")]

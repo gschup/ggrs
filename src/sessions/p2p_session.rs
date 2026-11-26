@@ -1,5 +1,6 @@
 use crate::error::GgrsError;
 use crate::frame_info::PlayerInput;
+use crate::input_queue::MAX_INPUT_DELAY;
 use crate::network::messages::ConnectionStatus;
 use crate::network::network_stats::NetworkStats;
 use crate::network::protocol::{InputBytes, UdpProtocol, MAX_CHECKSUM_HISTORY_SIZE};
@@ -580,9 +581,11 @@ impl<T: Config> P2PSession<T> {
     ///
     /// When decreasing delay, inputs that fall inside the now-removed frames are dropped.
     /// When increasing delay, the last known input is replicated to fill the created gap.
+    /// Delays larger than the internal input queue are rejected.
     ///
     /// # Errors
     /// - Returns [`InvalidRequest`] if the handle does not refer to a local player.
+    /// - Returns [`InvalidRequest`] if the delay exceeds the internal input queue.
     ///
     /// [`InvalidRequest`]: GgrsError::InvalidRequest
     pub fn set_input_delay(
@@ -592,6 +595,13 @@ impl<T: Config> P2PSession<T> {
     ) -> Result<(), GgrsError> {
         match self.player_reg.handles.get(&player_handle) {
             Some(PlayerType::Local) => {
+                if delay > MAX_INPUT_DELAY {
+                    return Err(GgrsError::InvalidRequest {
+                        info: format!(
+                            "Input delay {delay} exceeds the maximum of {MAX_INPUT_DELAY} frames."
+                        ),
+                    });
+                }
                 let fills = self.sync_layer.set_frame_delay(player_handle, delay);
 
                 // When delay increases, the InputQueue silently replicates the last input to fill

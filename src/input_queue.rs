@@ -5,6 +5,10 @@ use std::cmp;
 /// The length of the input queue. This describes the number of inputs GGRS can hold at the same time per player.
 const INPUT_QUEUE_LENGTH: usize = 128;
 
+/// Maximum supported input delay. Delays must fit in the circular input queue;
+/// larger values would otherwise panic while filling the queue.
+pub(crate) const MAX_INPUT_DELAY: usize = INPUT_QUEUE_LENGTH - 1;
+
 /// `InputQueue` handles inputs for a single player and saves them in a circular array. Valid Inputs are between `head` and `tail`.
 #[derive(Debug, Clone)]
 pub(crate) struct InputQueue<T>
@@ -261,6 +265,11 @@ impl<T: Config> InputQueue<T> {
 
         // This can occur when the frame delay has been increased since the last time we shoved a frame into the system.
         // We need to replicate the last frame in the queue several times in order to fill the space left.
+        // Refuse the input rather than overrunning the circular queue if the configured delay is
+        // larger than the queue itself.
+        if input_frame - expected_frame >= INPUT_QUEUE_LENGTH as i32 {
+            return NULL_FRAME;
+        }
         while expected_frame < input_frame {
             let input_to_replicate = self.inputs[previous_position];
             self.add_input_by_frame(input_to_replicate, expected_frame);
@@ -302,6 +311,16 @@ mod input_queue_tests {
         type InputPredictor = PredictRepeatLast;
         type State = Vec<u8>;
         type Address = SocketAddr;
+    }
+
+    #[test]
+    fn test_oversized_frame_delay_drops_input_instead_of_panicking() {
+        let mut queue = InputQueue::<TestConfig>::new();
+        queue.set_frame_delay(usize::MAX);
+        assert_eq!(
+            queue.add_input(PlayerInput::new(0, TestInput { inp: 1 })),
+            NULL_FRAME
+        );
     }
 
     #[test]

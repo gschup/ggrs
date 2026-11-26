@@ -23,6 +23,11 @@ impl TimeSync {
     }
 
     pub(crate) fn advance_frame(&mut self, frame: Frame, local_adv: i32, remote_adv: i32) {
+        // NULL_FRAME and other negative frames are not valid time-sync samples;
+        // casting them to usize would land on an unrelated window slot.
+        if frame < 0 {
+            return;
+        }
         self.local[frame as usize % self.local.len()] = local_adv;
         self.remote[frame as usize % self.remote.len()] = remote_adv;
     }
@@ -111,6 +116,13 @@ mod sync_layer_tests {
         }
 
         assert_eq!(time_sync.average_frame_advantage(), 40);
+    }
+
+    #[test]
+    fn test_negative_frame_is_ignored() {
+        let mut time_sync = TimeSync::default();
+        time_sync.advance_frame(crate::NULL_FRAME, 100, 100);
+        assert_eq!(time_sync.average_frame_advantage(), 0);
     }
 
     #[test]

@@ -38,7 +38,13 @@ impl UdpNonBlockingSocket {
 
 impl NonBlockingSocket<SocketAddr> for UdpNonBlockingSocket {
     fn send_to(&mut self, msg: &Message, addr: &SocketAddr) {
-        let buf = bincode::serialize(&msg).unwrap();
+        let buf = match bincode::serialize(msg) {
+            Ok(buf) => buf,
+            Err(err) => {
+                warn!("Failed to serialize UDP packet to {addr}: {err}");
+                return;
+            }
+        };
 
         // Overly large packets risk being fragmented, which can increase packet loss (any fragment
         // of a packet getting lost will cause the whole fragment to be lost), or increase latency
