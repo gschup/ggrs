@@ -709,6 +709,23 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
 
+        // A legitimate peer only has PENDING_OUTPUT_SIZE unacknowledged frames
+        // in flight. Reject absurd jumps so a hostile peer cannot push the
+        // session's frame counters far into the future.
+        let max_start_frame = if self.last_recv_frame == NULL_FRAME {
+            PENDING_OUTPUT_SIZE as Frame
+        } else {
+            self.last_recv_frame
+                .saturating_add(PENDING_OUTPUT_SIZE as Frame)
+        };
+        if body.start_frame > max_start_frame {
+            warn!(
+                "Discarding input packet starting at frame {} (last received {}, limit {})",
+                body.start_frame, self.last_recv_frame, max_start_frame
+            );
+            return;
+        }
+
         // drop pending outputs until the ack frame
         self.pop_pending_output(body.ack_frame);
 
@@ -1095,6 +1112,34 @@ mod protocol_tests {
         protocol.handle_message(&msg);
 
         assert_eq!(protocol.last_recv_frame, NULL_FRAME);
+        assert!(protocol.event_queue.is_empty());
+    }
+
+    #[test]
+    fn input_packet_jumping_far_ahead_is_dropped() {
+        let mut protocol = running_protocol(vec![0], 1);
+        let blank = blank_input(&protocol);
+        protocol.recv_inputs.insert(
+            0,
+            InputBytes {
+                frame: 0,
+                bytes: blank.clone(),
+            },
+        );
+        protocol.last_recv_frame = 0;
+
+        let msg = input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 1],
+            disconnect_requested: false,
+            start_frame: 100_000,
+            ack_frame: NULL_FRAME,
+            base_frame: 0,
+            bytes: encode(&blank, [test_input(1)].iter()),
+        });
+
+        protocol.handle_message(&msg);
+
+        assert_eq!(protocol.last_recv_frame, 0);
         assert!(protocol.event_queue.is_empty());
     }
 
