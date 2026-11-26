@@ -318,7 +318,7 @@ impl<T: Config> UdpProtocol<T> {
         }
 
         let now = millis_since_epoch();
-        let seconds = (now - self.stats_start_time) / 1000;
+        let seconds = now.saturating_sub(self.stats_start_time) / 1000;
         if seconds == 0 {
             return Err(GgrsError::NotEnoughData);
         }
@@ -530,7 +530,7 @@ impl<T: Config> UdpProtocol<T> {
         if let Some(input) = self.pending_output.front() {
             assert!(
                 self.last_acked_input.frame == NULL_FRAME
-                    || self.last_acked_input.frame + 1 == input.frame
+                    || self.last_acked_input.frame.saturating_add(1) == input.frame
             );
             body.start_frame = input.frame;
             body.base_frame = self.last_acked_input.frame;
@@ -953,6 +953,16 @@ mod protocol_tests {
         protocol.update_local_frame_advantage(0);
         assert!(protocol.local_frame_advantage > 0);
         assert!(protocol.local_frame_advantage < i32::MAX);
+    }
+
+    #[test]
+    fn network_stats_survive_a_backward_clock() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.stats_start_time = u128::MAX;
+        assert!(matches!(
+            protocol.network_stats(),
+            Err(GgrsError::NotEnoughData)
+        ));
     }
 
     #[test]

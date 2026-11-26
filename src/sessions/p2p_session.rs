@@ -793,7 +793,7 @@ impl<T: Config> P2PSession<T> {
                 .map(|(&frame, _)| frame);
         }
 
-        let next_frame = self.last_sent_outgoing_input_frame + 1;
+        let next_frame = self.last_sent_outgoing_input_frame.checked_add(1)?;
         let inputs = self.outgoing_local_inputs.get(&next_frame)?;
         if local_handles
             .iter()
@@ -856,10 +856,10 @@ impl<T: Config> P2PSession<T> {
                 }
                 endpoint.disconnect();
 
-                if self.sync_layer.current_frame() > last_frame + 1 {
+                if self.sync_layer.current_frame() > last_frame.saturating_add(1) {
                     // remember to adjust simulation to account for the fact that the player disconnected a few frames ago,
                     // resimulating with correct disconnect flags (to account for user having some AI kick in).
-                    self.disconnect_frame = last_frame + 1;
+                    self.disconnect_frame = last_frame.saturating_add(1);
                 }
             }
             PlayerType::Spectator(addr) => {
@@ -1289,10 +1289,18 @@ impl<T: Config> P2PSession<T> {
                 if !self.local_connect_status[player].disconnected {
                     // check if the input comes in the correct sequence
                     let current_remote_frame = self.local_connect_status[player].last_frame;
-                    assert!(
-                        current_remote_frame == NULL_FRAME
-                            || current_remote_frame + 1 == input.frame
-                    );
+                    if current_remote_frame != NULL_FRAME
+                        && current_remote_frame.checked_add(1) != Some(input.frame)
+                    {
+                        // A peer can claim an arbitrary last frame in its
+                        // connection status. Discard a mismatched input rather
+                        // than overflowing or panicking.
+                        warn!(
+                            "Ignoring input for frame {} after peer-claimed frame {current_remote_frame}",
+                            input.frame
+                        );
+                        return;
+                    }
                     // update our info
                     self.local_connect_status[player].last_frame = input.frame;
                     // add the remote input
