@@ -301,10 +301,15 @@ impl<T: Config> UdpProtocol<T> {
             return;
         }
         // Estimate which frame the other client is on by looking at the last frame they gave us plus some delta for the packet roundtrip time.
+        // RTT and FPS are both peer/config controlled. Use saturating
+        // arithmetic so an absurd pong value or FPS cannot overflow the
+        // frame-advantage estimate.
         let ping = i32::try_from(self.round_trip_time / 2).unwrap_or(i32::MAX);
-        let remote_frame = self.last_recv_frame + ((ping * self.fps as i32) / 1000);
+        let fps = i32::try_from(self.fps).unwrap_or(i32::MAX);
+        let ping_frames = ping.saturating_mul(fps) / 1000;
+        let remote_frame = self.last_recv_frame.saturating_add(ping_frames);
         // Our frame "advantage" is how many frames behind the remote client we are. (It's an advantage because they will have to predict more often)
-        self.local_frame_advantage = remote_frame - local_frame;
+        self.local_frame_advantage = remote_frame.saturating_sub(local_frame);
     }
 
     pub(crate) fn network_stats(&self) -> Result<NetworkStats, GgrsError> {
@@ -938,6 +943,16 @@ mod protocol_tests {
         }
         protocol.handle_message(&checksum_message(i32::MIN, 0));
         assert!(protocol.pending_checksums.contains_key(&i32::MIN));
+    }
+
+    #[test]
+    fn extreme_round_trip_time_does_not_overflow_frame_advantage() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.last_recv_frame = 1;
+        protocol.round_trip_time = u128::MAX;
+        protocol.update_local_frame_advantage(0);
+        assert!(protocol.local_frame_advantage > 0);
+        assert!(protocol.local_frame_advantage < i32::MAX);
     }
 
     #[test]

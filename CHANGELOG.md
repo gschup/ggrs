@@ -16,6 +16,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - fix: UDP send and RTT timestamping no longer panic on serialization failure or a system clock set before the Unix epoch
 - fix: input packets whose decoded frame numbers would overflow `i32` are discarded instead of panicking the network loop
 - fix: checksum reports received while desync detection is off are ignored instead of tripping a debug assertion, and old-checksum pruning saturates instead of overflowing on peer-controlled frames
+- fix: frame-advantage estimation saturates on absurd peer RTT values or FPS settings instead of overflowing the multiplication
 
 ### Improvements
 - feat: late spectators - spectators can now follow the game state even when significantly behind the host, catching up within the buffer limits
