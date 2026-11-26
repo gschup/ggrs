@@ -14,6 +14,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - fix: input delays larger than the circular input queue are rejected at session start and by `set_input_delay` instead of panicking while filling the queue
 - fix: negative or `NULL_FRAME` time-sync samples are ignored, so a missing frame cannot overwrite an unrelated slot in the rolling window
 - fix: UDP send and RTT timestamping no longer panic on serialization failure or a system clock set before the Unix epoch
+- fix: input packets whose decoded frame numbers would overflow `i32` are discarded instead of panicking the network loop
 
 ### Improvements
 - feat: late spectators - spectators can now follow the game state even when significantly behind the host, catching up within the buffer limits

@@ -749,6 +749,20 @@ impl<T: Config> UdpProtocol<T> {
                 }
             };
 
+            // Frame numbers are i32. Reject a packet whose decoded input count
+            // would overflow past i32::MAX instead of panicking in the loop.
+            let last_offset = i32::try_from(recv_inputs.len())
+                .unwrap_or(i32::MAX)
+                .saturating_sub(1);
+            if body.start_frame.checked_add(last_offset).is_none() {
+                warn!(
+                    "Discarding input packet starting at frame {} with {} decoded inputs: frame overflow",
+                    body.start_frame,
+                    recv_inputs.len()
+                );
+                return;
+            }
+
             for (i, inp) in recv_inputs.into_iter().enumerate() {
                 let inp_frame = body.start_frame + i as i32;
                 // skip inputs that we don't need
@@ -1029,6 +1043,36 @@ mod protocol_tests {
         protocol.handle_message(&msg);
 
         assert_eq!(protocol.last_recv_frame, NULL_FRAME);
+        assert!(protocol.event_queue.is_empty());
+    }
+
+    #[test]
+    fn input_packet_that_overflows_frame_number_is_dropped() {
+        let mut protocol = running_protocol(vec![0], 1);
+        let blank = blank_input(&protocol);
+        let base_frame = i32::MAX - 1;
+        protocol.recv_inputs.insert(
+            base_frame,
+            InputBytes {
+                frame: base_frame,
+                bytes: blank.clone(),
+            },
+        );
+        protocol.last_recv_frame = base_frame;
+
+        let inputs: Vec<Vec<u8>> = (0..2).map(test_input).collect();
+        let msg = input_message(Input {
+            peer_connect_status: vec![ConnectionStatus::default(); 1],
+            disconnect_requested: false,
+            start_frame: i32::MAX,
+            ack_frame: NULL_FRAME,
+            base_frame,
+            bytes: encode(&blank, inputs.iter()),
+        });
+
+        protocol.handle_message(&msg);
+
+        assert_eq!(protocol.last_recv_frame, base_frame);
         assert!(protocol.event_queue.is_empty());
     }
 
