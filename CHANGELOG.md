@@ -15,6 +15,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - fix: negative or `NULL_FRAME` time-sync samples are ignored, so a missing frame cannot overwrite an unrelated slot in the rolling window
 - fix: UDP send and RTT timestamping no longer panic on serialization failure or a system clock set before the Unix epoch
 - fix: input packets whose decoded frame numbers would overflow `i32` are discarded instead of panicking the network loop
+- fix: checksum reports received while desync detection is off are ignored instead of tripping a debug assertion, and old-checksum pruning saturates instead of overflowing on peer-controlled frames
 
 ### Improvements
 - feat: late spectators - spectators can now follow the game state even when significantly behind the host, catching up within the buffer limits

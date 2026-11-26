@@ -836,20 +836,22 @@ impl<T: Config> UdpProtocol<T> {
 
     /// Upon receiving a `ChecksumReport`, add it to the checksum history
     fn on_checksum_report(&mut self, body: &ChecksumReport) {
-        let interval = if let DesyncDetection::On { interval } = self.desync_detection {
-            interval
-        } else {
-            debug_assert!(
-                false,
-                "Received checksum report, but desync detection is off. Check
-                that configuration is consistent between peers."
-            );
-            1
+        let DesyncDetection::On { interval } = self.desync_detection else {
+            // Mismatched configuration or a stray/hostile packet. Ignoring is
+            // safer than a debug-build assertion panic in the network loop.
+            warn!("Received checksum report while desync detection is off; ignoring");
+            return;
         };
 
         if self.pending_checksums.len() >= MAX_CHECKSUM_HISTORY_SIZE {
-            let oldest_frame_to_keep =
-                body.frame - (MAX_CHECKSUM_HISTORY_SIZE as i32 - 1) * interval as i32;
+            // Use i64 and saturating arithmetic: `body.frame` is peer-controlled
+            // and may be near i32::MIN, and `interval` may be large.
+            let window = (MAX_CHECKSUM_HISTORY_SIZE as i64 - 1)
+                .saturating_mul(i32::try_from(interval).unwrap_or(i32::MAX) as i64);
+            let oldest_frame_to_keep = (body.frame as i64)
+                .saturating_sub(window)
+                .clamp(i32::MIN as i64, i32::MAX as i64)
+                as i32;
             self.pending_checksums
                 .retain(|&frame, _| frame >= oldest_frame_to_keep);
         }
@@ -911,6 +913,31 @@ mod protocol_tests {
             header: MessageHeader { magic: 0 },
             body: MessageBody::Input(body),
         }
+    }
+
+    fn checksum_message(frame: Frame, checksum: u128) -> Message {
+        Message {
+            header: MessageHeader { magic: 0 },
+            body: MessageBody::ChecksumReport(ChecksumReport { frame, checksum }),
+        }
+    }
+
+    #[test]
+    fn checksum_report_while_detection_is_off_is_ignored() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.handle_message(&checksum_message(1, 0));
+        assert!(protocol.pending_checksums.is_empty());
+    }
+
+    #[test]
+    fn checksum_report_with_extreme_frame_does_not_overflow() {
+        let mut protocol = running_protocol(vec![0], 1);
+        protocol.desync_detection = DesyncDetection::On { interval: 1 };
+        for frame in 0..MAX_CHECKSUM_HISTORY_SIZE as Frame {
+            protocol.pending_checksums.insert(frame, 0);
+        }
+        protocol.handle_message(&checksum_message(i32::MIN, 0));
+        assert!(protocol.pending_checksums.contains_key(&i32::MIN));
     }
 
     #[test]
