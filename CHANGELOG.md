@@ -20,6 +20,7 @@ In this document, all notable changes are listed, including bug fixes, breaking 
 - fix: network stats tolerate a system clock that moved backwards between samples
 - fix: peer-claimed connection frames no longer overflow input-sequence, disconnect, or outgoing-frame arithmetic; mismatched inputs are ignored with a warning
 - fix: input packets that jump more than the bounded pending-output window ahead of the last received frame are discarded instead of pushing frame counters into the future
+- fix: time-sync averaging uses i64 sums so extreme peer RTT samples cannot overflow the frame-advantage average
 
 ### Improvements
 - feat: late spectators - spectators can now follow the game state even when significantly behind the host, catching up within the buffer limits
